@@ -29,8 +29,13 @@ const getGeminiClient = () => {
 // 1. AI Smart Librarian Chat Assistant
 app.post('/api/ai/ask-librarian', async (req, res) => {
   try {
-    const { message, catalogContext, userGrade } = req.body;
+    const { message, catalogContext, userGrade, language } = req.body;
     const ai = getGeminiClient();
+
+    const isDhivehi = language === 'dv';
+    const langInstruction = isDhivehi
+      ? 'CRITICAL: Respond entirely in fluent, natural Dhivehi language (ދިވެހި ބަހުން) using Thaana script.'
+      : 'Respond in clear, encouraging English.';
 
     const prompt = `You are "Libby", the friendly AI Smart Librarian for Magoodhoo School Library.
 You are assisting a student/teacher in Grade/Role: ${userGrade || 'General Reader'}.
@@ -40,6 +45,7 @@ Available Catalog Books (Sample Context):
 ${JSON.stringify((catalogContext || []).map((b: any) => ({ title: b.title, author: b.author, category: b.category, location: b.shelfLocation, available: b.availableCopies > 0 })))}
 
 Guidelines:
+- ${langInstruction}
 - Provide helpful, enthusiastic, age-appropriate guidance.
 - Suggest specific books from the catalog when relevant, mentioning author and shelf location.
 - Keep output nicely formatted using markdown bold text and bullet points.`;

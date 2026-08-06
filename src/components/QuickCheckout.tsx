@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { QrCode, BookOpen, User, Calendar, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, ShieldAlert, Sparkles, DollarSign, Search, Check, Layers } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface QuickCheckoutProps {
   books: Book[];
@@ -21,6 +22,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
   onProcessReturn,
   onOpenScanner
 }) => {
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'checkout' | 'return'>('checkout');
 
   // Checkout Form State
@@ -120,17 +122,19 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
         <div className="space-y-2 max-w-2xl relative z-10">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white font-extrabold px-3 py-1 rounded-full text-[11px] uppercase tracking-wider border border-white/20">
-              <QrCode className="w-3.5 h-3.5 text-amber-300" /> Circulation Counter & Desk
+              <QrCode className="w-3.5 h-3.5 text-amber-300" /> {t.scanCheckout}
             </span>
             <span className="inline-flex items-center gap-1.5 bg-emerald-500/30 text-emerald-100 font-bold px-3 py-1 rounded-full text-[11px] border border-emerald-400/30">
               ⚡ USB & Bluetooth Scanner Ready
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-sm">
-            Borrow & Circulation Desk
+            {t.scanCheckout}
           </h2>
           <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed">
-            Scan physical book barcodes and student ID cards for instant library checkout, automated renewals, and hassle-free returns.
+            {language === 'dv'
+              ? 'ފޮތްތަކާއި ދަރިވަރުންގެ ކާޑުގައިވާ ބާކޯޑް ސްކޭންކޮށްގެން އަވަހަށް ފޮތް ދޫކުރުމާއި އަނބުރާ ޙަވާލުކުރުން ކުރިއަށް ގެންދަވާ.'
+              : 'Scan physical book barcodes and student ID cards for instant library checkout, automated renewals, and hassle-free returns.'}
           </p>
         </div>
 
@@ -139,7 +143,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
           className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-5 py-3.5 rounded-2xl shadow-xl hover:shadow-2xl transition flex items-center gap-2 shrink-0 border-2 border-white/80 transform hover:-translate-y-0.5 cursor-pointer"
           id="desk-launch-camera-scanner-btn"
         >
-          <QrCode className="w-5 h-5 text-slate-950" /> Launch Camera Scanner
+          <QrCode className="w-5 h-5 text-slate-950" /> {language === 'dv' ? 'ކެމެރާ ސްކޭނަރ ހުޅުވާ' : 'Launch Camera Scanner'}
         </button>
       </div>
 
@@ -147,25 +151,25 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
       <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-md flex gap-2">
         <button
           onClick={() => setActiveTab('checkout')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'checkout'
               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
           }`}
           id="checkout-tab-btn"
         >
-          <BookOpen className="w-4 h-4" /> Issue Book (Checkout)
+          <BookOpen className="w-4 h-4" /> {language === 'dv' ? 'ފޮތް ދޫކުރުން (Checkout)' : 'Issue Book (Checkout)'}
         </button>
         <button
           onClick={() => setActiveTab('return')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'return'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
           }`}
           id="return-tab-btn"
         >
-          <RotateCcw className="w-4 h-4" /> Receive Book (Check-in Return)
+          <RotateCcw className="w-4 h-4" /> {language === 'dv' ? 'ފޮތް އަނބުރާ ބަލައިގަތުން (Return)' : 'Receive Book (Check-in Return)'}
         </button>
       </div>
 

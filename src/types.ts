@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'student' | 'parent';
+export type UserRole = 'admin' | 'student' | 'parent' | 'staff';
 
 export interface UserProfile {
   id: string;
@@ -9,6 +9,8 @@ export interface UserProfile {
   childrenIds?: string[]; // For parent: list of student ids
   grade?: string; // e.g. "Grade 8", "Grade 5"
   studentIdCode?: string; // e.g. "STU-1029"
+  staffIdCode?: string; // e.g. "STF-3012"
+  staffDepartment?: string; // e.g. "Science Dept", "Administration", "Primary Faculty"
   phone?: string;
   memberBarcodeUrl?: string;
   createdAt?: string;

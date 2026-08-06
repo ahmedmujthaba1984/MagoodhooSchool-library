@@ -5,6 +5,7 @@ import {
   ArrowRight, Users, Check, AlertCircle, School, Calendar
 } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface MyBorrowingsProps {
   currentUser: UserProfile;
@@ -21,6 +22,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
   books,
   onRenewLoan
 }) => {
+  const { t, language } = useLanguage();
   // Filter loans for current user
   const userLoans = loans.filter(l => l.userId === currentUser.id || l.userName === currentUser.name);
   const activeLoans = userLoans.filter(l => l.status === 'active' || l.status === 'overdue');
@@ -43,27 +45,27 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
       <div className="bg-gradient-to-r from-emerald-800 via-teal-700 to-indigo-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border border-emerald-500/20">
         <div className="space-y-2 max-w-2xl relative z-10">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md text-emerald-200 border border-white/20 px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
-            <UserCheck className="w-3.5 h-3.5 text-amber-300" /> Personal Library Circulation Desk
+            <UserCheck className="w-3.5 h-3.5 text-amber-300" /> {t.myLoans}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-xs">
-            {currentUser.name}'s Personnel Records
+            {language === 'dv' ? `${currentUser.name} ގެ ލައިބްރަރީ ރެކޯޑް` : `${currentUser.name}'s Personnel Records`}
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100 font-medium leading-relaxed">
-            Member ID: <span className="font-mono font-bold text-white bg-white/20 px-2 py-0.5 rounded">{currentUser.studentIdCode || currentUser.email}</span> • Class: <span className="font-bold text-amber-300">{currentUser.grade || 'Standard Member'}</span>
+            {language === 'dv' ? 'މެންބަރު އައިޑީ' : 'Member ID'}: <span className="font-mono font-bold text-white bg-white/20 px-2 py-0.5 rounded">{currentUser.studentIdCode || currentUser.email}</span> • {language === 'dv' ? 'ކްލާސް' : 'Class'}: <span className="font-bold text-amber-300">{currentUser.grade || (language === 'dv' ? 'މެންބަރު' : 'Standard Member')}</span>
           </p>
         </div>
 
         {/* Quick Summary Pill Box */}
         <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center sm:text-right shrink-0 space-y-1">
-          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">Active Circulation</div>
-          <div className="text-2xl font-black text-amber-300">{activeLoans.length} Book{activeLoans.length !== 1 ? 's' : ''}</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">{language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'Active Circulation'}</div>
+          <div className="text-2xl font-black text-amber-300">{activeLoans.length} {language === 'dv' ? 'ފޮތް' : 'Book'}{activeLoans.length !== 1 && language !== 'dv' ? 's' : ''}</div>
           <div className="text-[11px] text-white/90 font-bold">
             {overdueLoans.length > 0 ? (
               <span className="text-rose-300 font-extrabold flex items-center justify-end gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> {overdueLoans.length} Overdue
+                <AlertTriangle className="w-3.5 h-3.5" /> {overdueLoans.length} {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Overdue'}
               </span>
             ) : (
-              <span className="text-emerald-300 font-bold">✓ All Loans in Good Standing</span>
+              <span className="text-emerald-300 font-bold">✓ {language === 'dv' ? 'ހުރިހާ ފޮތެއްގެ މުއްދަތު ހަމަނުވޭ' : 'All Loans in Good Standing'}</span>
             )}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Users, UserPlus, BookOpen, Clock, AlertCircle, CheckCircle, RotateCcw, Calendar, DollarSign, Shield, ArrowRight, User, Trash2 } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface ParentDashboardProps {
   parentUser: UserProfile;
@@ -25,11 +26,13 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   onOpenAddParentModal,
   onDeleteUser
 }) => {
+  const { t, language } = useLanguage();
   // Find all children linked to this parent account
   const children = allUsers.filter(u => u.parentId === parentUser.id || parentUser.childrenIds?.includes(u.id));
   
   const [activeChildId, setActiveChildId] = useState<string>(children[0]?.id || '');
   const [showAddChildModal, setShowAddChildModal] = useState(false);
+  const [childToDelete, setChildToDelete] = useState<UserProfile | null>(null);
   const [newChildName, setNewChildName] = useState('');
   const [newChildGrade, setNewChildGrade] = useState('Grade 5');
   const [newChildIdCode, setNewChildIdCode] = useState('');
@@ -73,13 +76,15 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-900 border border-purple-200 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">
-              <Users className="w-3.5 h-3.5 text-purple-600" /> Parent Account Oversight Portal
+              <Users className="w-3.5 h-3.5 text-purple-600" /> {t.parentPortal}
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              Parent Dashboard for {parentUser.name}
+              {language === 'dv' ? `${parentUser.name} ގެ ބެލެނިވެރި ޕޯޓަލް` : `Parent Dashboard for ${parentUser.name}`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 font-medium">
-              Monitor reading activity, current loans, return histories, online renewals, and library fees for all your registered children.
+              {language === 'dv'
+                ? 'ދަރިވަރުން ނަގާފައިވާ ފޮތްތަކާއި، މުއްދަތު ހަމަވާ ތާރީޚް އަދި ޖޫރިމަނާގެ މަޢުލޫމާތު ބައްލަވައި މުއްދަތު އިތުރުކުރައްވާ.'
+                : 'Monitor reading activity, current loans, return histories, online renewals, and library fees for all your registered children.'}
             </p>
           </div>
 
@@ -184,7 +189,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </div>
                 {onDeleteUser && (
                   <button
-                    onClick={() => onDeleteUser(selectedChild.id)}
+                    onClick={() => setChildToDelete(selectedChild)}
                     className="bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 text-xs font-bold px-3 py-1 rounded-xl transition flex items-center gap-1 cursor-pointer"
                     title="Remove Child Account"
                     id={`remove-child-btn-${selectedChild.id}`}
@@ -445,6 +450,48 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* REMOVE CHILD CONFIRMATION MODAL */}
+      {childToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4 text-slate-800">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Remove Student Child Account</h3>
+                <p className="text-xs text-slate-500 font-semibold">Unlink from Guardian Profile</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+              Are you sure you want to remove <strong className="text-slate-900 font-extrabold">{childToDelete.name}</strong> ({childToDelete.grade}) from your guardian account?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setChildToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onDeleteUser) {
+                    onDeleteUser(childToDelete.id);
+                  }
+                  setChildToDelete(null);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+                id="confirm-remove-child-btn"
+              >
+                <Trash2 className="w-4 h-4" /> Confirm Remove
+              </button>
+            </div>
           </div>
         </div>
       )}

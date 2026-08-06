@@ -8,6 +8,7 @@ import {
   Activity, Layers, ArrowUpRight, ShieldAlert, FileSpreadsheet, RefreshCw
 } from 'lucide-react';
 import { Book, Loan, UserProfile } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface ReportsAnalyticsProps {
   books: Book[];
@@ -30,6 +31,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   loans,
   users
 }) => {
+  const { t, language } = useLanguage();
   const [activeReport, setActiveReport] = useState<ReportType>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -207,22 +209,24 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl space-y-2">
             <div className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> School Library Intelligence System
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> {t.reportsTrends}
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Reports & Audit Analytics Center
+              {t.reportsTrends}
             </h2>
             <p className="text-sm text-slate-300">
-              Generate, print, and export official reports for circulation, inventory, fines, members, and complete activity history.
+              {language === 'dv'
+                ? 'ލައިބްރަރީގެ ދޫކުރުންތަކާއި، އިންވެންޓްރީ، ޖޫރިމަނާ އަދި މެންބަރުންގެ ޙަރަކާތްތަކުގެ ރިޕޯޓްތައް ބައްލަވައި ޕްރިންޓްކުރައްވާ.'
+                : 'Generate, print, and export official reports for circulation, inventory, fines, members, and complete activity history.'}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white font-semibold text-sm transition shadow-lg backdrop-blur-md"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white font-semibold text-sm transition shadow-lg backdrop-blur-md cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-indigo-300" /> Print Report
+              <Printer className="w-4 h-4 text-indigo-300" /> {language === 'dv' ? 'ރިޕޯޓް ޕްރިންޓްކުރައްވާ' : 'Print Report'}
             </button>
           </div>
         </div>
@@ -232,79 +236,79 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none print:hidden">
         <button
           onClick={() => setActiveReport('overview')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'overview'
               ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Layers className="w-4 h-4" /> Overview Dashboard
+          <Layers className="w-4 h-4" /> {language === 'dv' ? 'ޚުލާޞާ ޑޭޝްބޯޑް' : 'Overview Dashboard'}
         </button>
 
         <button
           onClick={() => setActiveReport('issued')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'issued'
               ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <BookOpen className="w-4 h-4" /> 1. Issued Books ({activeLoans.length})
+          <BookOpen className="w-4 h-4" /> {language === 'dv' ? '1. ދޫކުރެވިފައިވާ ފޮތްތައް' : '1. Issued Books'} ({activeLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('returned')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'returned'
               ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4" /> 2. Returned Books ({returnedLoans.length})
+          <CheckCircle2 className="w-4 h-4" /> {language === 'dv' ? '2. އަނބުރާ ލިބުނު ފޮތްތައް' : '2. Returned Books'} ({returnedLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('overdue')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'overdue'
               ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Clock className="w-4 h-4 text-amber-200" /> 3. Overdue Books ({overdueLoans.length})
+          <Clock className="w-4 h-4 text-amber-200" /> {language === 'dv' ? '3. މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : '3. Overdue Books'} ({overdueLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('active-members')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'active-members'
               ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" /> 4. Active Members ({users.length})
+          <Users className="w-4 h-4" /> {language === 'dv' ? '4. މެންބަރުންގެ ޙަރަކާތްތައް' : '4. Active Members'} ({users.length})
         </button>
 
         <button
           onClick={() => setActiveReport('inventory')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'inventory'
               ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <FileText className="w-4 h-4" /> 5. Inventory Summary ({books.length})
+          <FileText className="w-4 h-4" /> {language === 'dv' ? '5. އިންވެންޓްރީ ޚުލާޞާ' : '5. Inventory Summary'} ({books.length})
         </button>
 
         <button
           onClick={() => setActiveReport('fines')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
             activeReport === 'fines'
               ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-600/30'
               : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <DollarSign className="w-4 h-4" /> 6. Fine Collection (${totalFinesAssessed.toFixed(2)})
+          <DollarSign className="w-4 h-4" /> {language === 'dv' ? '6. ޖޫރިމަނާގެ ތަފްޞީލު' : '6. Fine Collection'} (${totalFinesAssessed.toFixed(2)})
         </button>
 
         <button

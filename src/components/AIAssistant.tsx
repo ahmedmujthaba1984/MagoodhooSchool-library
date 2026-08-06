@@ -5,6 +5,7 @@ import {
   BookMarked, QrCode, Search, FileText
 } from 'lucide-react';
 import { Book, UserProfile } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface AIAssistantProps {
   books: Book[];
@@ -32,6 +33,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   onSelectBook,
   onNavigateTab
 }) => {
+  const { language, t, isRtl } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'chat' | 'quiz' | 'recommendations'>('chat');
 
   // --- Chat State ---
@@ -39,7 +41,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([
     {
       role: 'assistant',
-      text: `Hello ${currentUser.name}! I'm **Libby**, your AI Smart Librarian at Magoodhoo School Library. 📚✨\n\nHow can I help you today? You can ask me for personalized book recommendations, book summaries, shelf locations, or study guides!`
+      text: language === 'dv'
+        ? `އައްސަލާމް އަލައިކުމް ${currentUser.name}! އަޅުގަނޑަކީ **ލިބީ**، މަގޫދޫ ސުކޫލް ލައިބްރަރީގެ އޭއައި ލައިބްރޭރިއަން. 📚✨\n\nމިއަދު ކިހިނެއްތޯ އެހީތެރިވެދޭންވީ؟ ފޮތްތަކުގެ މަޢުލޫމާތާއި، ފޮތް ހުރި ރެކު އަދި ކިޔަން ރަނގަޅު ފޮތްތަކުގެ އިރުޝާދު ހޯއްދެވުމަށް ސުވާލުކުރައްވާ!`
+        : `Hello ${currentUser.name}! I'm **Libby**, your AI Smart Librarian at Magoodhoo School Library. 📚✨\n\nHow can I help you today? You can ask me for personalized book recommendations, book summaries, shelf locations, or study guides!`
     }
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -81,7 +85,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
             shelfLocation: b.shelfLocation,
             availableCopies: b.availableCopies
           })),
-          userGrade: currentUser.grade || currentUser.role
+          userGrade: currentUser.grade || currentUser.role,
+          language
         })
       });
 

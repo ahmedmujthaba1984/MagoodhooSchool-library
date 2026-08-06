@@ -4,7 +4,12 @@
   body {
     background-color: #0f172a;
     color: #f8fafc;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Faruma', 'MV Boli', 'Aethala', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  [dir="rtl"] {
+    font-family: 'Faruma', 'MV Boli', 'Aethala', 'Courier New', sans-serif;
+    letter-spacing: 0;
   }
 }
 
@@ -26,3 +31,4 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
+

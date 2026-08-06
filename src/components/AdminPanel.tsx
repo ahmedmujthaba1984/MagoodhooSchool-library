@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface AdminPanelProps {
   books: Book[];
@@ -31,6 +32,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenAddParentModal,
   onOpenImportModal
 }) => {
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'inventory' | 'late-fees' | 'barcode-labels' | 'users' | 'settings'>('inventory');
 
   // New Book Modal State
@@ -144,13 +146,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="bg-white rounded-3xl p-6 sm:p-8 text-slate-900 border border-slate-200 shadow-xl relative overflow-hidden">
         <div className="max-w-3xl space-y-2">
           <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-900 border border-amber-200 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">
-            <Shield className="w-3.5 h-3.5 text-amber-600" /> Librarian Administration Suite
+            <Shield className="w-3.5 h-3.5 text-amber-600" /> {t.adminInventory}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            Library Operations & Inventory Control
+            {t.adminInventory}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 font-medium">
-            Catalog new titles, edit reference flags, print barcode labels, oversee late fees, and manage school library circulation policies.
+            {language === 'dv'
+              ? 'ފޮތްތައް އިތުރުކުރުމާއި، ބާކޯޑް ޕްރިންޓްކުރުމާއި، ޖޫރިމަނާ އަދި ލައިބްރަރީގެ އުޞޫލުތައް ބެލެހެއްޓެވުން.'
+              : 'Catalog new titles, edit reference flags, print barcode labels, oversee late fees, and manage school library circulation policies.'}
           </p>
         </div>
       </div>
@@ -159,52 +163,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="flex bg-white rounded-2xl border border-slate-200 p-1.5 shadow-md overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('inventory')}
-          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'inventory' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
           id="admin-inventory-tab"
         >
-          <BookOpen className="w-4 h-4" /> Book Inventory ({books.length})
+          <BookOpen className="w-4 h-4" /> {language === 'dv' ? 'ފޮތްތަކުގެ އިންވެންޓްރީ' : 'Book Inventory'} ({books.length})
         </button>
 
         <button
           onClick={() => setActiveTab('late-fees')}
-          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'late-fees' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
           id="admin-late-fees-tab"
         >
-          <DollarSign className="w-4 h-4" /> Overdue & Late Fees ({overdueLoans.length})
+          <DollarSign className="w-4 h-4" /> {language === 'dv' ? 'ޖޫރިމަނާ އަދި މުއްދަތު ހަމަވެފައި' : 'Overdue & Late Fees'} ({overdueLoans.length})
         </button>
 
         <button
           onClick={() => setActiveTab('barcode-labels')}
-          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'barcode-labels' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
           id="admin-barcode-tab"
         >
-          <QrCode className="w-4 h-4" /> Print Barcode Labels
+          <QrCode className="w-4 h-4" /> {language === 'dv' ? 'ބާކޯޑް ލޭބަލް ޕްރިންޓް' : 'Print Barcode Labels'}
         </button>
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'users' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
           id="admin-users-tab"
         >
-          <Users className="w-4 h-4" /> Users & Parent Accounts ({users.length})
+          <Users className="w-4 h-4" /> {language === 'dv' ? 'މެންބަރުން އަދި އެކައުންޓްތައް' : 'Users & Parent Accounts'} ({users.length})
         </button>
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'settings' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
           id="admin-settings-tab"
         >
-          <Settings className="w-4 h-4" /> Library Policies
+          <Settings className="w-4 h-4" /> {language === 'dv' ? 'ލައިބްރަރީ އުޞޫލުތައް' : 'Library Policies'}
         </button>
       </div>
 

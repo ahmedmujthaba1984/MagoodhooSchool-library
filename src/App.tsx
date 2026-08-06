@@ -38,6 +38,7 @@ import { LoginModal } from './components/LoginModal';
 import { LoginPage } from './components/LoginPage';
 import { ImportModal } from './components/ImportModal';
 import { AIAssistant } from './components/AIAssistant';
+import { useLanguage } from './lib/i18n';
 import { sampleUsers, initialSettings } from './data/seedData';
 import {
   LayoutDashboard,
@@ -78,6 +79,7 @@ const GUEST_USER: UserProfile = {
 };
 
 export default function App() {
+  const { t, language } = useLanguage();
   const [books, setBooks] = useState<Book[]>([]);
   const [users, setUsers] = useState<UserProfile[]>(sampleUsers);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -94,7 +96,7 @@ export default function App() {
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
-  const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents'>('books');
+  const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Initialize and subscribe to Firestore
@@ -267,7 +269,23 @@ export default function App() {
     for (const p of importedParents) {
       await createUserProfile(p);
     }
-    alert(`Imported ${importedParents.length} user records.`);
+    alert(`Imported ${importedParents.length} parent user records.`);
+  };
+
+  const handleBulkImportStaff = async (importedStaff: Array<{ name: string; email: string; phone?: string; staffIdCode?: string; staffDepartment?: string }>) => {
+    for (const s of importedStaff) {
+      const staffProfile: Omit<UserProfile, 'id'> = {
+        name: s.name,
+        email: s.email,
+        phone: s.phone || '',
+        role: 'staff',
+        staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
+        staffDepartment: s.staffDepartment || 'Teaching Faculty',
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      await createUserProfile(staffProfile);
+    }
+    alert(`Successfully imported ${importedStaff.length} faculty and staff accounts!`);
   };
 
   // Handle Add Child to Parent
@@ -301,9 +319,6 @@ export default function App() {
       return;
     }
 
-    const confirmMsg = `Are you sure you want to permanently delete account for "${targetUser.name}" (${targetUser.role.toUpperCase()})? This action cannot be undone.`;
-    if (!window.confirm(confirmMsg)) return;
-
     try {
       // Delete user document from Firestore
       await deleteUserProfile(userId);
@@ -327,6 +342,17 @@ export default function App() {
     } catch (err: any) {
       console.error("Failed to delete user profile:", err);
       alert(`Failed to delete user profile: ${err?.message || String(err)}`);
+    }
+  };
+
+  const handleSwitchUser = (user: UserProfile) => {
+    setCurrentUser(user);
+    if (user.role === 'admin') {
+      setActiveTab('dashboard');
+    } else if (user.role === 'parent') {
+      setActiveTab('parent-portal');
+    } else {
+      setActiveTab('catalog');
     }
   };
 
@@ -364,14 +390,12 @@ export default function App() {
   };
 
   const handleDeleteBook = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this book record from catalog?")) {
-      try {
-        await deleteBook(id);
-        alert("Book record deleted successfully.");
-      } catch (err: any) {
-        console.error("Failed to delete book:", err);
-        alert(`Failed to delete book: ${err?.message || String(err)}`);
-      }
+    try {
+      await deleteBook(id);
+      alert("Book record deleted successfully.");
+    } catch (err: any) {
+      console.error("Failed to delete book:", err);
+      alert(`Failed to delete book: ${err?.message || String(err)}`);
     }
   };
 
@@ -389,32 +413,32 @@ export default function App() {
 
   if (currentUser.role === 'admin') {
     navItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'catalog', label: 'Book Catalog', icon: BookOpen },
-      { id: 'add-book', label: 'Add New Book', icon: PlusCircle },
-      { id: 'borrow-book', label: 'Borrow Book (Desk)', icon: BookMarked },
-      { id: 'return-book', label: 'Return Book (Desk)', icon: RotateCcw },
-      { id: 'students', label: 'Student Directory', icon: Users },
-      { id: 'parent-portal', label: 'Parent Portal (Admin)', icon: Users },
-      { id: 'manage-students', label: 'System Admin Panel', icon: UserCheck },
-      { id: 'issued-books', label: 'Issued Books', icon: ClipboardList, badge: loans.filter(l => l.status === 'active').length },
-      { id: 'late-returns', label: 'Late Returns Desk', icon: AlertTriangle, badge: overdueCount, badgeColor: 'bg-rose-500' },
-      { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
-      { id: 'faq', label: 'FAQ / Help Desk', icon: HelpCircle },
+      { id: 'dashboard', label: language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard', icon: LayoutDashboard },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
+      { id: 'add-book', label: language === 'dv' ? 'އާ ފޮތެއް އިތުރުކުރައްވާ' : 'Add New Book', icon: PlusCircle },
+      { id: 'borrow-book', label: language === 'dv' ? 'ފޮތް ދޫކުރުން (ޑެސްކު)' : 'Borrow Book (Desk)', icon: BookMarked },
+      { id: 'return-book', label: language === 'dv' ? 'ފޮތް އަނބުރާ ޙަވާލުކުރުން' : 'Return Book (Desk)', icon: RotateCcw },
+      { id: 'students', label: language === 'dv' ? 'ދަރިވަރުންގެ ޑައިރެކްޓަރީ' : 'Student Directory', icon: Users },
+      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal (Admin)', icon: Users },
+      { id: 'manage-students', label: language === 'dv' ? 'ސިސްޓަމް އެޑްމިން ޕެނަލް' : 'System Admin Panel', icon: UserCheck },
+      { id: 'issued-books', label: language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތްތައް' : 'Issued Books', icon: ClipboardList, badge: loans.filter(l => l.status === 'active').length },
+      { id: 'late-returns', label: language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : 'Late Returns Desk', icon: AlertTriangle, badge: overdueCount, badgeColor: 'bg-rose-500' },
+      { id: 'reports', label: language === 'dv' ? 'ރިޕޯޓް އަދި އެނަލިޓިކްސް' : 'Reports & Analytics', icon: BarChart3 },
+      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'FAQ / Help Desk', icon: HelpCircle },
     ];
   } else if (currentUser.role === 'parent') {
     navItems = [
-      { id: 'parent-portal', label: 'Parent Portal', icon: Users },
-      { id: 'catalog', label: 'Browse Book Catalog', icon: BookOpen },
-      { id: 'my-borrowings', label: 'Family Borrowing History', icon: ClipboardList },
-      { id: 'faq', label: 'Parent Guide & FAQ', icon: HelpCircle },
+      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal', icon: Users },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Browse Book Catalog', icon: BookOpen },
+      { id: 'my-borrowings', label: language === 'dv' ? 'ޢާއިލާގެ ނެގުންތަކުގެ ތާރީޚް' : 'Family Borrowing History', icon: ClipboardList },
+      { id: 'faq', label: language === 'dv' ? 'ބެލެނިވެރިންގެ އިރުޝާދު' : 'Parent Guide & FAQ', icon: HelpCircle },
     ];
   } else {
     // Student or Guest Visitor
     navItems = [
-      { id: 'catalog', label: 'Book Catalog', icon: BookOpen },
-      { id: 'my-borrowings', label: 'My Borrowings', icon: ClipboardList },
-      { id: 'faq', label: 'FAQ & Help', icon: HelpCircle },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
+      { id: 'my-borrowings', label: language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'My Borrowings', icon: ClipboardList },
+      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'FAQ & Help', icon: HelpCircle },
     ];
   }
 
@@ -424,12 +448,16 @@ export default function App() {
       {/* Top Header Navigation Bar */}
       <Header
         currentUser={currentUser}
+        allUsers={users}
+        onSwitchUser={handleSwitchUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenScanner={() => setIsScannerOpen(true)}
+        overdueCount={overdueCount}
         onLogout={handleLogout}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
 
       {/* Main Body Layout (Sidebar + Content Workspace) */}
@@ -451,8 +479,8 @@ export default function App() {
                   <BookOpen className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-black text-white text-sm tracking-wide">LibraryMS</div>
-                  <div className="text-[10px] text-indigo-300 font-semibold">Magoodhoo Portal</div>
+                  <div className="font-black text-white text-sm tracking-wide">{language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ' : 'LibraryMS'}</div>
+                  <div className="text-[10px] text-indigo-300 font-semibold">{language === 'dv' ? 'މަގޫދޫ ސުކޫލް' : 'Magoodhoo Portal'}</div>
                 </div>
               </div>
               <button
@@ -466,7 +494,7 @@ export default function App() {
             {/* Navigation Menu Links with Custom Vibrant Badges */}
             <nav className="space-y-1.5">
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">
-                Navigation Desk
+                {language === 'dv' ? 'މެނޫ / ނެވިގޭޝަން' : 'Navigation Desk'}
               </div>
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -483,7 +511,7 @@ export default function App() {
                         setIsSidebarOpen(false);
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all transform active:scale-98 ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all transform active:scale-98 cursor-pointer ${
                       isActive
                         ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 font-black border border-indigo-400/30'
                         : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
@@ -515,18 +543,18 @@ export default function App() {
                     className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
                     id="sidebar-logout-btn"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" /> Logout
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" /> {t.logout}
                   </button>
                   <button
                     onClick={() => setIsLoginModalOpen(true)}
                     className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
                     id="sidebar-switch-account-btn"
                   >
-                    <LogIn className="w-3.5 h-3.5 text-indigo-400" /> Switch
+                    <LogIn className="w-3.5 h-3.5 text-indigo-400" /> {language === 'dv' ? 'ބަދަލުކުރައްވާ' : 'Switch'}
                   </button>
                 </div>
                 <div className="text-[10px] text-slate-400 text-center font-medium pt-1">
-                  Active User: <span className="text-amber-300 font-bold">{currentUser.name}</span> (<span className="capitalize">{currentUser.role}</span>)
+                  {t.activeProfile} <span className="text-amber-300 font-bold">{currentUser.name}</span> ({currentUser.role})
                 </div>
               </div>
             ) : (
@@ -536,17 +564,17 @@ export default function App() {
                     onClick={() => setIsLoginModalOpen(true)}
                     className="flex-1 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <LogIn className="w-3.5 h-3.5 text-blue-400" /> Login
+                    <LogIn className="w-3.5 h-3.5 text-blue-400" /> {t.login}
                   </button>
                   <button
                     onClick={() => setIsAddParentModalOpen(true)}
                     className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs py-2 px-3 rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <UserPlus className="w-3.5 h-3.5" /> Sign Up
+                    <UserPlus className="w-3.5 h-3.5" /> {language === 'dv' ? 'ރަޖިސްޓަރީ' : 'Sign Up'}
                   </button>
                 </div>
                 <div className="text-[10px] text-slate-400 text-center font-medium pt-1">
-                  Browsing as <span className="text-slate-300 font-bold">Guest Visitor</span>
+                  {language === 'dv' ? 'މެހުމާނެއްގެ ގޮތުގައި ބައްލަވަނީ' : 'Browsing as Guest Visitor'}
                 </div>
               </div>
             )}
@@ -567,7 +595,7 @@ export default function App() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-500 space-y-3">
               <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-lg"></div>
-              <p className="text-sm font-extrabold text-slate-700">Connecting to Magoodhoo Library Database...</p>
+              <p className="text-sm font-extrabold text-slate-700">{language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ ޑޭޓާބޭސްއާ ގުޅެނީ...' : 'Connecting to Magoodhoo Library Database...'}</p>
             </div>
           ) : (
             <>
@@ -588,20 +616,20 @@ export default function App() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-black text-sm sm:text-base capitalize text-slate-900">
-                        {currentUser.role === 'admin' && 'Super Admin Mode — Full Operations Unlocked'}
-                        {currentUser.role === 'parent' && `Parent Guardian Mode — Active Session for ${currentUser.name}`}
-                        {currentUser.role !== 'admin' && currentUser.role !== 'parent' && `Student Member Session for ${currentUser.name}`}
+                        {currentUser.role === 'admin' && (language === 'dv' ? 'ސުޕަރ އެޑްމިން މޯޑް — ހުރިހާ ޚިދުމަތްތަކެއް ހުޅުވިފައި' : 'Super Admin Mode — Full Operations Unlocked')}
+                        {currentUser.role === 'parent' && (language === 'dv' ? `ބެލެނިވެރިއާ މޯޑް — ${currentUser.name}` : `Parent Guardian Mode — Active Session for ${currentUser.name}`)}
+                        {currentUser.role !== 'admin' && currentUser.role !== 'parent' && (language === 'dv' ? `ދަރިވަރު މޯޑް — ${currentUser.name}` : `Student Member Session for ${currentUser.name}`)}
                       </p>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                         currentUser.role === 'admin' ? 'bg-amber-200 text-amber-900' : currentUser.role === 'parent' ? 'bg-purple-200 text-purple-900' : 'bg-blue-200 text-blue-900'
                       }`}>
-                        {currentUser.role}
+                        {currentUser.role === 'admin' ? t.adminRole : currentUser.role === 'parent' ? t.parentRole : t.studentRole}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">
-                      {currentUser.role === 'admin' && 'Full librarian desk permissions: book checkout, stock updates, user account management, fine waivers, and reporting.'}
-                      {currentUser.role === 'parent' && 'Monitor your children’s borrowings, check due dates, extend loans online, reserve books, and manage fees.'}
-                      {currentUser.role !== 'admin' && currentUser.role !== 'parent' && 'Browse catalog books, view reference materials, reserve titles, and manage active loans.'}
+                      {currentUser.role === 'admin' && (language === 'dv' ? 'ލައިބްރޭރިއަންގެ ފުރިހަމަ އިޚްތިޔާރު: ފޮތް ދޫކުރުން، ސްޓޮކް އިތުރުކުރުން، މެންބަރުން ބެލެހެއްޓުން، ޖޫރިމަނާ އަދި ރިޕޯޓްތައް.' : 'Full librarian desk permissions: book checkout, stock updates, user account management, fine waivers, and reporting.')}
+                      {currentUser.role === 'parent' && (language === 'dv' ? 'ދަރިން ނަގާފައިވާ ފޮތްތައް ބެއްލެވުން، މުއްދަތު އިތުރުކުރެއްވުން، ފޮތް ނަންނޯޓު ކުރެއްވުން އަދި ފީ ދެއްކެވުން.' : 'Monitor your children’s borrowings, check due dates, extend loans online, reserve books, and manage fees.')}
+                      {currentUser.role !== 'admin' && currentUser.role !== 'parent' && (language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް ބައްލަވައި، ރެފަރެންސް ފޮތްތައް ހޯއްދަވައި، ފޮތް ނަންނޯޓު ކުރައްވާ.' : 'Browse catalog books, view reference materials, reserve titles, and manage active loans.')}
                     </p>
                   </div>
                 </div>
@@ -613,7 +641,7 @@ export default function App() {
                     id="role-switch-btn"
                   >
                     <LogIn className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Switch Role / Login</span>
+                    <span>{language === 'dv' ? 'ރޯލް ބަދަލުކުރައްވާ / ލޮގިން' : 'Switch Role / Login'}</span>
                   </button>
                 </div>
               </div>
@@ -810,15 +838,15 @@ export default function App() {
             <ul className="space-y-2 text-slate-400 font-medium">
               <li className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                <span>123 Library St, Booksville</span>
+                <span>Magoodhoo School, F. Magoodhoo, Republic of Maldives</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                <span>+01 234 567 88</span>
+                <span>+960 6740018</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-amber-400" />
-                <span>info@libraryms.example</span>
+                <span>admin@magoodhooschool.edu.mv</span>
               </li>
             </ul>
           </div>
@@ -951,6 +979,7 @@ export default function App() {
         defaultType={importDefaultType}
         onImportBooks={handleBulkImportBooks}
         onImportParents={handleBulkImportParents}
+        onImportStaff={handleBulkImportStaff}
       />
 
     </div>

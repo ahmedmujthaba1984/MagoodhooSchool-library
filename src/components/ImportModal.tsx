@@ -5,7 +5,7 @@ import { Book, UserProfile } from '../types';
 interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultType?: 'books' | 'parents';
+  defaultType?: 'books' | 'parents' | 'staff';
   onImportBooks?: (books: Omit<Book, 'id'>[]) => Promise<void>;
   onImportParents?: (parentsData: Array<{
     name: string;
@@ -13,17 +13,29 @@ interface ImportModalProps {
     phone?: string;
     children?: Array<{ name: string; grade: string; studentIdCode: string }>;
   }>) => Promise<void>;
+  onImportStaff?: (staffData: Array<{
+    name: string;
+    email: string;
+    phone?: string;
+    staffIdCode?: string;
+    staffDepartment?: string;
+  }>) => Promise<void>;
 }
 
 const SAMPLE_BOOKS_CSV = `title,author,category,isbn,barcode,shelfLocation,totalCopies,isReferenceOnly,publisher,publicationYear,description
-"To Kill a Mockingbird","Harper Lee","Fiction / Literature","9780061120084","9780061120084","Aisle 1 - Shelf A",5,false,"J. B. Lippincott & Co.",1960,"A classic novel exploring justice and human nature in the American South."
-"Cosmos & Astronomy Atlas","Dr. Carl Sagan","Science & Nature","9780394502946","9780394502946","Aisle 3 - Shelf S1",2,true,"Random House",1980,"Comprehensive reference atlas detailing galaxies and space exploration."
-"The Great Gatsby","F. Scott Fitzgerald","Fiction / Literature","9780743273565","9780743273565","Aisle 1 - Shelf F4",3,false,"Scribner",1925,"A story of ambition, wealth, and love in the Roaring Twenties."`;
+"To Kill a Mockingbird","Harper Lee","Fiction / Literature","9780061120084","9780061120084","Aisle 1 - Shelf A",15,false,"J. B. Lippincott & Co.",1960,"A classic novel exploring justice and human nature in the American South."
+"Cosmos & Astronomy Atlas","Dr. Carl Sagan","Science & Nature","9780394502946","9780394502946","Aisle 3 - Shelf S1",5,true,"Random House",1980,"Comprehensive reference atlas detailing galaxies and space exploration."
+"The Great Gatsby","F. Scott Fitzgerald","Fiction / Literature","9780743273565","9780743273565","Aisle 1 - Shelf F4",10,false,"Scribner",1925,"A story of ambition, wealth, and love in the Roaring Twenties."`;
 
 const SAMPLE_PARENTS_CSV = `parentName,parentEmail,phone,childrenNames,childrenGrades,childrenStudentIds
 "Aishath Hassan","aishath.hassan@oakridge.edu","(555) 234-9012","Adam Ali|Mariyam Ali","Grade 6|Grade 8","STU-6012|STU-8015"
 "Mohamed Zahir","m.zahir@oakridge.edu","(555) 789-3456","Hussain Zahir","Grade 4","STU-4088"
 "Fathimath Riza","f.riza@oakridge.edu","(555) 456-1122","Ahmed Riza|Aminath Riza","Grade 2|Grade 7","STU-2011|STU-7044"`;
+
+const SAMPLE_STAFF_CSV = `staffName,staffEmail,phone,staffIdCode,staffDepartment
+"Ibrahim Naeem","i.naeem@fmagoodhoo.edu.mv","960-7788111","STF-3001","Science Faculty"
+"Mariyam Shiyama","m.shiyama@fmagoodhoo.edu.mv","960-7788222","STF-3002","Mathematics Dept"
+"Ahmed Hussain","a.hussain@fmagoodhoo.edu.mv","960-7788333","STF-3003","Primary School Faculty"`;
 
 export const ImportModal: React.FC<ImportModalProps> = ({
   isOpen,
@@ -31,8 +43,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   defaultType = 'books',
   onImportBooks,
   onImportParents,
+  onImportStaff,
 }) => {
-  const [importType, setImportType] = useState<'books' | 'parents'>(defaultType);
+  const [importType, setImportType] = useState<'books' | 'parents' | 'staff'>(defaultType);
   const [rawText, setRawText] = useState('');
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -44,8 +57,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Helper to trigger browser CSV file download
   const downloadTemplate = () => {
-    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : SAMPLE_PARENTS_CSV;
-    const filename = importType === 'books' ? 'books_import_template.csv' : 'parent_accounts_import_template.csv';
+    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : importType === 'parents' ? SAMPLE_PARENTS_CSV : SAMPLE_STAFF_CSV;
+    const filename = importType === 'books' ? 'books_import_template.csv' : importType === 'parents' ? 'parent_accounts_import_template.csv' : 'staff_accounts_import_template.csv';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -58,7 +71,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Helper to copy template to clipboard
   const copyTemplateToClipboard = () => {
-    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : SAMPLE_PARENTS_CSV;
+    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : importType === 'parents' ? SAMPLE_PARENTS_CSV : SAMPLE_STAFF_CSV;
     navigator.clipboard.writeText(csvContent);
     setCopiedTemplate(true);
     setTimeout(() => setCopiedTemplate(false), 2000);
@@ -66,7 +79,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Populate sample data into textarea
   const loadSampleData = () => {
-    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : SAMPLE_PARENTS_CSV;
+    const csvContent = importType === 'books' ? SAMPLE_BOOKS_CSV : importType === 'parents' ? SAMPLE_PARENTS_CSV : SAMPLE_STAFF_CSV;
     setRawText(csvContent);
     parseCSVText(csvContent, importType);
   };
@@ -91,7 +104,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     return result;
   };
 
-  const parseCSVText = (content: string, type: 'books' | 'parents') => {
+  const parseCSVText = (content: string, type: 'books' | 'parents' | 'staff') => {
     const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (lines.length < 2) {
       setParsedItems([]);
@@ -125,9 +138,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const barcodeImageUrl = getCol('barcodeimageurl') || getCol('barcodeurl') || undefined;
         const category = getCol('category') || 'General Literature';
         const shelfLocation = getCol('shelflocation') || 'General Stacks';
-        const totalCopies = parseInt(getCol('totalcopies') || '3', 10) || 3;
+        const totalCopies = parseInt(getCol('totalcopies') || '5', 10) || 5;
         const isReferenceOnly = getCol('isreferenceonly').toLowerCase() === 'true';
-        const publisher = getCol('publisher') || 'Oakridge Academic Press';
+        const publisher = getCol('publisher') || 'Academic Press';
         const publicationYear = parseInt(getCol('publicationyear') || '2024', 10) || 2024;
         const description = getCol('description') || 'Imported library catalog volume.';
 
@@ -149,7 +162,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           addedAt: new Date().toISOString().split('T')[0],
         });
       }
-    } else {
+    } else if (type === 'parents') {
       // Parents Import
       for (let i = 1; i < lines.length; i++) {
         const row = parseCSVLine(lines[i]);
@@ -187,6 +200,36 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           children,
         });
       }
+    } else {
+      // Staff Import
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVLine(lines[i]);
+        if (row.length === 0 || (row.length === 1 && !row[0])) continue;
+
+        const getCol = (name: string) => {
+          const idx = headers.indexOf(name.toLowerCase());
+          return idx !== -1 && row[idx] !== undefined ? row[idx] : '';
+        };
+
+        const staffName = getCol('staffName') || getCol('name');
+        const staffEmail = getCol('staffEmail') || getCol('email');
+        const phone = getCol('phone') || '(555) 000-0000';
+        const staffIdCode = getCol('staffIdCode') || `STF-${Math.floor(3000 + Math.random() * 1000)}`;
+        const staffDepartment = getCol('staffDepartment') || getCol('department') || 'Teaching Faculty';
+
+        if (!staffName || !staffEmail) {
+          errors.push(`Row ${i + 1}: Missing staffName or staffEmail.`);
+          continue;
+        }
+
+        items.push({
+          name: staffName,
+          email: staffEmail,
+          phone,
+          staffIdCode,
+          staffDepartment,
+        });
+      }
     }
 
     setParsedItems(items);
@@ -221,6 +264,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         await onImportBooks(parsedItems);
       } else if (importType === 'parents' && onImportParents) {
         await onImportParents(parsedItems);
+      } else if (importType === 'staff' && onImportStaff) {
+        await onImportStaff(parsedItems);
       }
       setSuccessCount(parsedItems.length);
       setIsSubmitting(false);
@@ -247,33 +292,33 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900">Bulk Data Import & Template Manager</h3>
-              <p className="text-xs text-slate-500 font-medium">Import catalog books or parent/student accounts from CSV or JSON files</p>
+              <h3 className="text-lg font-black text-slate-900">Bulk Data Import & Scalable Catalog Manager</h3>
+              <p className="text-xs text-slate-500 font-medium">Import 9,000+ catalog books, student/parent rosters, or staff accounts via CSV</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-xl transition"
+            className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-xl transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Type Selector Tabs */}
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap sm:flex-nowrap bg-slate-100 p-1.5 rounded-2xl border border-slate-200 gap-1">
           <button
             onClick={() => {
               setImportType('books');
               setRawText('');
               setParsedItems([]);
             }}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
               importType === 'books'
                 ? 'bg-indigo-600 text-white shadow'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BookOpen className="w-4 h-4" /> Import Books Catalog
+            <BookOpen className="w-4 h-4" /> Books Catalog
           </button>
           <button
             onClick={() => {
@@ -281,13 +326,27 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               setRawText('');
               setParsedItems([]);
             }}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
               importType === 'parents'
                 ? 'bg-purple-600 text-white shadow'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Users className="w-4 h-4" /> Import Parent & Student Accounts
+            <Users className="w-4 h-4" /> Parents & Students
+          </button>
+          <button
+            onClick={() => {
+              setImportType('staff');
+              setRawText('');
+              setParsedItems([]);
+            }}
+            className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              importType === 'staff'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-4 h-4" /> Faculty & Staff (50+)
           </button>
         </div>
 
@@ -297,7 +356,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div>
               <div className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                {importType === 'books' ? 'Books Catalog CSV Template' : 'Parent Accounts CSV Template'}
+                {importType === 'books' ? 'Books Catalog CSV Template' : importType === 'parents' ? 'Parent Accounts CSV Template' : 'Faculty & Staff CSV Template'}
               </div>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                 Download pre-formatted CSV template or copy sample structure to clipboard.

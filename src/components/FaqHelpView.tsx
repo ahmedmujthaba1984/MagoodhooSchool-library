@@ -1,10 +1,33 @@
 import React, { useState } from 'react';
 import { HelpCircle, ChevronDown, BookOpen, Clock, ShieldCheck, AlertCircle, Phone, Mail, MapPin } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 
 export const FaqHelpView: React.FC = () => {
+  const { t, language } = useLanguage();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
-  const faqs = [
+  const faqs = language === 'dv' ? [
+    {
+      q: 'ދަރިވަރުން ލައިބްރަރީއިން ފޮތް ނަގާނީ ކިހިނެއް؟',
+      a: 'ދަރިވަރުންނަށް އޮންލައިން ކެޓަލޮގުން ފޮތް ހޯދައި ނަންނޯޓު ކުރެއްވޭނެއެވެ. ނުވަތަ ދަރިވަރުގެ އައިޑީ ކާޑުގައިވާ ބާކޯޑް ދެއްކެވުމުން ލައިބްރޭރިއަން ފޮތް ދޫކޮށްދެއްވާނެއެވެ.'
+    },
+    {
+      q: 'ފޮތެއް ނެގޭނެ އެންމެ ދިގު މުއްދަތަކީ ކޮބާ؟',
+      a: 'އާންމުކޮށް ފޮތެއް ނެގޭނީ 14 ދުވަހުގެ މުއްދަތަށެވެ. އެހެން މެންބަރަކު ނަންނޯޓު ނުކުރާނަމަ، ޕޯޓަލް މެދުވެރިކޮށް 2 ފަހަރު މުއްދަތު އިތުރުކުރެވޭނެއެވެ.'
+    },
+    {
+      q: 'ރެފަރެންސް ފޮތްތަކަކީ ކޮބާ؟',
+      a: 'ރެފަރެންސް ފޮތްތަކަކީ (އެންސައިކްލޯޕީޑިއާ، ތާރީޚީ މުހިންމު ފޮތްތައް) ލައިބްރަރީން ބޭރަށް ދޫނުކުރެވޭ، ލައިބްރަރީގެ ތެރޭގައި އެކަނި ބޭނުންކުރެވޭ ފޮތްތަކެކެވެ.'
+    },
+    {
+      q: 'ޖޫރިމަނާ ޢަދަދު ހިސާބުކުރެވޭނީ ކިހިނެއް؟',
+      a: 'މުއްދަތު ހަމަވާ ދުވަހުގެ ފަހުން ކޮންމެ ދުވަހަކަށް 0.50 ޑޮލަރު ޖޫރިމަނާގެ ގޮތުގައި އިތުރުވާނެއެވެ. ބެލެނިވެރިންނަށް ޕޯޓަލްއިން ޖޫރިމަނާގެ ތަފްޞީލު ބައްލަވާލެއްވޭނެއެވެ.'
+    },
+    {
+      q: 'ބެލެނިވެރިން ދަރިވަރުންގެ އެކައުންޓް ބަލަހައްޓާނީ ކިހިނެއް؟',
+      a: 'ބެލެނިވެރިންގެ ޕޯޓަލްއަށް ލޮގިންވެވަޑައިގެން ދަރިވަރުން ނަގާފައިވާ ފޮތްތަކާއި، މުއްދަތު ހަމަވާ ތާރީޚް އަދި މުއްދަތު އިތުރުކުރުމުގެ ފުރުޞަތު ލިބިވަޑައިގަންނަވާނެއެވެ.'
+    }
+  ] : [
     {
       q: 'How do students borrow books from the library?',
       a: 'Students can search the online Book Catalog and click "Reserve Online" or present their Student ID barcode to the librarian at the circulation desk for quick checkout.'
@@ -32,13 +55,15 @@ export const FaqHelpView: React.FC = () => {
       {/* Title Header */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-2 text-center sm:text-left">
         <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">
-          <HelpCircle className="w-3.5 h-3.5 text-blue-600" /> Library Knowledge Base
+          <HelpCircle className="w-3.5 h-3.5 text-blue-600" /> {t.faqHelp}
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          Frequently Asked Questions & Help Center
+          {t.faqHelp}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">
-          Guides, loan rules, reference policies, and assistance for Oakridge School Library Management System.
+          {language === 'dv'
+            ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީގެ އުޞޫލުތަކާއި، ފޮތް ނެގުމާއި އަނބުރާ ޙަވާލުކުރުމާ ގުޅޭ މަޢުލޫމާތު.'
+            : 'Guides, loan rules, reference policies, and assistance for Magoodhoo School Library.'}
         </p>
       </div>
 

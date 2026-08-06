@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Filter, BookOpen, BookMarked, CheckCircle, Clock, AlertTriangle, Bookmark, Shield, MapPin, Eye, Info, Plus, FileSpreadsheet, User, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Book, UserProfile, Reservation } from '../types';
 import { AddBookModal } from './AddBookModal';
+import { useLanguage } from '../lib/i18n';
 
 interface BookCatalogProps {
   books: Book[];
@@ -13,7 +14,7 @@ interface BookCatalogProps {
   onAddBook?: (bookData: Omit<Book, 'id'>) => Promise<void>;
   onEditBook?: (book: Book) => void;
   onDeleteBook?: (bookId: string) => void;
-  onOpenImportModal?: (type?: 'books' | 'parents') => void;
+  onOpenImportModal?: (type?: 'books' | 'parents' | 'staff') => void;
 }
 
 export const BookCatalog: React.FC<BookCatalogProps> = ({
@@ -28,17 +29,39 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   onDeleteBook,
   onOpenImportModal
 }) => {
+  const { t, isRtl, language } = useLanguage();
+
+  const getCategoryLabel = (cat: string) => {
+    if (language !== 'dv') return cat;
+    const map: Record<string, string> = {
+      'Fiction / Literature': 'ވާހަކަ / އަދަބިއްޔާތު',
+      'Technology': 'ޓެކްނޮލޮޖީ',
+      'Language & Reference': 'ބަހާއި ރެފަރެންސް',
+      'Science': 'ސައިންސް',
+      'Geography & Reference': 'ޖިއޮގްރަފީ އަދި ރެފަރެންސް',
+      'Fantasy': 'ފެންޓަސީ',
+      'Science & Reference': 'ސައިންސް އަދި ރެފަރެންސް',
+      'Classic Literature': 'ކްލެސިކް އަދަބިއްޔާތު',
+      'Reference': 'ރެފަރެންސް',
+      'General': 'އާންމު',
+    };
+    return map[cat] || cat;
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'circulating' | 'reference'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [entriesPerPage, setEntriesPerPage] = useState<number>(10);
+  const [entriesPerPage, setEntriesPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
 
+  // Stats
+  const totalPhysicalCopies = books.reduce((acc, b) => acc + (b.totalCopies || 1), 0);
+  const totalAvailableCopies = books.reduce((acc, b) => acc + (b.availableCopies !== undefined ? b.availableCopies : (b.totalCopies || 1)), 0);
+
   // Filter Categories
-  const categories = Array.from(new Set(books.map(b => b.category)));
+  const categories: string[] = Array.from(new Set(books.map(b => b.category)));
 
   // Filtered books
   const filteredBooks = books.filter(book => {
@@ -73,14 +96,19 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         <div className="relative z-10 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-900 border border-indigo-200 px-3 py-1 rounded-full text-xs font-bold">
-                <BookOpen className="w-3.5 h-3.5 text-indigo-600" /> School Online Library Search
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-900 border border-indigo-200 px-3 py-1 rounded-full text-xs font-bold">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" /> {t.catalog}
+                </span>
+                <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 px-3 py-1 rounded-full text-xs font-extrabold">
+                  {books.length.toLocaleString()} {t.titles} ({totalPhysicalCopies.toLocaleString()} {t.physicalBooks})
+                </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                Explore Books, Literature & Reference Works
+                {t.catalog}
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 font-medium">
-                Search our full catalog of circulating books, textbooks, and non-circulating reference materials. Reserve books online for pickup at the library desk.
+                {t.searchEmptyHint}
               </p>
             </div>
 
@@ -88,19 +116,19 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               {currentUser.role === 'admin' && onOpenImportModal && (
                 <button
                   onClick={() => onOpenImportModal('books')}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-3 rounded-2xl transition flex items-center gap-2 border border-slate-300"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-3 rounded-2xl transition flex items-center gap-2 border border-slate-300 cursor-pointer"
                   id="catalog-import-csv-btn"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-indigo-600" /> Import CSV / Template
+                  <FileSpreadsheet className="w-4 h-4 text-indigo-600" /> {t.importBulk}
                 </button>
               )}
               {currentUser.role === 'admin' && onAddBook && (
                 <button
                   onClick={() => setIsAddBookModalOpen(true)}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-md transition flex items-center gap-2 active:scale-95"
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-md transition flex items-center gap-2 active:scale-95 cursor-pointer"
                   id="catalog-add-book-btn"
                 >
-                  <Plus className="w-4 h-4" /> Add New Book
+                  <Plus className="w-4 h-4" /> {t.addBook}
                 </button>
               )}
             </div>
@@ -108,13 +136,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
           {/* Search Bar Input */}
           <div className="relative mt-2 max-w-3xl">
-            <Search className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" />
+            <Search className={`w-5 h-5 text-slate-400 absolute top-3.5 ${isRtl ? 'right-4' : 'left-4'}`} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, author name, category, or ISBN barcode..."
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold transition-all shadow-inner"
+              placeholder={t.searchPlaceholder}
+              className={`w-full py-3 bg-slate-50 text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold transition-all shadow-inner ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'}`}
               id="catalog-search-input"
             />
           </div>
@@ -127,29 +155,29 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         {/* Category Filters */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <span className="text-xs font-extrabold text-slate-500 flex items-center gap-1 uppercase tracking-wider pr-2">
-            <Filter className="w-3.5 h-3.5" /> Category:
+            <Filter className="w-3.5 h-3.5" /> {language === 'dv' ? 'ބައި:' : 'Category:'}
           </span>
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === 'all'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
             }`}
           >
-            All Categories ({books.length})
+            {language === 'dv' ? `ހުރިހާ ބައިތަކެއް (${books.length})` : `All Categories (${books.length})`}
           </button>
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
               }`}
             >
-              {cat}
+              {getCategoryLabel(cat)}
             </button>
           ))}
         </div>
@@ -159,48 +187,48 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setSelectedType('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedType === 'all' ? 'bg-white font-extrabold text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All
+              {language === 'dv' ? 'ހުރިހާ' : 'All'}
             </button>
             <button
               onClick={() => setSelectedType('circulating')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedType === 'circulating' ? 'bg-white font-extrabold text-slate-900 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Borrowable
+              {language === 'dv' ? 'ދޫކުރެވޭ' : 'Borrowable'}
             </button>
             <button
               onClick={() => {
                 setSelectedType('reference');
               }}
-              className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1 cursor-pointer ${
                 selectedType === 'reference' ? 'bg-amber-500 font-bold text-white shadow-sm' : 'text-amber-800 hover:text-amber-950'
               }`}
             >
-              <BookMarked className="w-3 h-3" /> Reference Only
+              <BookMarked className="w-3 h-3" /> {language === 'dv' ? 'ރެފަރެންސް އެކަނި' : 'Reference Only'}
             </button>
           </div>
 
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'grid' ? 'bg-white text-indigo-600 font-extrabold shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Grid Cards
+              {language === 'dv' ? 'ގްރިޑް ކާޑު' : 'Grid Cards'}
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'list' ? 'bg-white text-indigo-600 font-extrabold shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              List of Books
+              {language === 'dv' ? 'ފޮތްތަކުގެ ލިސްޓު' : 'List of Books'}
             </button>
           </div>
         </div>
@@ -345,7 +373,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <span className="p-1.5 bg-slate-100 rounded-lg border border-slate-300">
                 <BookOpen className="w-5 h-5 text-slate-700" />
               </span>
-              Book Catalog
+              {t.catalog}
             </h2>
             <div className="h-1 w-20 bg-slate-800 rounded-full mt-1"></div>
           </div>
@@ -353,25 +381,29 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           {/* Table Controls Top Row: Entries Dropdown & Search Input */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <span>Show</span>
+              <span>{language === 'dv' ? 'ދައްކާ:' : 'Show'}</span>
               <select
                 value={entriesPerPage}
                 onChange={(e) => {
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
               >
-                <option value={5}>5</option>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+                <option value={1000}>1,000</option>
+                <option value={10000}>{language === 'dv' ? 'ހުރިހާ' : 'All'} ({filteredBooks.length.toLocaleString()})</option>
               </select>
-              <span>entries</span>
+              <span>{language === 'dv' ? 'އައިޓަމް' : 'entries'}</span>
             </div>
 
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 w-full sm:w-auto">
-              <span>Search:</span>
+              <span>{language === 'dv' ? 'ހޯއްދަވާ:' : 'Search:'}</span>
               <input
                 type="text"
                 value={searchQuery}
@@ -390,13 +422,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
             <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead className="bg-slate-100/80 text-slate-700 font-extrabold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5 border-r border-slate-200">Title</th>
-                  <th className="p-3.5 border-r border-slate-200">Author</th>
-                  <th className="p-3.5 border-r border-slate-200">ISBN</th>
-                  <th className="p-3.5 border-r border-slate-200">Genre</th>
-                  <th className="p-3.5 border-r border-slate-200 text-center">Total</th>
-                  <th className="p-3.5 border-r border-slate-200 text-center">Available</th>
-                  <th className="p-3.5 text-center">Actions</th>
+                  <th className="p-3.5 border-r border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</th>
+                  <th className="p-3.5 border-r border-slate-200">{language === 'dv' ? 'މުސަންނިފު' : 'Author'}</th>
+                  <th className="p-3.5 border-r border-slate-200">{language === 'dv' ? 'އައި.އެސް.ބީ.އެން' : 'ISBN'}</th>
+                  <th className="p-3.5 border-r border-slate-200">{language === 'dv' ? 'ބައި / ޖެންރާ' : 'Genre'}</th>
+                  <th className="p-3.5 border-r border-slate-200 text-center">{language === 'dv' ? 'ޖުމްލަ' : 'Total'}</th>
+                  <th className="p-3.5 border-r border-slate-200 text-center">{language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</th>
+                  <th className="p-3.5 text-center">{language === 'dv' ? 'ޢަމަލުތައް' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -433,7 +465,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
                         {/* Genre / Category Column */}
                         <td className="p-3.5 border-r border-slate-200 font-medium text-slate-800">
-                          {book.category}
+                          {getCategoryLabel(book.category)}
                         </td>
 
                         {/* Total Column */}
@@ -445,26 +477,26 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                         <td className="p-3.5 border-r border-slate-200 text-center">
                           {book.availableCopies > 0 ? (
                             <span className="bg-[#16A34A] text-white text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm inline-block min-w-[85px]">
-                              {book.availableCopies} Available
+                              {language === 'dv' ? `ލިބެންހުރި ${book.availableCopies}` : `${book.availableCopies} Available`}
                             </span>
                           ) : (
                             <span className="bg-rose-600 text-white text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm inline-block min-w-[85px]">
-                              Checked Out
+                              {language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}
                             </span>
                           )}
                         </td>
 
-                        {/* Actions Column (Matching Screenshot Button Colors) */}
+                        {/* Actions Column */}
                         <td className="p-3.5 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             {/* Cyan View Details button */}
                             <button
                               onClick={() => setSelectedBook(book)}
-                              className="p-1.5 bg-[#0EA5E9] hover:bg-sky-600 text-white rounded-md transition shadow-sm flex items-center gap-1 px-2.5 text-xs font-bold"
-                              title="View Book Details"
+                              className="p-1.5 bg-[#0EA5E9] hover:bg-sky-600 text-white rounded-md transition shadow-sm flex items-center gap-1 px-2.5 text-xs font-bold cursor-pointer"
+                              title={language === 'dv' ? 'ތަފްޞީލު ބައްލަވާ' : 'View Book Details'}
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Details</span>
+                              <span className="hidden sm:inline">{language === 'dv' ? 'ތަފްޞީލު' : 'Details'}</span>
                             </button>
 
                             {/* Reserve Online button for non-reference circulating books */}
@@ -472,15 +504,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                               <button
                                 onClick={() => onReserveBook(book)}
                                 disabled={isReserved}
-                                className={`p-1.5 rounded-md transition shadow-sm flex items-center gap-1 px-2.5 text-xs font-bold ${
+                                className={`p-1.5 rounded-md transition shadow-sm flex items-center gap-1 px-2.5 text-xs font-bold cursor-pointer ${
                                   isReserved
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-not-allowed'
                                     : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                 }`}
-                                title={isReserved ? 'Reserved' : 'Reserve Online'}
+                                title={isReserved ? (language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved') : (language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Online')}
                               >
                                 <Bookmark className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{isReserved ? 'Reserved' : 'Reserve'}</span>
+                                <span className="hidden sm:inline">{isReserved ? (language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved') : (language === 'dv' ? 'ނަންނޯޓު' : 'Reserve')}</span>
                               </button>
                             )}
 
@@ -489,8 +521,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                               <>
                                 <button
                                   onClick={() => onOpenCheckoutForBook(book)}
-                                  className="p-1.5 bg-[#1D4ED8] hover:bg-blue-800 text-white rounded-md transition shadow-sm"
-                                  title="Borrow / Desk Issue Book"
+                                  className="p-1.5 bg-[#1D4ED8] hover:bg-blue-800 text-white rounded-md transition shadow-sm cursor-pointer"
+                                  title={language === 'dv' ? 'ފޮތް ދޫކުރައްވާ' : 'Borrow / Desk Issue Book'}
                                 >
                                   <User className="w-3.5 h-3.5" />
                                 </button>
@@ -500,20 +532,20 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                     if (onEditBook) onEditBook(book);
                                     else setSelectedBook(book);
                                   }}
-                                  className="p-1.5 bg-[#EAB308] hover:bg-amber-600 text-white rounded-md transition shadow-sm"
-                                  title="Edit Book Information"
+                                  className="p-1.5 bg-[#EAB308] hover:bg-amber-600 text-white rounded-md transition shadow-sm cursor-pointer"
+                                  title={language === 'dv' ? 'އުނިއިތުރު ގެންނަވާ' : 'Edit Book Information'}
                                 >
                                   <Edit className="w-3.5 h-3.5" />
                                 </button>
 
                                 <button
                                   onClick={() => {
-                                    if (onDeleteBook && confirm(`Are you sure you want to delete "${book.title}"?`)) {
+                                    if (onDeleteBook && confirm(language === 'dv' ? `"${book.title}" ފޮހެލަން ބޭނުންފުޅުތޯ؟` : `Are you sure you want to delete "${book.title}"?`)) {
                                       onDeleteBook(book.id);
                                     }
                                   }}
-                                  className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-sm"
-                                  title="Delete Book Record"
+                                  className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-sm cursor-pointer"
+                                  title={language === 'dv' ? 'ފޮތުގެ ރެކޯޑް ފޮހެލައްވާ' : 'Delete Book Record'}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -532,24 +564,27 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           {/* Table Footer: Entries info & Pagination */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
             <div className="text-xs text-slate-500 font-medium">
-              Showing {filteredBooks.length === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1} to{' '}
-              {Math.min(currentPage * entriesPerPage, filteredBooks.length)} of {filteredBooks.length} entries
+              {language === 'dv' ? (
+                `${filteredBooks.length} ގެ ތެރެއިން ${filteredBooks.length === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1} އިން ${Math.min(currentPage * entriesPerPage, filteredBooks.length)} އަށް ދައްކަނީ`
+              ) : (
+                `Showing ${filteredBooks.length === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1} to ${Math.min(currentPage * entriesPerPage, filteredBooks.length)} of ${filteredBooks.length} entries`
+              )}
             </div>
 
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
-                Previous
+                {language === 'dv' ? 'ކުރީގެ' : 'Previous'}
               </button>
 
               {Array.from({ length: Math.ceil(filteredBooks.length / entriesPerPage) || 1 }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentPage(i + 1)}
-                  className={`px-3 py-1 text-xs font-bold rounded border transition ${
+                  className={`px-3 py-1 text-xs font-bold rounded border transition cursor-pointer ${
                     currentPage === i + 1
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
@@ -562,9 +597,9 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <button
                 onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredBooks.length / entriesPerPage), p + 1))}
                 disabled={currentPage >= Math.ceil(filteredBooks.length / entriesPerPage)}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
-                Next
+                {language === 'dv' ? 'ކުރިއަށް' : 'Next'}
               </button>
             </div>
           </div>
@@ -575,9 +610,9 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       {filteredBooks.length === 0 && (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
           <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-800">No books found</h3>
+          <h3 className="text-lg font-bold text-slate-800">{t.noBooksFound}</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-medium">
-            Try adjusting your search terms or selecting a different category filter.
+            {t.searchEmptyHint}
           </p>
         </div>
       )}
@@ -594,16 +629,16 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               />
               <button
                 onClick={() => setSelectedBook(null)}
-                className="absolute top-3 right-3 bg-white/80 text-slate-800 p-1.5 rounded-full hover:bg-white transition shadow border border-slate-200 font-bold"
+                className="absolute top-3 right-3 bg-white/80 text-slate-800 p-1.5 rounded-full hover:bg-white transition shadow border border-slate-200 font-bold cursor-pointer"
               >
                 ✕
               </button>
               <div className="absolute bottom-4 left-4 right-4 text-white">
                 <span className="text-[10px] font-extrabold bg-indigo-600 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                  {selectedBook.category}
+                  {getCategoryLabel(selectedBook.category)}
                 </span>
                 <h3 className="text-lg font-black mt-1 text-white">{selectedBook.title}</h3>
-                <p className="text-xs text-slate-200 font-medium">by {selectedBook.author}</p>
+                <p className="text-xs text-slate-200 font-medium">{language === 'dv' ? `${selectedBook.author} ލިޔުއްވާފައި` : `by ${selectedBook.author}`}</p>
               </div>
             </div>
 
