@@ -1,0 +1,462 @@
+import React, { useState } from 'react';
+import { QrCode, BookOpen, User, Calendar, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, ShieldAlert, Sparkles, DollarSign, Search, Check, Layers } from 'lucide-react';
+import { Book, UserProfile, Loan, LibrarySettings } from '../types';
+
+interface QuickCheckoutProps {
+  books: Book[];
+  users: UserProfile[];
+  loans: Loan[];
+  settings: LibrarySettings;
+  onProcessCheckout: (bookId: string, studentId: string, dueDateDays: number) => void;
+  onProcessReturn: (loanId: string, markFeePaid: boolean) => void;
+  onOpenScanner: () => void;
+}
+
+export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
+  books,
+  users,
+  loans,
+  settings,
+  onProcessCheckout,
+  onProcessReturn,
+  onOpenScanner
+}) => {
+  const [activeTab, setActiveTab] = useState<'checkout' | 'return'>('checkout');
+
+  // Checkout Form State
+  const [selectedBookBarcode, setSelectedBookBarcode] = useState('');
+  const [selectedStudentCode, setSelectedStudentCode] = useState('');
+  const [borrowDays, setBorrowDays] = useState(settings.maxBorrowDays || 14);
+  const [checkoutSuccessMessage, setCheckoutSuccessMessage] = useState<string | null>(null);
+  const [checkoutErrorMessage, setCheckoutErrorMessage] = useState<string | null>(null);
+
+  // Return Form State
+  const [returnBarcode, setReturnBarcode] = useState('');
+  const [returnSuccessMessage, setReturnSuccessMessage] = useState<string | null>(null);
+  const [returnErrorMessage, setReturnErrorMessage] = useState<string | null>(null);
+
+  // Match Book & Student
+  const matchedBook = books.find(
+    b => b.barcode.toLowerCase() === selectedBookBarcode.trim().toLowerCase() ||
+         b.isbn.toLowerCase() === selectedBookBarcode.trim().toLowerCase() ||
+         b.id === selectedBookBarcode.trim()
+  );
+
+  const matchedStudent = users.find(
+    u => u.studentIdCode?.toLowerCase() === selectedStudentCode.trim().toLowerCase() ||
+         u.id === selectedStudentCode.trim() ||
+         u.name.toLowerCase().includes(selectedStudentCode.trim().toLowerCase())
+  );
+
+  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCheckoutSuccessMessage(null);
+    setCheckoutErrorMessage(null);
+
+    if (!matchedBook) {
+      setCheckoutErrorMessage('Please select or scan a valid book in the inventory.');
+      return;
+    }
+
+    if (matchedBook.isReferenceOnly) {
+      setCheckoutErrorMessage('Cannot checkout! This book is marked as REFERENCE ONLY (Non-circulating).');
+      return;
+    }
+
+    if (matchedBook.availableCopies <= 0) {
+      setCheckoutErrorMessage('Cannot checkout! All physical copies are currently checked out.');
+      return;
+    }
+
+    if (!matchedStudent) {
+      setCheckoutErrorMessage('Please select or scan a valid student member.');
+      return;
+    }
+
+    onProcessCheckout(matchedBook.id, matchedStudent.id, borrowDays);
+    setCheckoutSuccessMessage(`Successfully checked out "${matchedBook.title}" to ${matchedStudent.name}!`);
+    setSelectedBookBarcode('');
+    setSelectedStudentCode('');
+  };
+
+  const handleReturnSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setReturnSuccessMessage(null);
+    setReturnErrorMessage(null);
+
+    if (!returnBarcode.trim()) return;
+
+    // Find active loan for this book barcode or ISBN
+    const targetBook = books.find(
+      b => b.barcode.toLowerCase() === returnBarcode.trim().toLowerCase() ||
+           b.isbn.toLowerCase() === returnBarcode.trim().toLowerCase() ||
+           b.id === returnBarcode.trim()
+    );
+
+    if (!targetBook) {
+      setReturnErrorMessage('Book barcode or ISBN not found in catalog.');
+      return;
+    }
+
+    const activeLoan = loans.find(
+      l => l.bookId === targetBook.id && (l.status === 'active' || l.status === 'overdue')
+    );
+
+    if (!activeLoan) {
+      setReturnErrorMessage(`No active loan record found for "${targetBook.title}".`);
+      return;
+    }
+
+    onProcessReturn(activeLoan.id, true);
+    setReturnSuccessMessage(`Successfully processed return for "${targetBook.title}"! Stock restored to available copies.`);
+    setReturnBarcode('');
+  };
+
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto">
+      
+      {/* Vibrant Top Hero Banner */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-700 text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl relative z-10">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white font-extrabold px-3 py-1 rounded-full text-[11px] uppercase tracking-wider border border-white/20">
+              <QrCode className="w-3.5 h-3.5 text-amber-300" /> Circulation Counter & Desk
+            </span>
+            <span className="inline-flex items-center gap-1.5 bg-emerald-500/30 text-emerald-100 font-bold px-3 py-1 rounded-full text-[11px] border border-emerald-400/30">
+              ⚡ USB & Bluetooth Scanner Ready
+            </span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-sm">
+            Borrow & Circulation Desk
+          </h2>
+          <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed">
+            Scan physical book barcodes and student ID cards for instant library checkout, automated renewals, and hassle-free returns.
+          </p>
+        </div>
+
+        <button
+          onClick={onOpenScanner}
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-5 py-3.5 rounded-2xl shadow-xl hover:shadow-2xl transition flex items-center gap-2 shrink-0 border-2 border-white/80 transform hover:-translate-y-0.5 cursor-pointer"
+          id="desk-launch-camera-scanner-btn"
+        >
+          <QrCode className="w-5 h-5 text-slate-950" /> Launch Camera Scanner
+        </button>
+      </div>
+
+      {/* Colorful Mode Tabs */}
+      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-md flex gap-2">
+        <button
+          onClick={() => setActiveTab('checkout')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+            activeTab === 'checkout'
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
+          }`}
+          id="checkout-tab-btn"
+        >
+          <BookOpen className="w-4 h-4" /> Issue Book (Checkout)
+        </button>
+        <button
+          onClick={() => setActiveTab('return')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+            activeTab === 'return'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
+          }`}
+          id="return-tab-btn"
+        >
+          <RotateCcw className="w-4 h-4" /> Receive Book (Check-in Return)
+        </button>
+      </div>
+
+      {/* ISSUE BOOK (CHECKOUT) FORM CARD */}
+      {activeTab === 'checkout' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl space-y-6">
+          <form onSubmit={handleCheckoutSubmit} className="space-y-6">
+            
+            {/* STEP 1: BOOK SELECTION */}
+            <div className="bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-5 rounded-2xl border border-blue-100 space-y-3">
+              <label className="block text-xs font-black uppercase tracking-wider text-blue-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-sm">1</span>
+                  Step 1: Scan or Select Book
+                </span>
+                <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
+                  Catalog Search
+                </span>
+              </label>
+              
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={selectedBookBarcode}
+                    onChange={(e) => setSelectedBookBarcode(e.target.value)}
+                    placeholder="Scan barcode, ISBN (e.g. 9780061120084), or type title..."
+                    className="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    id="checkout-book-barcode-input"
+                  />
+                </div>
+                <select
+                  onChange={(e) => setSelectedBookBarcode(e.target.value)}
+                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                >
+                  <option value="">Quick Select From List...</option>
+                  {books.map(b => (
+                    <option key={b.id} value={b.barcode}>
+                      {b.title} {b.isReferenceOnly ? '(Ref Only)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {matchedBook ? (
+                <div className={`p-4 rounded-2xl border text-xs flex items-center gap-4 transition shadow-sm ${
+                  matchedBook.isReferenceOnly
+                    ? 'bg-amber-50 border-amber-200 text-amber-950'
+                    : matchedBook.availableCopies > 0
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : 'bg-rose-50 border-rose-200 text-rose-950'
+                }`}>
+                  <img src={matchedBook.coverUrl} alt={matchedBook.title} className="w-12 h-16 object-cover rounded-xl shadow border border-slate-200 shrink-0" />
+                  <div className="space-y-1 flex-1">
+                    <div className="font-extrabold text-sm text-slate-900">{matchedBook.title}</div>
+                    <div className="text-[11px] text-slate-600 font-medium">By {matchedBook.author} | Category: <span className="font-bold text-indigo-700">{matchedBook.category}</span></div>
+                    <div className="text-[11px] text-slate-500 font-mono">Location: <strong className="text-slate-800">{matchedBook.shelfLocation}</strong> | ISBN: <strong>{matchedBook.isbn}</strong></div>
+                    {matchedBook.isReferenceOnly ? (
+                      <span className="font-extrabold text-amber-800 flex items-center gap-1.5 mt-1 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 w-fit">
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> REFERENCE ONLY - NON-CIRCULATING!
+                      </span>
+                    ) : (
+                      <span className={`font-extrabold text-[11px] inline-block px-2.5 py-0.5 rounded-full border mt-1 ${
+                        matchedBook.availableCopies > 0 ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-rose-100 text-rose-900 border-rose-300'
+                      }`}>
+                        Available Stock: {matchedBook.availableCopies} of {matchedBook.totalCopies} copies
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-blue-700 font-medium italic bg-white/60 p-2.5 rounded-xl border border-blue-100 flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  Type or scan book barcode to preview title and real-time inventory count.
+                </div>
+              )}
+            </div>
+
+            {/* STEP 2: STUDENT SELECTION */}
+            <div className="bg-gradient-to-br from-purple-50/80 to-indigo-50/50 p-5 rounded-2xl border border-purple-100 space-y-3">
+              <label className="block text-xs font-black uppercase tracking-wider text-purple-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-black shadow-sm">2</span>
+                  Step 2: Scan or Select Student Member
+                </span>
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+                  Student Verification
+                </span>
+              </label>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={selectedStudentCode}
+                    onChange={(e) => setSelectedStudentCode(e.target.value)}
+                    placeholder="Scan Student ID card barcode (e.g. STU-2041) or type student name..."
+                    className="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                    id="checkout-student-code-input"
+                  />
+                </div>
+                <select
+                  onChange={(e) => setSelectedStudentCode(e.target.value)}
+                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                >
+                  <option value="">Select Student...</option>
+                  {users.filter(u => u.role === 'student').map(u => (
+                    <option key={u.id} value={u.studentIdCode || u.id}>
+                      {u.name} ({u.grade})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {matchedStudent ? (
+                <div className="p-3.5 bg-purple-100/70 border border-purple-200 text-purple-950 rounded-2xl text-xs flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-purple-600 text-white font-extrabold flex items-center justify-center text-xs shadow">
+                      {matchedStudent.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-sm text-slate-900">{matchedStudent.name}</div>
+                      <div className="text-[11px] text-purple-900 font-semibold">
+                        Student ID: <span className="font-mono font-bold text-purple-700">{matchedStudent.studentIdCode || matchedStudent.id}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="bg-purple-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full shadow-xs">
+                    {matchedStudent.grade}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-[11px] text-purple-700 font-medium italic bg-white/60 p-2.5 rounded-xl border border-purple-100 flex items-center gap-2">
+                  <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  Select or scan student barcode to attach borrower record.
+                </div>
+              )}
+            </div>
+
+            {/* STEP 3: LOAN PERIOD */}
+            <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-5 rounded-2xl border border-emerald-100 space-y-3">
+              <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black shadow-sm">3</span>
+                  Step 3: Loan Duration & Due Date
+                </span>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  Circulation Policy
+                </span>
+              </label>
+              
+              <div className="flex flex-wrap items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-700">Days:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={borrowDays}
+                    onChange={(e) => setBorrowDays(parseInt(e.target.value) || 14)}
+                    className="w-20 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-extrabold text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  Calculated Due Date: <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    {new Date(Date.now() + borrowDays * 86400000).toISOString().split('T')[0]}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feedback Alerts */}
+            {checkoutErrorMessage && (
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl flex items-center gap-3 font-bold shadow-sm">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                {checkoutErrorMessage}
+              </div>
+            )}
+
+            {checkoutSuccessMessage && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl flex items-center gap-3 font-extrabold shadow-sm">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                {checkoutSuccessMessage}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
+              id="confirm-checkout-btn"
+            >
+              <CheckCircle2 className="w-5 h-5" /> Confirm & Issue Book Loan
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* RECEIVE BOOK (CHECK-IN RETURN) FORM CARD */}
+      {activeTab === 'return' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl space-y-6">
+          <form onSubmit={handleReturnSubmit} className="space-y-6">
+            
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-2xl border border-emerald-100 space-y-3">
+              <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-emerald-600" /> Scan Returned Book Barcode or ISBN
+              </label>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={returnBarcode}
+                  onChange={(e) => setReturnBarcode(e.target.value)}
+                  placeholder="Scan book barcode or type ISBN (e.g. 9780061120084)..."
+                  className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                  autoFocus
+                  id="return-barcode-input"
+                />
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" /> Process Check-In
+                </button>
+              </div>
+            </div>
+
+            {/* Active Loans Quick Check-in List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-emerald-600" /> Active Loans Pending Return ({loans.filter(l => l.status === 'active' || l.status === 'overdue').length})
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto p-1">
+                {loans.filter(l => l.status === 'active' || l.status === 'overdue').map(loan => (
+                  <button
+                    key={loan.id}
+                    type="button"
+                    onClick={() => {
+                      onProcessReturn(loan.id, true);
+                      setReturnSuccessMessage(`Checked in "${loan.bookTitle}" returned by ${loan.userName}!`);
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition flex items-start justify-between group shadow-sm hover:shadow-md cursor-pointer ${
+                      loan.status === 'overdue' 
+                        ? 'bg-rose-50/80 border-rose-200 hover:bg-rose-100' 
+                        : 'bg-slate-50 hover:bg-emerald-50/80 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-950">{loan.bookTitle}</div>
+                      <div className="text-[11px] text-slate-600 font-medium">Borrower: <span className="font-bold text-slate-800">{loan.userName}</span></div>
+                      <div className="text-[10px] text-slate-500 font-mono">Due Date: {loan.dueDate}</div>
+                    </div>
+                    
+                    <div className="text-right shrink-0">
+                      {loan.status === 'overdue' ? (
+                        <span className="text-[10px] font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-xs">
+                          Overdue (${loan.lateFee.toFixed(2)})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                          Click to Check-in
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {returnErrorMessage && (
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-2xl flex items-center gap-3 font-bold shadow-sm">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                {returnErrorMessage}
+              </div>
+            )}
+
+            {returnSuccessMessage && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl flex items-center gap-3 font-extrabold shadow-sm">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                {returnSuccessMessage}
+              </div>
+            )}
+          </form>
+        </div>
+      )}
+
+    </div>
+  );
+};

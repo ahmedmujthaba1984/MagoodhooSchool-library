@@ -1,0 +1,10 @@
+{
+  "name": "Magoodhoo School Library Management System",
+  "description": "Comprehensive school library management system for book cataloging, barcode scanning, student borrowing, parent account monitoring, reference sections, and reservations.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

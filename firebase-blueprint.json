@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "books": {
+      "title": "string",
+      "author": "string",
+      "isbn": "string",
+      "barcode": "string",
+      "category": "string",
+      "isReferenceOnly": "boolean",
+      "totalCopies": "number",
+      "availableCopies": "number",
+      "shelfLocation": "string",
+      "coverUrl": "string",
+      "description": "string",
+      "publisher": "string",
+      "publicationYear": "number",
+      "addedAt": "string"
+    },
+    "users": {
+      "uid": "string",
+      "email": "string",
+      "name": "string",
+      "role": "string",
+      "parentId": "string",
+      "childrenIds": "array",
+      "grade": "string",
+      "studentIdCode": "string",
+      "phone": "string"
+    },
+    "loans": {
+      "bookId": "string",
+      "bookTitle": "string",
+      "bookIsbn": "string",
+      "userId": "string",
+      "userName": "string",
+      "userRole": "string",
+      "issueDate": "string",
+      "dueDate": "string",
+      "returnDate": "string",
+      "status": "string",
+      "renewalCount": "number",
+      "lateFee": "number",
+      "feePaid": "boolean",
+      "processedBy": "string"
+    },
+    "reservations": {
+      "bookId": "string",
+      "bookTitle": "string",
+      "userId": "string",
+      "userName": "string",
+      "requestDate": "string",
+      "status": "string"
+    }
+  }
+}
