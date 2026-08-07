@@ -6,6 +6,21 @@ export const initialSettings: LibrarySettings = {
   lateFeePerDay: 0.50,
   maxRenewals: 2,
   maxBooksPerStudent: 3,
+  gracePeriodDays: 2,
+  maxBooksPerStaff: 7,
+  staffBorrowDays: 30,
+  maxActiveReservations: 2,
+  holdExpiryDays: 3,
+  lostBookReplacementFee: 15.00,
+  allowReferenceCheckoutForStaff: true,
+  maxOverdueFineCap: 25.00,
+  blockBorrowingFineThreshold: 10.00,
+  allowRecallRequests: true,
+  holidayGraceDays: true,
+  summerVacationCheckout: false,
+  autoEmailRemindersDaysBefore: 2,
+  damagedBookMinorFee: 3.00,
+  policyNote: "Books must be returned in good condition. Fines apply daily after grace period. Unpaid fines over $10 will block further book borrowing.",
 };
 
 export const sampleUsers: UserProfile[] = [

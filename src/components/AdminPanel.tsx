@@ -60,6 +60,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [policyMaxBorrowDays, setPolicyMaxBorrowDays] = useState(settings.maxBorrowDays || 14);
   const [policyLateFeeRate, setPolicyLateFeeRate] = useState(settings.lateFeePerDay || 0.50);
   const [policyMaxRenewals, setPolicyMaxRenewals] = useState(settings.maxRenewals || 2);
+  const [policyMaxBooksStudent, setPolicyMaxBooksStudent] = useState(settings.maxBooksPerStudent || 3);
+  const [policyGracePeriodDays, setPolicyGracePeriodDays] = useState(settings.gracePeriodDays ?? 2);
+  const [policyMaxBooksStaff, setPolicyMaxBooksStaff] = useState(settings.maxBooksPerStaff ?? 7);
+  const [policyStaffBorrowDays, setPolicyStaffBorrowDays] = useState(settings.staffBorrowDays ?? 30);
+  const [policyMaxActiveReservations, setPolicyMaxActiveReservations] = useState(settings.maxActiveReservations ?? 2);
+  const [policyHoldExpiryDays, setPolicyHoldExpiryDays] = useState(settings.holdExpiryDays ?? 3);
+  const [policyLostBookReplacementFee, setPolicyLostBookReplacementFee] = useState(settings.lostBookReplacementFee ?? 15.00);
+  const [policyAllowRefCheckoutStaff, setPolicyAllowRefCheckoutStaff] = useState(settings.allowReferenceCheckoutForStaff ?? true);
+  const [policyMaxOverdueFineCap, setPolicyMaxOverdueFineCap] = useState(settings.maxOverdueFineCap ?? 25.00);
+  const [policyBlockBorrowingFineThreshold, setPolicyBlockBorrowingFineThreshold] = useState(settings.blockBorrowingFineThreshold ?? 10.00);
+  const [policyAllowRecallRequests, setPolicyAllowRecallRequests] = useState(settings.allowRecallRequests ?? true);
+  const [policyHolidayGraceDays, setPolicyHolidayGraceDays] = useState(settings.holidayGraceDays ?? true);
+  const [policySummerVacationCheckout, setPolicySummerVacationCheckout] = useState(settings.summerVacationCheckout ?? false);
+  const [policyAutoEmailRemindersDaysBefore, setPolicyAutoEmailRemindersDaysBefore] = useState(settings.autoEmailRemindersDaysBefore ?? 2);
+  const [policyDamagedBookMinorFee, setPolicyDamagedBookMinorFee] = useState(settings.damagedBookMinorFee ?? 3.00);
+  const [policyNoteText, setPolicyNoteText] = useState(settings.policyNote || 'Books must be returned in good condition. Fines apply daily after grace period.');
   const [settingsSavedMessage, setSettingsSavedMessage] = useState(false);
 
   const openNewBookModal = () => {
@@ -131,7 +147,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdateSettings({
       maxBorrowDays: policyMaxBorrowDays,
       lateFeePerDay: policyLateFeeRate,
-      maxRenewals: policyMaxRenewals
+      maxRenewals: policyMaxRenewals,
+      maxBooksPerStudent: policyMaxBooksStudent,
+      gracePeriodDays: policyGracePeriodDays,
+      maxBooksPerStaff: policyMaxBooksStaff,
+      staffBorrowDays: policyStaffBorrowDays,
+      maxActiveReservations: policyMaxActiveReservations,
+      holdExpiryDays: policyHoldExpiryDays,
+      lostBookReplacementFee: policyLostBookReplacementFee,
+      allowReferenceCheckoutForStaff: policyAllowRefCheckoutStaff,
+      maxOverdueFineCap: policyMaxOverdueFineCap,
+      blockBorrowingFineThreshold: policyBlockBorrowingFineThreshold,
+      allowRecallRequests: policyAllowRecallRequests,
+      holidayGraceDays: policyHolidayGraceDays,
+      summerVacationCheckout: policySummerVacationCheckout,
+      autoEmailRemindersDaysBefore: policyAutoEmailRemindersDaysBefore,
+      damagedBookMinorFee: policyDamagedBookMinorFee,
+      policyNote: policyNoteText,
     });
     setSettingsSavedMessage(true);
     setTimeout(() => setSettingsSavedMessage(false), 3000);
@@ -574,55 +606,324 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* TAB 5: POLICY SETTINGS */}
       {activeTab === 'settings' && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl space-y-6">
-          <div>
-            <h3 className="text-base font-black text-slate-900">Library Circulation Rules</h3>
-            <p className="text-xs text-slate-500 font-medium">Set maximum loan durations, daily late fee rate, and online renewal limits</p>
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-lg font-black text-slate-900">
+              {language === 'dv' ? 'ލައިބްރަރީ ސާކިއުލޭޝަން އުޞޫލުތަކާއި ގަވާއިދުތައް' : 'Library Circulation Rules & Policy Management'}
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {language === 'dv'
+                ? 'ފޮތް ދޫކުރުމުގެ މުއްދަތުތަކާއި، ކޯޓާތައް، ޖޫރިމަނާ އަދި ނަންނޯޓުކުރުމުގެ ގަވާއިދުތައް ކަނޑައެޅުއްވުން'
+                : 'Configure checkout loan limits, renewal terms, hold durations, grace periods, and late fee structures'}
+            </p>
           </div>
 
-          <form onSubmit={handleSaveSettings} className="max-w-lg space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Standard Loan Period (Days)</label>
-              <input
-                type="number"
-                value={policyMaxBorrowDays}
-                onChange={(e) => setPolicyMaxBorrowDays(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+          <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
+            {/* Section 1: Loan Durations & Renewals */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-2">
+                <BookOpen className="w-4 h-4 text-blue-600" />
+                {language === 'dv' ? 'ފޮތް ދޫކުރެވޭ މުއްދަތާއި އިތުރުކުރުން' : 'Loan Periods & Renewals'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ދަރިވަރުންގެ މުއްދަތު (ދުވަސް)' : 'Student Loan Period (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyMaxBorrowDays}
+                    onChange={(e) => setPolicyMaxBorrowDays(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'އާންމު ދަރިވަރުންނަށް ފޮތް ދޫކުރެވޭ މުއްދަތު' : 'Default loan period for students'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'މުވައްޒަފުންގެ މުއްދަތު (ދުވަސް)' : 'Staff/Faculty Loan Period (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyStaffBorrowDays}
+                    onChange={(e) => setPolicyStaffBorrowDays(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'މުދައްރިސުންނަށް ފޮތް ދޫކުރެވޭ މުއްދަތު' : 'Extended period for teachers/staff'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ގްރޭސް ޕީރިއަޑް (ދުވަސް)' : 'Grace Period (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={policyGracePeriodDays}
+                    onChange={(e) => setPolicyGracePeriodDays(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'ޖޫރިމަނާ ހިނގަން ފެށުމުގެ ކުރިން ލިބޭ ލުއި' : 'Free days before late fine kicks in'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'އޮންލައިންކޮށް އިތުރުކުރެވޭ މިންވަރު' : 'Max Online Renewals'}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={policyMaxRenewals}
+                    onChange={(e) => setPolicyMaxRenewals(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'ކޮންމެ ފޮތަކަށް އިތުރުކުރެވޭނެ އެންމެ ގިނަ އަދަދު' : 'Max times a loan can be extended online'}</p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Late Fee Rate ($ per day overdue)</label>
-              <input
-                type="number"
-                step="0.10"
-                value={policyLateFeeRate}
-                onChange={(e) => setPolicyLateFeeRate(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+            {/* Section 2: Quotas & Holds */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                {language === 'dv' ? 'ފޮތް ނެގުމުގެ ކޯޓާއާއި ރިޒަވޭޝަން' : 'Borrowing Limits & Reservations'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ދަރިވަރަކަށް އެންމެ ގިނަވެގެން ފޮތް' : 'Max Books / Student'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyMaxBooksStudent}
+                    onChange={(e) => setPolicyMaxBooksStudent(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'އެކަކަށް އެއްފަހަރާ ނެގޭނެ ފޮތުގެ އަދަދު' : 'Simultaneous student checkout limit'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'މުވައްޒަފަކަށް އެންމެ ގިނަވެގެން ފޮތް' : 'Max Books / Staff'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyMaxBooksStaff}
+                    onChange={(e) => setPolicyMaxBooksStaff(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'މުދައްރިސުންނަށް އެއްފަހަރާ ނެގޭނެ ކޯޓާ' : 'Simultaneous staff checkout limit'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'އެންމެ ގިނަވެގެން ރިޒަވޭޝަން' : 'Max Reservations / User'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyMaxActiveReservations}
+                    onChange={(e) => setPolicyMaxActiveReservations(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'އޮންލައިންކޮށް އެކަކަށް ނަންނޯޓު ކުރެވޭނެ އަދަދު' : 'Simultaneous hold requests allowed'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ރިޒަވޭޝަން ހޯލްޑް މުއްދަތު (ދުވަސް)' : 'Hold Desk Expiry (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={policyHoldExpiryDays}
+                    onChange={(e) => setPolicyHoldExpiryDays(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'ޑެސްކުގައި ފޮތް ބަހައްޓައިދޭނެ ދުވަސް' : 'Days held before reservation expires'}</p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Maximum Online Renewals Per Loan</label>
-              <input
-                type="number"
-                value={policyMaxRenewals}
-                onChange={(e) => setPolicyMaxRenewals(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            {/* Section 3: Fees & Fine Caps */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-2">
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                {language === 'dv' ? 'ޖޫރިމަނާ، ފީ އަދި ސީލިންގް ގަވާއިދުތައް' : 'Fines, Maximum Caps & Damage Fees'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ދުވަހު ޖޫރިމަނާ ($)' : 'Daily Late Fee Rate ($/day)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min={0}
+                    value={policyLateFeeRate}
+                    onChange={(e) => setPolicyLateFeeRate(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'މުއްދަތު ހަމަވާ ފަހުން ކޮންމެ ދުވަހަކަށް' : 'Daily fine assessed after grace period'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'އެންމެ ބޮޑު ޖޫރިމަނާ ކެޕް ($)' : 'Max Fine Cap / Loan ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    min={0}
+                    value={policyMaxOverdueFineCap}
+                    onChange={(e) => setPolicyMaxOverdueFineCap(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'އެއް ފޮތަކުން ނެގެނޭ އެންމެ ބޮޑު ޖޫރިމަނާ' : 'Maximum fine accumulation limit per book'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ގެއްލޭ ފޮތުގެ ރީޕްލޭސްމަންޓް ފީ ($)' : 'Lost Item Processing Fee ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    min={0}
+                    value={policyLostBookReplacementFee}
+                    onChange={(e) => setPolicyLostBookReplacementFee(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'ފޮތް ގެއްލުމުން ނެގޭ އެޑްމިން ފީ' : 'Flat administrative processing fee'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ކުދި ހަލާކު/ބާކޯޑު ފީ ($)' : 'Minor Damage / Tag Fee ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min={0}
+                    value={policyDamagedBookMinorFee}
+                    onChange={(e) => setPolicyDamagedBookMinorFee(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'ކުދި ހަލާކު ނުވަތަ ބާކޯޑު ގެއްލުމުން' : 'Fee for minor cover damage or tag loss'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Account Restrictions & System Controls */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-2">
+                <Shield className="w-4 h-4 text-indigo-600" />
+                {language === 'dv' ? 'އެކައުންޓް ބްލޮކްކުރުމާއި، ކެލެންޑަރ އަދި ނޮޓިފިކޭޝަން ގަވާއިދު' : 'Borrowing Block Thresholds, Calendar Rules & Automated Reminders'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'ފޮތް ނެގުން ބްލޮކްވާ ޖޫރިމަނާ ލިމިޓް ($)' : 'Block Checkout Fine Limit ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    min={0}
+                    value={policyBlockBorrowingFineThreshold}
+                    onChange={(e) => setPolicyBlockBorrowingFineThreshold(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'މިއަށްވުރެ ގިނައިން ޖޫރިމަނާ އޮތްނަމަ ފޮތް ނުނެގޭނެ' : 'Unpaid balance that suspends new checkouts'}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'dv' ? 'އޮޓޯ މެސެޖް ފޮނުވާނެ ދުވަސް (ކުރިން)' : 'Auto Email Advance Notice (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={policyAutoEmailRemindersDaysBefore}
+                    onChange={(e) => setPolicyAutoEmailRemindersDaysBefore(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">{language === 'dv' ? 'މުއްދަތު ހަމަވުމުގެ ކިތައް ދުވަސް ކުރިން؟' : 'Days prior to due date to send reminder'}</p>
+                </div>
+
+                <div className="flex flex-col justify-center space-y-2">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policyHolidayGraceDays}
+                      onChange={(e) => setPolicyHolidayGraceDays(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                    />
+                    <span className="font-bold text-xs text-slate-800">
+                      {language === 'dv' ? 'ބަންދު ދުވަސްތަކުގައި ޖޫރިމަނާ ހިނގުން ހުއްޓުވުން' : 'Pause Fines During School Holidays & Weekends'}
+                    </span>
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policyAllowRecallRequests}
+                      onChange={(e) => setPolicyAllowRecallRequests(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                    />
+                    <span className="font-bold text-xs text-slate-800">
+                      {language === 'dv' ? 'އަވަސް ރީކޯލް (Recall) ހުއްދަދިނުން' : 'Enable Librarian Emergency Recall Requests'}
+                    </span>
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policySummerVacationCheckout}
+                      onChange={(e) => setPolicySummerVacationCheckout(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                    />
+                    <span className="font-bold text-xs text-slate-800">
+                      {language === 'dv' ? 'ބޮޑު ބަންދުގެ އިތުރު ފޮތް ދޫކުރުން' : 'Allow Vacation Long-Term Summer Loans'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Notice Note */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
+              <label className="block font-bold text-slate-800 text-xs">
+                {language === 'dv' ? 'މެންބަރުންނަށް ފެންނާނެ އުޞޫލުގެ އިޢުލާން' : 'Public Policy Notice / Member Instructions'}
+              </label>
+              <textarea
+                rows={2}
+                value={policyNoteText}
+                onChange={(e) => setPolicyNoteText(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="Notice displayed on borrowings and portal screens..."
               />
             </div>
 
             {settingsSavedMessage && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-bold">
-                <CheckCircle className="w-4 h-4 text-emerald-600" /> Settings updated successfully!
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-bold animate-fade-in">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                {language === 'dv' ? 'އުޞޫލުތައް ކާމިޔާބުކަމާއެކު އަދާހަމަކުރެވިއްޖެ!' : 'Circulation rules and settings saved successfully! All library desk policies updated.'}
               </div>
             )}
 
-            <button
-              type="submit"
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl shadow transition"
-            >
-              Save Policy Changes
-            </button>
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md transition cursor-pointer flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                {language === 'dv' ? 'އުޞޫލުތައް ސޭވްކުރައްވާ' : 'Save Circulation Rules'}
+              </button>
+            </div>
           </form>
         </div>
       )}

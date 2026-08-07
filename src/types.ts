@@ -74,6 +74,21 @@ export interface LibrarySettings {
   lateFeePerDay: number;
   maxRenewals: number;
   maxBooksPerStudent: number;
+  gracePeriodDays: number;
+  maxBooksPerStaff: number;
+  staffBorrowDays: number;
+  maxActiveReservations: number;
+  holdExpiryDays: number;
+  lostBookReplacementFee: number;
+  allowReferenceCheckoutForStaff: boolean;
+  maxOverdueFineCap: number;
+  blockBorrowingFineThreshold: number;
+  allowRecallRequests: boolean;
+  holidayGraceDays: boolean;
+  summerVacationCheckout: boolean;
+  autoEmailRemindersDaysBefore: number;
+  damagedBookMinorFee: number;
+  policyNote: string;
 }
 
 export interface CategoryOption {

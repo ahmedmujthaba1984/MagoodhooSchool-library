@@ -33,38 +33,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6">
       
       {/* Top Welcome Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> {language === 'dv' ? 'ލައިބްރަރީ މެނޭޖްމަންޓް ޚުލާޞާ' : 'Library Management Overview'}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-indigo-800/40 relative overflow-hidden">
+        <div className="space-y-2 relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> {language === 'dv' ? 'ލައިބްރަރީ މެނޭޖްމަންޓް ޚުލާޞާ' : 'Library Management Overview'}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-xs">
             {language === 'dv' ? `މަރުޙަބާ، ${currentUser.name}!` : `Welcome back, ${currentUser.name}!`}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+          <p className="text-xs sm:text-sm text-indigo-100 font-medium leading-relaxed">
             {language === 'dv' ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީ މެނޭޖްމަންޓް ސިސްޓަމް. ލައިވް ޑޭޓާބޭސް ސިންކް އެކްޓިވް.' : 'System overview for Magoodhoo School Library Management System. Real-time database sync active.'}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 relative z-10">
           <button
             onClick={() => onNavigateTab('ai-assistant')}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-2 ring-2 ring-purple-300 cursor-pointer"
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer border border-amber-300"
             id="dash-open-ai-librarian-btn"
           >
-            <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" /> {t.aiLibrarian}
+            <Sparkles className="w-4 h-4 text-amber-100 animate-pulse" /> {t.aiLibrarian}
           </button>
           <button
             onClick={onOpenAddBookModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 cursor-pointer"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 cursor-pointer border border-indigo-400"
           >
             <Plus className="w-4 h-4" /> {t.addBook}
           </button>
           <button
             onClick={() => onNavigateTab('catalog')}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-300 transition flex items-center gap-2 cursor-pointer"
+            className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2 cursor-pointer backdrop-blur-md"
           >
-            <BookOpen className="w-4 h-4 text-blue-600" /> {t.catalog}
+            <BookOpen className="w-4 h-4 text-amber-300" /> {t.catalog}
           </button>
         </div>
       </div>
@@ -73,76 +73,82 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         
         {/* Total Books */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 p-5 rounded-2xl border border-blue-200/80 shadow-md space-y-3 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'dv' ? 'ޖުމްލަ ފޮތް' : 'Total Books'}</span>
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+            <span className="text-xs font-extrabold text-blue-900 uppercase tracking-wider">{language === 'dv' ? 'ޖުމްލަ ފޮތް' : 'Total Books'}</span>
+            <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md">
               <BookOpen className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-3xl font-black text-slate-900">{totalBooks}</span>
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
+            <span className="text-xs font-extrabold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md flex items-center gap-0.5">
               <TrendingUp className="w-3.5 h-3.5" /> {books.length} {language === 'dv' ? 'ނަން' : 'Titles'}
             </span>
           </div>
-          <div className="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex justify-between">
-            <span>{language === 'dv' ? 'ލިބެންހުރީ:' : 'Available:'} {availableBooks}</span>
-            <span>{language === 'dv' ? 'ދޫކުރެވިފައި:' : 'Checked Out:'} {totalBooks - availableBooks}</span>
+          <div className="text-[11px] text-blue-900 font-bold pt-2 border-t border-blue-200/80 flex justify-between">
+            <span>{language === 'dv' ? 'ލިބެންހުރީ:' : 'Available:'} <strong className="text-emerald-700">{availableBooks}</strong></span>
+            <span>{language === 'dv' ? 'ދޫކުރެވިފައި:' : 'Checked Out:'} <strong className="text-indigo-800">{totalBooks - availableBooks}</strong></span>
           </div>
         </div>
 
         {/* Registered Members */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50/60 p-5 rounded-2xl border border-purple-200/80 shadow-md space-y-3 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'dv' ? 'ޖުމްލަ މެންބަރުން' : 'Total Members'}</span>
-            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+            <span className="text-xs font-extrabold text-purple-900 uppercase tracking-wider">{language === 'dv' ? 'ޖުމްލަ މެންބަރުން' : 'Total Members'}</span>
+            <div className="p-2.5 bg-purple-600 text-white rounded-xl shadow-md">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-3xl font-black text-slate-900">{users.length}</span>
-            <span className="text-xs font-bold text-purple-600">{language === 'dv' ? 'ދަރިވަރުންނާއި މުވައްޒަފުން' : 'Students & Staff'}</span>
+            <span className="text-xs font-extrabold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md">
+              {language === 'dv' ? 'ދަރިވަރުންނާއި މުވައްޒަފުން' : 'Students & Staff'}
+            </span>
           </div>
-          <div className="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex justify-between">
-            <span>{language === 'dv' ? 'ދަރިވަރުން:' : 'Students:'} {users.filter(u => u.role === 'student').length}</span>
-            <span>{language === 'dv' ? 'ބެލެނިވެރިން:' : 'Parents:'} {users.filter(u => u.role === 'parent').length}</span>
+          <div className="text-[11px] text-purple-900 font-bold pt-2 border-t border-purple-200/80 flex justify-between">
+            <span>{language === 'dv' ? 'ދަރިވަރުން:' : 'Students:'} <strong>{users.filter(u => u.role === 'student').length}</strong></span>
+            <span>{language === 'dv' ? 'ބެލެނިވެރިން:' : 'Parents:'} <strong>{users.filter(u => u.role === 'parent').length}</strong></span>
           </div>
         </div>
 
         {/* Issued Books */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 p-5 rounded-2xl border border-amber-200/80 shadow-md space-y-3 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތް' : 'Issued Books'}</span>
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+            <span className="text-xs font-extrabold text-amber-900 uppercase tracking-wider">{language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތް' : 'Issued Books'}</span>
+            <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-md">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-3xl font-black text-slate-900">{activeLoans.length}</span>
-            <span className="text-xs font-bold text-amber-600">{language === 'dv' ? 'އެކްޓިވް ނެގުންތައް' : 'Active Borrowings'}</span>
+            <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+              {language === 'dv' ? 'އެކްޓިވް ނެގުންތައް' : 'Active Borrowings'}
+            </span>
           </div>
-          <div className="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex justify-between">
-            <span>{language === 'dv' ? 'ޕެންޑިންގް ރިޒަވޭޝަން:' : 'Pending Reserves:'} {pendingReservations.length}</span>
-            <button onClick={() => onNavigateTab('issued-books')} className="text-blue-600 hover:underline cursor-pointer">{language === 'dv' ? 'ހުރިހާ އެއްޗެއް &rarr;' : 'View All &rarr;'}</button>
+          <div className="text-[11px] text-amber-900 font-bold pt-2 border-t border-amber-200/80 flex justify-between">
+            <span>{language === 'dv' ? 'ޕެންޑިންގް ރިޒަވޭޝަން:' : 'Pending Reserves:'} <strong>{pendingReservations.length}</strong></span>
+            <button onClick={() => onNavigateTab('issued-books')} className="text-orange-700 hover:underline font-extrabold cursor-pointer">{language === 'dv' ? 'ހުރިހާ އެއްޗެއް &rarr;' : 'View All &rarr;'}</button>
           </div>
         </div>
 
         {/* Late Returns */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="bg-gradient-to-br from-rose-50 to-red-50/60 p-5 rounded-2xl border border-rose-200/80 shadow-md space-y-3 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Late Returns'}</span>
-            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+            <span className="text-xs font-extrabold text-rose-900 uppercase tracking-wider">{language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Late Returns'}</span>
+            <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-md">
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-rose-600">{overdueLoans.length}</span>
-            <span className="text-xs font-bold text-rose-600">{language === 'dv' ? 'ޖޫރިމަނާ ކުރެވިފައި' : 'Overdue Fines'}</span>
+            <span className="text-3xl font-black text-rose-700">{overdueLoans.length}</span>
+            <span className="text-xs font-extrabold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md">
+              {language === 'dv' ? 'ޖޫރިމަނާ ކުރެވިފައި' : 'Overdue Fines'}
+            </span>
           </div>
-          <div className="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex justify-between">
+          <div className="text-[11px] text-rose-900 font-bold pt-2 border-t border-rose-200/80 flex justify-between">
             <span>{language === 'dv' ? 'ފިޔަވަޅު އަޅަންޖެހޭ' : 'Action required'}</span>
-            <button onClick={() => onNavigateTab('late-returns')} className="text-rose-600 hover:underline font-bold cursor-pointer">{language === 'dv' ? 'ބައްލަވާ &rarr;' : 'Review Overdues &rarr;'}</button>
+            <button onClick={() => onNavigateTab('late-returns')} className="text-rose-700 hover:underline font-extrabold cursor-pointer">{language === 'dv' ? 'ބައްލަވާ &rarr;' : 'Review Overdues &rarr;'}</button>
           </div>
         </div>
 

@@ -13,19 +13,23 @@ export const FaqHelpView: React.FC = () => {
     },
     {
       q: 'ފޮތެއް ނެގޭނެ އެންމެ ދިގު މުއްދަތަކީ ކޮބާ؟',
-      a: 'އާންމުކޮށް ފޮތެއް ނެގޭނީ 14 ދުވަހުގެ މުއްދަތަށެވެ. އެހެން މެންބަރަކު ނަންނޯޓު ނުކުރާނަމަ، ޕޯޓަލް މެދުވެރިކޮށް 2 ފަހަރު މުއްދަތު އިތުރުކުރެވޭނެއެވެ.'
+      a: 'ދަރިވަރުންނަށް ފޮތެއް ނެގޭނީ 14 ދުވަހުގެ މުއްދަތަށެވެ. މުދައްރިސުންނަށް 30 ދުވަހުގެ މުއްދަތު ލިބިވަޑައިގަންނަވާނެއެވެ. އެހެން މެންބަރަކު ނަންނޯޓު ނުކުރާނަމަ، 2 ފަހަރު މުއްދަތު އިތުރުކުރެވޭނެއެވެ.'
     },
     {
-      q: 'ރެފަރެންސް ފޮތްތަކަކީ ކޮބާ؟',
-      a: 'ރެފަރެންސް ފޮތްތަކަކީ (އެންސައިކްލޯޕީޑިއާ، ތާރީޚީ މުހިންމު ފޮތްތައް) ލައިބްރަރީން ބޭރަށް ދޫނުކުރެވޭ، ލައިބްރަރީގެ ތެރޭގައި އެކަނި ބޭނުންކުރެވޭ ފޮތްތަކެކެވެ.'
+      q: 'ޖޫރިމަނާއާއި ގްރޭސް ޕީރިއަޑް ހިނގާނީ ކިހިނެއް؟',
+      a: 'މުއްދަތު ހަމަވުމަށްފަހު 2 ދުވަހުގެ ގްރޭސް ޕީރިއަޑެއް (ލުއި މުއްދަތެއް) ލިބޭނެއެވެ. އެއަށްފަހު ކޮންމެ ލަސްވާ ދުވަހަކަށް 0.50 ޑޮލަރުގެ ޖޫރިމަނާއެއް އިތުރުވާނެއެވެ.'
     },
     {
-      q: 'ޖޫރިމަނާ ޢަދަދު ހިސާބުކުރެވޭނީ ކިހިނެއް؟',
-      a: 'މުއްދަތު ހަމަވާ ދުވަހުގެ ފަހުން ކޮންމެ ދުވަހަކަށް 0.50 ޑޮލަރު ޖޫރިމަނާގެ ގޮތުގައި އިތުރުވާނެއެވެ. ބެލެނިވެރިންނަށް ޕޯޓަލްއިން ޖޫރިމަނާގެ ތަފްޞީލު ބައްލަވާލެއްވޭނެއެވެ.'
+      q: 'އެކަކަށް އެއްފަހަރާ ނެގޭނީ ކިތައް ފޮތް؟',
+      a: 'ދަރިވަރަކަށް އެއްފަހަރާ ނެގޭނީ އެންމެ ގިނަވެގެން 3 ފޮތެވެ. މުދައްރިސުންނަށް 7 ފޮތް ނެގުމުގެ އިޚްތިޔާރު ލިބިވަޑައިގަންނަވާނެއެވެ. އަދި އެއްފަހަރާ 2 ފޮތް ނަންނޯޓު (ރިޒާވް) ކުރެއްވޭނެއެވެ.'
     },
     {
-      q: 'ބެލެނިވެރިން ދަރިވަރުންގެ އެކައުންޓް ބަލަހައްޓާނީ ކިހިނެއް؟',
-      a: 'ބެލެނިވެރިންގެ ޕޯޓަލްއަށް ލޮގިންވެވަޑައިގެން ދަރިވަރުން ނަގާފައިވާ ފޮތްތަކާއި، މުއްދަތު ހަމަވާ ތާރީޚް އަދި މުއްދަތު އިތުރުކުރުމުގެ ފުރުޞަތު ލިބިވަޑައިގަންނަވާނެއެވެ.'
+      q: 'ފޮތް ގެއްލިއްޖެނަމަ ނުވަތަ ހަލާކުވެއްޖެނަމަ ހަދާނީ ކިހިނެއް؟',
+      a: 'ފޮތް ގެއްލިއްޖެނަމަ 15.00 ޑޮލަރުގެ އެޑްމިނިސްޓްރޭޓިވް ފީއަކާއެކު ފޮތުގެ އަގު ދައްކަވަންޖެހޭނެއެވެ. ނުވަތަ އެއްގޮތް އާ ފޮތެއް ލައިބްރަރީއަށް ޙަވާލުކުރެއްވިދާނެއެވެ.'
+    },
+    {
+      q: 'ރެފަރެންސް ފޮތްތަކުގެ އުޞޫލަކީ ކޮބާ؟',
+      a: 'ރެފަރެންސް ފޮތްތަކަކީ (އެންސައިކްލޯޕީޑިއާ، ރެފަރެންސް މެނުއަލް) ލައިބްރަރީން ބޭރަށް ދޫނުކުރެވޭ ފޮތްތަކެކެވެ. ނަމަވެސް މުދައްރިސުންނަށް ރޭގަނޑަށް ދޫކުރުމުގެ ޚާއްޞަ ހުއްދަ ލިބިވަޑައިގަންނަވައެވެ.'
     }
   ] : [
     {
@@ -34,19 +38,23 @@ export const FaqHelpView: React.FC = () => {
     },
     {
       q: 'What is the maximum loan period for circulating books?',
-      a: 'The default loan period is 14 days. Students can renew their borrowed books up to 2 times online through the Parent / Member portal unless reserved by another borrower.'
+      a: 'Students receive a standard 14-day loan period. Teachers and staff receive 30 days. Borrowers can renew loans up to 2 times online if no active holds exist.'
     },
     {
-      q: 'What are "Reference Only" books?',
-      a: 'Reference books (encyclopedias, rare historical texts, research compendiums) are non-circulating and marked with an orange "Reference Only" badge. They must be consulted inside the library reading rooms.'
+      q: 'How do grace periods and late fees work?',
+      a: 'A 2-day grace period is granted after the due date before fines begin. After the grace period, late fees accrue at $0.50 per day overdue until the item is returned.'
     },
     {
-      q: 'How are late fees calculated and paid?',
-      a: 'Late fees accrue at $0.50 per overdue day after the grace period. Parents and students can view accrued fees in their account portal and pay them at the library desk or clear them during return.'
+      q: 'What are the borrowing quotas per member?',
+      a: 'Students can check out up to 3 books simultaneously. Staff/Faculty can check out up to 7 books. Each member can place up to 2 active online reservations.'
     },
     {
-      q: 'How do parents manage their children\'s library accounts?',
-      a: 'Parents can log in to the Parent Portal to view active borrowings, due dates, renewal options, and add multiple children under a single account.'
+      q: 'What happens if a book is lost or damaged?',
+      a: 'Lost or severely damaged books incur a flat $15.00 administrative fee plus the replacement cost of the book, or replacement with an identical new copy approved by the librarian.'
+    },
+    {
+      q: 'What are the rules for "Reference Only" books?',
+      a: 'Reference books are non-circulating items designated for library reading room study only. However, faculty members may request overnight loan permissions at librarian discretion.'
     }
   ];
 
@@ -58,13 +66,66 @@ export const FaqHelpView: React.FC = () => {
           <HelpCircle className="w-3.5 h-3.5 text-blue-600" /> {t.faqHelp}
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          {t.faqHelp}
+          {language === 'dv' ? 'ލައިބްރަރީ ގަވާއިދުތަކާއި އެހީ' : 'Library Circulation Rules & Help Desk'}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">
           {language === 'dv'
-            ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީގެ އުޞޫލުތަކާއި، ފޮތް ނެގުމާއި އަނބުރާ ޙަވާލުކުރުމާ ގުޅޭ މަޢުލޫމާތު.'
-            : 'Guides, loan rules, reference policies, and assistance for Magoodhoo School Library.'}
+            ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީގެ އުޞޫލުތަކާއި، ފޮތް ނެގުމާއި އަނބުރާ ޙަވާލުކުރުމުގެ ރަސްމީ ގަވާއިދުތައް.'
+            : 'Official loan policies, checkout quotas, grace periods, fees, and assistance for Magoodhoo School Library.'}
         </p>
+      </div>
+
+      {/* Official Circulation Rules Quick Reference Cards */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 border border-indigo-900/50">
+        <div className="flex items-center justify-between border-b border-indigo-800/60 pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+            <h2 className="font-extrabold text-base sm:text-lg text-white">
+              {language === 'dv' ? 'ރަސްމީ ސާކިއުލޭޝަން އުޞޫލުތަކުގެ ޚުލާޞާ' : 'Official Circulation Rules At A Glance'}
+            </h2>
+          </div>
+          <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+            {language === 'dv' ? 'ސިސްޓަމް އުޞޫލު' : 'Active Policy'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-1">
+            <div className="font-extrabold text-amber-300 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-amber-400" />
+              {language === 'dv' ? 'ފޮތް ނެގޭ މުއްދަތު' : 'Loan Durations'}
+            </div>
+            <p className="text-slate-300 font-medium text-[11px] leading-relaxed">
+              • {language === 'dv' ? 'ދަރިވަރުން:' : 'Students:'} <span className="font-bold text-white">14 {language === 'dv' ? 'ދުވަސް' : 'Days'}</span><br />
+              • {language === 'dv' ? 'މުވައްޒަފުން:' : 'Faculty/Staff:'} <span className="font-bold text-white">30 {language === 'dv' ? 'ދުވަސް' : 'Days'}</span><br />
+              • {language === 'dv' ? 'އިތުރުކުރުން:' : 'Max Renewals:'} <span className="font-bold text-white">2 {language === 'dv' ? 'ފަހަރު' : 'Times'}</span>
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-1">
+            <div className="font-extrabold text-emerald-300 flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              {language === 'dv' ? 'ފޮތް ނެގުމުގެ ކޯޓާ' : 'Checkout Quotas'}
+            </div>
+            <p className="text-slate-300 font-medium text-[11px] leading-relaxed">
+              • {language === 'dv' ? 'ދަރިވަރުން:' : 'Students:'} <span className="font-bold text-white">3 {language === 'dv' ? 'ފޮތް' : 'Books max'}</span><br />
+              • {language === 'dv' ? 'މުވައްޒަފުން:' : 'Faculty/Staff:'} <span className="font-bold text-white">7 {language === 'dv' ? 'ފޮތް' : 'Books max'}</span><br />
+              • {language === 'dv' ? 'ނަންނޯޓު:' : 'Reservations:'} <span className="font-bold text-white">2 {language === 'dv' ? 'ފޮތް' : 'Holds max'}</span>
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-1">
+            <div className="font-extrabold text-rose-300 flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-rose-400" />
+              {language === 'dv' ? 'ޖޫރިމަނާއާއި ފީ' : 'Grace Period & Fees'}
+            </div>
+            <p className="text-slate-300 font-medium text-[11px] leading-relaxed">
+              • {language === 'dv' ? 'ގްރޭސް ޕީރިއަޑް:' : 'Grace Period:'} <span className="font-bold text-white">2 {language === 'dv' ? 'ދުވަސް' : 'Days free'}</span><br />
+              • {language === 'dv' ? 'ދުވަހު ޖޫރިމަނާ:' : 'Late Fee:'} <span className="font-bold text-white">$0.50 / {language === 'dv' ? 'ދުވަސް' : 'day'}</span><br />
+              • {language === 'dv' ? 'ގެއްލޭ ފޮތުގެ ފީ:' : 'Lost Item Fee:'} <span className="font-bold text-white">$15.00 + {language === 'dv' ? 'ފޮތުގެ އަގު' : 'Cost'}</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Accordion FAQ list */}
