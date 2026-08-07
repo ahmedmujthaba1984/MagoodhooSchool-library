@@ -42,7 +42,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {language === 'dv' ? `މަރުޙަބާ، ${currentUser.name}!` : `Welcome back, ${currentUser.name}!`}
           </h1>
           <p className="text-xs sm:text-sm text-indigo-100 font-medium leading-relaxed">
-            {language === 'dv' ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީ މެނޭޖްމަންޓް ސިސްޓަމް. ލައިވް ޑޭޓާބޭސް ސިންކް އެކްޓިވް.' : 'System overview for Magoodhoo School Library Management System. Real-time database sync active.'}
+            {language === 'dv' ? 'މަގޫދޫ ސްކޫލް ލައިބްރަރީ މެނޭޖްމަންޓް ސިސްޓަމް. ލައިވް ޑޭޓާބޭސް ސިންކް އެކްޓިވް.' : 'System overview for Magoodhoo School Library Management System. Real-time database sync active.'}
           </p>
         </div>
 

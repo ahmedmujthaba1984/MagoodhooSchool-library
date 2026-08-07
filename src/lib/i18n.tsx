@@ -216,8 +216,8 @@ export const translations: Record<Language, Translations> = {
     error: 'An error occurred. Please try again.',
   },
   dv: {
-    schoolPortal: 'މަގޫދޫ ސުކޫލް ޕޯޓަލް',
-    schoolLibrary: 'މަގޫދޫ ސުކޫލް ލައިބްރަރީ',
+    schoolPortal: 'މަގޫދޫ ސްކޫލް ޕޯޓަލް',
+    schoolLibrary: 'މަގޫދޫ ސްކޫލް ލައިބްރަރީ',
     liveSync: 'ލައިވް ސިންކް',
     barcodeReader: 'ބާކޯޑް ރީޑަރ',
     directLink: 'ޑައިރެކްޓް ލިންކް',
@@ -231,7 +231,7 @@ export const translations: Record<Language, Translations> = {
     copied: 'ކޮޕީވެއްޖެ!',
     closeWindow: 'ބަންދުކުރައްވާ',
     multiBrowserSupport: 'ހުރިހާ ބްރައުޒަރއެއްގައި ބޭނުންކުރެވޭނެ',
-    multiBrowserDesc: 'މި ލިންކު ކޮންމެ ފޯނެއް، ټެބްލެޓެއް ނުވަތަ ކޮމްޕިއުޓަރެއްގެ ބްރައުޒަރއެއްގައި ހުޅުވައިގެން ލައިބްރަރީ ބޭނުންކުރެއްވޭނެއެވެ.',
+    multiBrowserDesc: 'މި ލިންކު ކޮންމެ ފޯނެއް، ޓެބްލެޓެއް ނުވަތަ ކޮމްޕިއުޓަރެއްގެ ބްރައުޒަރއެއްގައި ހުޅުވައިގެން ލައިބްރަރީ ބޭނުންކުރެއްވޭނެއެވެ.',
     
     catalog: 'ފޮތްތަކުގެ ކެޓަލޮގް',
     aiLibrarian: 'އޭއައި ލައިބްރޭރިއަން',

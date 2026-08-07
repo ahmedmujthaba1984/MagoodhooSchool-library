@@ -70,7 +70,7 @@ export const FaqHelpView: React.FC = () => {
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">
           {language === 'dv'
-            ? 'މަގޫދޫ ސުކޫލް ލައިބްރަރީގެ އުޞޫލުތަކާއި، ފޮތް ނެގުމާއި އަނބުރާ ޙަވާލުކުރުމުގެ ރަސްމީ ގަވާއިދުތައް.'
+            ? 'މަގޫދޫ ސްކޫލް ލައިބްރަރީގެ އުޞޫލުތަކާއި، ފޮތް ނެގުމާއި އަނބުރާ ޙަވާލުކުރުމުގެ ރަސްމީ ގަވާއިދުތައް.'
             : 'Official loan policies, checkout quotas, grace periods, fees, and assistance for Magoodhoo School Library.'}
         </p>
       </div>

@@ -3,17 +3,25 @@
 @layer base {
   body {
     background-color: #0f172a;
-    color: #f8fafc;
+    color: #0f172a;
     font-family: 'Faruma', 'MV Boli', 'Aethala', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   [dir="rtl"] {
-    font-family: 'Faruma', 'MV Boli', 'Aethala', 'Courier New', sans-serif;
+    font-family: 'Faruma', 'MV Boli', 'Aethala', sans-serif;
     letter-spacing: 0;
+    line-height: 1.7;
+  }
+
+  /* Boost Dhivehi Thaana text size slightly for maximum legibility */
+  [dir="rtl"] p, [dir="rtl"] span, [dir="rtl"] button, [dir="rtl"] input, [dir="rtl"] td, [dir="rtl"] label {
+    font-size: 1.05em;
   }
 }
 
-/* Custom Scrollbar for Frosted Theme */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -24,11 +32,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.4);
 }
 

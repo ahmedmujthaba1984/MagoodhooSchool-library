@@ -183,24 +183,24 @@ Format the recommendations clearly with bullet points and brief reasons why they
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-purple-500/30 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-purple-600/40 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" /> AI-Powered Intelligence Assistant
+            <div className="inline-flex items-center gap-2 bg-purple-500/30 text-purple-200 border border-purple-400/40 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" /> AI-Powered Intelligence Assistant
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-xs">
               Magoodhoo AI Smart Librarian & Study Center
             </h2>
-            <p className="text-sm text-purple-200/80 max-w-2xl">
-              Powered by Google Gemini 3.6 Flash. Get instant book recommendations, ask questions about reading materials, or generate interactive comprehension quizzes!
+            <p className="text-xs sm:text-sm text-purple-100 font-medium leading-relaxed max-w-2xl">
+              Powered by Google Gemini. Get instant book recommendations, ask questions about reading materials, or generate interactive comprehension quizzes!
             </p>
           </div>
 
-          <div className="p-3 bg-purple-500/10 backdrop-blur-md rounded-2xl border border-purple-400/20 text-center min-w-[140px]">
-            <Bot className="w-8 h-8 text-purple-300 mx-auto mb-1 animate-pulse" />
-            <div className="text-xs font-bold text-white">Libby AI</div>
-            <div className="text-[10px] text-purple-300 font-semibold uppercase">Online & Ready</div>
+          <div className="p-3 bg-purple-900/60 rounded-2xl border border-purple-500/40 text-center min-w-[140px] shadow-md">
+            <Bot className="w-8 h-8 text-amber-300 mx-auto mb-1 animate-pulse" />
+            <div className="text-xs font-black text-white">Libby AI</div>
+            <div className="text-[10px] text-purple-200 font-bold uppercase">Online & Ready</div>
           </div>
         </div>
       </div>
