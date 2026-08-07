@@ -75,7 +75,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const filteredIssuedRows = issuedReportRows.filter(l =>
     l.bookTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase())
+    (l.bookIsbn && l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // 2. Returned Books Report Data
@@ -83,7 +83,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const filteredReturnedRows = returnedReportRows.filter(l =>
     l.bookTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase())
+    (l.bookIsbn && l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // 3. Overdue Books Report Data
@@ -91,7 +91,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const filteredOverdueRows = overdueReportRows.filter(l =>
     l.bookTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase())
+    (l.bookIsbn && l.bookIsbn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // 4. Active Members Report Data
@@ -139,26 +139,26 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     ...loans.map(l => ({
       id: `issue-${l.id}`,
       date: l.issueDate,
-      type: 'BOOK_ISSUED',
-      description: `"${l.bookTitle}" issued to ${l.userName}`,
+      type: language === 'dv' ? 'ފޮތް ދޫކުރެވުނު' : 'BOOK_ISSUED',
+      description: language === 'dv' ? `"${l.bookTitle}" ދޫކުރެވުނީ ${l.userName} އަށް` : `"${l.bookTitle}" issued to ${l.userName}`,
       user: l.userName,
-      status: 'Success'
+      status: language === 'dv' ? 'ކާމިޔާބު' : 'Success'
     })),
     ...loans.filter(l => l.returnDate).map(l => ({
       id: `return-${l.id}`,
       date: l.returnDate!,
-      type: 'BOOK_RETURNED',
-      description: `"${l.bookTitle}" returned by ${l.userName}`,
+      type: language === 'dv' ? 'ފޮތް އަނބުރާ ލިބުނު' : 'BOOK_RETURNED',
+      description: language === 'dv' ? `"${l.bookTitle}" އަނބުރާ ޙަވާލުކުރީ ${l.userName}` : `"${l.bookTitle}" returned by ${l.userName}`,
       user: l.userName,
-      status: 'Completed'
+      status: language === 'dv' ? 'ނިމިފައި' : 'Completed'
     })),
-    ...loans.filter(l => l.feePaid && l.lateFee > 0).map(l => ({
+    ...loans.filter(l => l.feePaid && (l.lateFee || 0) > 0).map(l => ({
       id: `fee-${l.id}`,
       date: l.returnDate || l.issueDate,
-      type: 'FINE_PAID',
-      description: `Late fee of $${l.lateFee.toFixed(2)} paid by ${l.userName}`,
+      type: language === 'dv' ? 'ޖޫރިމަނާ ދެއްކެވި' : 'FINE_PAID',
+      description: language === 'dv' ? `ޖޫރިމަނާ $${(l.lateFee || 0).toFixed(2)} ދެއްކެވީ ${l.userName}` : `Late fee of $${(l.lateFee || 0).toFixed(2)} paid by ${l.userName}`,
       user: l.userName,
-      status: 'Paid'
+      status: language === 'dv' ? 'ދައްކާފައި' : 'Paid'
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -205,16 +205,16 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     <div className="space-y-6 print:p-0">
       
       {/* Top Banner & Quick Controls */}
-      <div className="bg-gradient-to-r from-indigo-900/60 via-slate-900 to-indigo-950/80 backdrop-blur-xl rounded-3xl p-6 sm:p-8 text-white border border-indigo-500/20 shadow-2xl relative overflow-hidden print:hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden print:hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl space-y-2">
-            <div className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> {t.reportsTrends}
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
               {t.reportsTrends}
             </h2>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-300 leading-relaxed font-medium">
               {language === 'dv'
                 ? 'ލައިބްރަރީގެ ދޫކުރުންތަކާއި، އިންވެންޓްރީ، ޖޫރިމަނާ އަދި މެންބަރުންގެ ޙަރަކާތްތަކުގެ ރިޕޯޓްތައް ބައްލަވައި ޕްރިންޓްކުރައްވާ.'
                 : 'Generate, print, and export official reports for circulation, inventory, fines, members, and complete activity history.'}
@@ -224,9 +224,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white font-semibold text-sm transition shadow-lg backdrop-blur-md cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 border border-indigo-500 text-white font-extrabold text-xs sm:text-sm transition shadow-lg cursor-pointer active:scale-95 shrink-0"
             >
-              <Printer className="w-4 h-4 text-indigo-300" /> {language === 'dv' ? 'ރިޕޯޓް ޕްރިންޓްކުރައްވާ' : 'Print Report'}
+              <Printer className="w-4 h-4 text-white" /> {language === 'dv' ? 'ރިޕޯޓް ޕްރިންޓްކުރައްވާ' : 'Print Report'}
             </button>
           </div>
         </div>
@@ -236,10 +236,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none print:hidden">
         <button
           onClick={() => setActiveReport('overview')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'overview'
-              ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
           <Layers className="w-4 h-4" /> {language === 'dv' ? 'ޚުލާޞާ ޑޭޝްބޯޑް' : 'Overview Dashboard'}
@@ -247,114 +247,116 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
         <button
           onClick={() => setActiveReport('issued')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'issued'
-              ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <BookOpen className="w-4 h-4" /> {language === 'dv' ? '1. ދޫކުރެވިފައިވާ ފޮތްތައް' : '1. Issued Books'} ({activeLoans.length})
+          <BookOpen className="w-4 h-4 text-indigo-600" /> {language === 'dv' ? '1. ދޫކުރެވިފައިވާ ފޮތްތައް' : '1. Issued Books'} ({activeLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('returned')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'returned'
-              ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4" /> {language === 'dv' ? '2. އަނބުރާ ލިބުނު ފޮތްތައް' : '2. Returned Books'} ({returnedLoans.length})
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {language === 'dv' ? '2. އަނބުރާ ލިބުނު ފޮތްތައް' : '2. Returned Books'} ({returnedLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('overdue')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'overdue'
-              ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-amber-600 text-white border-amber-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <Clock className="w-4 h-4 text-amber-200" /> {language === 'dv' ? '3. މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : '3. Overdue Books'} ({overdueLoans.length})
+          <Clock className="w-4 h-4 text-amber-600" /> {language === 'dv' ? '3. މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : '3. Overdue Books'} ({overdueLoans.length})
         </button>
 
         <button
           onClick={() => setActiveReport('active-members')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'active-members'
-              ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-purple-600 text-white border-purple-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <Users className="w-4 h-4" /> {language === 'dv' ? '4. މެންބަރުންގެ ޙަރަކާތްތައް' : '4. Active Members'} ({users.length})
+          <Users className="w-4 h-4 text-purple-600" /> {language === 'dv' ? '4. މެންބަރުންގެ ޙަރަކާތްތައް' : '4. Active Members'} ({users.length})
         </button>
 
         <button
           onClick={() => setActiveReport('inventory')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'inventory'
-              ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-blue-600 text-white border-blue-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <FileText className="w-4 h-4" /> {language === 'dv' ? '5. އިންވެންޓްރީ ޚުލާޞާ' : '5. Inventory Summary'} ({books.length})
+          <FileText className="w-4 h-4 text-blue-600" /> {language === 'dv' ? '5. އިންވެންޓްރީ ޚުލާޞާ' : '5. Inventory Summary'} ({books.length})
         </button>
 
         <button
           onClick={() => setActiveReport('fines')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'fines'
-              ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-teal-600 text-white border-teal-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <DollarSign className="w-4 h-4" /> {language === 'dv' ? '6. ޖޫރިމަނާގެ ތަފްޞީލު' : '6. Fine Collection'} (${totalFinesAssessed.toFixed(2)})
+          <DollarSign className="w-4 h-4 text-teal-600" /> {language === 'dv' ? '6. ޖޫރިމަނާގެ ތަފްޞީލު' : '6. Fine Collection'} (${totalFinesAssessed.toFixed(2)})
         </button>
 
         <button
           onClick={() => setActiveReport('activity-log')}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition flex items-center gap-2 border ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs whitespace-nowrap transition flex items-center gap-2 border cursor-pointer active:scale-95 ${
             activeReport === 'activity-log'
-              ? 'bg-pink-600 text-white border-pink-500 shadow-lg shadow-pink-600/30'
-              : 'bg-slate-900/60 text-slate-400 border-white/10 hover:bg-slate-800 hover:text-white'
+              ? 'bg-pink-600 text-white border-pink-500 shadow-lg'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <Activity className="w-4 h-4" /> 7. Activity Log ({activityLogs.length})
+          <Activity className="w-4 h-4 text-pink-600" /> {language === 'dv' ? '7. ޙަރަކާތްތަކުގެ ލޮގް' : '7. Activity Log'} ({activityLogs.length})
         </button>
       </div>
 
       {/* Overview Stat Metrics Bar */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-        <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/10 shadow-xl space-y-1">
-          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-indigo-400" /> Total Volumes
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+          <div className="text-xs text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+            <BookOpen className="w-4 h-4 text-indigo-600" /> {language === 'dv' ? 'ޖުމްލަ ފޮތުގެ އަދަދު' : 'Total Volumes'}
           </div>
-          <div className="text-2xl font-black text-white">{totalCopiesInInventory}</div>
-          <p className="text-[11px] text-slate-400">{books.length} unique book titles</p>
+          <div className="text-2xl font-black text-slate-900">{totalCopiesInInventory}</div>
+          <p className="text-[11px] text-slate-500 font-medium">{books.length} {language === 'dv' ? 'ތަފާތު ސުރުޚީތައް' : 'unique book titles'}</p>
         </div>
 
-        <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/10 shadow-xl space-y-1">
-          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <TrendingUp className="w-4 h-4 text-emerald-400" /> Active Circulation
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+          <div className="text-xs text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+            <TrendingUp className="w-4 h-4 text-emerald-600" /> {language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތްތައް' : 'Active Circulation'}
           </div>
-          <div className="text-2xl font-black text-white">{activeLoans.length + overdueLoans.length}</div>
-          <p className="text-[11px] text-slate-400">{activeLoans.length} active, {overdueLoans.length} overdue</p>
+          <div className="text-2xl font-black text-slate-900">{activeLoans.length + overdueLoans.length}</div>
+          <p className="text-[11px] text-slate-500 font-medium">
+            {activeLoans.length} {language === 'dv' ? 'ހިނގަމުންދާ' : 'active'}, {overdueLoans.length} {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'overdue'}
+          </p>
         </div>
 
-        <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/10 shadow-xl space-y-1">
-          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-amber-400" /> Overdue Items
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+          <div className="text-xs text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-amber-600" /> {language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ' : 'Overdue Items'}
           </div>
-          <div className="text-2xl font-black text-amber-400">{overdueLoans.length}</div>
-          <p className="text-[11px] text-slate-400">Past designated due date</p>
+          <div className="text-2xl font-black text-amber-600">{overdueLoans.length}</div>
+          <p className="text-[11px] text-slate-500 font-medium">{language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : 'Past designated due date'}</p>
         </div>
 
-        <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/10 shadow-xl space-y-1">
-          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <DollarSign className="w-4 h-4 text-teal-400" /> Fine Collected
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+          <div className="text-xs text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+            <DollarSign className="w-4 h-4 text-teal-600" /> {language === 'dv' ? 'ލިބުނު ޖޫރިމަނާ' : 'Fine Collected'}
           </div>
-          <div className="text-2xl font-black text-white">${totalFinesPaid.toFixed(2)}</div>
-          <p className="text-[11px] text-slate-400">${totalFinesPending.toFixed(2)} outstanding balance</p>
+          <div className="text-2xl font-black text-slate-900">${totalFinesPaid.toFixed(2)}</div>
+          <p className="text-[11px] text-slate-500 font-medium">${totalFinesPending.toFixed(2)} {language === 'dv' ? 'ނުލިބިވާ ޖޫރިމަނާ' : 'outstanding balance'}</p>
         </div>
       </div>
 
@@ -366,33 +368,33 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Chart 1: Most Borrowed Books */}
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-indigo-400" /> Most Borrowed Book Titles
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-600" /> {language === 'dv' ? 'އެންމެ ގިނައިން ނަގާފައިވާ ފޮތްތައް' : 'Most Borrowed Book Titles'}
                 </h3>
-                <span className="text-xs font-semibold text-slate-400">All-Time Statistics</span>
+                <span className="text-xs font-bold text-slate-500">{language === 'dv' ? 'ޖުމްލަ ތަފާސްހިސާބު' : 'All-Time Statistics'}</span>
               </div>
 
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={popularBooksData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={0} angle={-15} textAnchor="end" />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
-                    <Bar dataKey="borrows" fill="#818cf8" radius={[6, 6, 0, 0]} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} interval={0} angle={-15} textAnchor="end" />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
+                    <Bar dataKey="borrows" fill="#6366f1" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Chart 2: Category Breakdown */}
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-purple-400" /> Book Genre & Category Distribution
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-purple-600" /> {language === 'dv' ? 'ފޮތްތަކުގެ ބާވަތްތަކުގެ އިންސައްތަ' : 'Book Genre & Category Distribution'}
                 </h3>
-                <span className="text-xs font-semibold text-slate-400">{books.length} Titles</span>
+                <span className="text-xs font-bold text-slate-500">{books.length} {language === 'dv' ? 'ސުރުޚީ' : 'Titles'}</span>
               </div>
 
               <div className="h-64">
@@ -412,7 +414,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -421,75 +423,87 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           {/* Quick Shortcuts to 7 Detailed Reports */}
-          <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-indigo-400" /> Instant Report Quick Select
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600" /> {language === 'dv' ? 'އަވަސް ރިޕޯޓް ޚިޔާރުކުރައްވާ' : 'Instant Report Quick Select'}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
                 onClick={() => setActiveReport('issued')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-indigo-400 font-bold text-sm">
-                  <span>1. Issued Books Report</span>
+                <div className="flex items-center justify-between text-indigo-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '1. ދޫކުރެވިފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : '1. Issued Books Report'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">View active loans, borrower names, issue dates, and due dates.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'ނަގާފައިވާ ފޮތްތަކާއި، ނެގި މީހާ އަދި މުއްދަތު ހަމަވާ ތާރީޚް.' : 'View active loans, borrower names, issue dates, and due dates.'}
+                </p>
               </button>
 
               <button
                 onClick={() => setActiveReport('returned')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-emerald-400 font-bold text-sm">
-                  <span>2. Returned Books Report</span>
+                <div className="flex items-center justify-between text-emerald-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '2. އަނބުރާ ލިބުނު ފޮތްތަކުގެ ރިޕޯޓް' : '2. Returned Books Report'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">History of returned books, return dates, and fee compliance.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރެވުނު ފޮތްތަކުގެ ތާރީޚް އަދި ޖޫރިމަނާ.' : 'History of returned books, return dates, and fee compliance.'}
+                </p>
               </button>
 
               <button
                 onClick={() => setActiveReport('overdue')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-amber-400 font-bold text-sm">
-                  <span>3. Overdue Books Report</span>
+                <div className="flex items-center justify-between text-amber-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '3. މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : '3. Overdue Books Report'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">List of items past due date with calculated overdue fees.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކާއި އަރަމުންދާ ޖޫރިމަނާ.' : 'List of items past due date with calculated overdue fees.'}
+                </p>
               </button>
 
               <button
                 onClick={() => setActiveReport('active-members')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-purple-400 font-bold text-sm">
-                  <span>4. Active Members Report</span>
+                <div className="flex items-center justify-between text-purple-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '4. މެންބަރުންގެ ޙަރަކާތްތަކުގެ ރިޕޯޓް' : '4. Active Members Report'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">Directory of active student and parent accounts with loan stats.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'ދަރިވަރުންނާއި ބެލެނިވެރިންގެ އެކައުންޓްތަކުގެ ތަފްޞީލު.' : 'Directory of active student and parent accounts with loan stats.'}
+                </p>
               </button>
 
               <button
                 onClick={() => setActiveReport('inventory')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-blue-400 font-bold text-sm">
-                  <span>5. Inventory Summary</span>
+                <div className="flex items-center justify-between text-blue-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '5. އިންވެންޓްރީ ޚުލާޞާ ރިޕޯޓް' : '5. Inventory Summary'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">Complete book stock catalog, shelf locations, and copy counts.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'ފޮތްތަކުގެ ސްޓޮކް، ހުރި ތަން އަދި ކޮޕީގެ އަދަދު.' : 'Complete book stock catalog, shelf locations, and copy counts.'}
+                </p>
               </button>
 
               <button
                 onClick={() => setActiveReport('fines')}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left space-y-1 transition group"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
               >
-                <div className="flex items-center justify-between text-teal-400 font-bold text-sm">
-                  <span>6. Fine Collection Report</span>
+                <div className="flex items-center justify-between text-teal-700 font-extrabold text-sm">
+                  <span>{language === 'dv' ? '6. ޖޫރިމަނާގެ ރިޕޯޓް' : '6. Fine Collection Report'}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                 </div>
-                <p className="text-xs text-slate-400">Financial log of fine assessments, collected amounts, and balances.</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'ޖޫރިމަނާގެ ފައިސާ ލިބުނު ގޮތާއި ނުލިބިވާ އަދަދު.' : 'Financial log of fine assessments, collected amounts, and balances.'}
+                </p>
               </button>
             </div>
           </div>
@@ -498,13 +512,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 1. ISSUED BOOKS REPORT */}
       {activeReport === 'issued' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <BookOpen className="w-6 h-6 text-indigo-400" /> Issued Books Report
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-indigo-600" /> {language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : 'Issued Books Report'}
               </h3>
-              <p className="text-xs text-slate-400">Currently active loans and items checked out to students.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'މިވަގުތު ދޫކުރެވިފައިވާ ފޮތްތަކުގެ ތަފްޞީލު.' : 'Currently active loans and items checked out to students.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -512,10 +528,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search book or borrower..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search book or borrower...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -524,38 +540,38 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   ['Book Title', 'Borrower', 'Grade/ID', 'ISBN', 'Issue Date', 'Due Date', 'Status'],
                   filteredIssuedRows.map(l => [l.bookTitle, l.userName, l.userGrade || 'N/A', l.bookIsbn, l.issueDate, l.dueDate, l.status])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold hover:bg-indigo-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-indigo-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Book Title</th>
-                  <th className="p-3.5 font-bold">Borrower Name</th>
-                  <th className="p-3.5 font-bold">Grade / ID</th>
-                  <th className="p-3.5 font-bold">Issue Date</th>
-                  <th className="p-3.5 font-bold">Due Date</th>
-                  <th className="p-3.5 font-bold">Status</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނެގި ފަރާތް' : 'Borrower Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ގްރޭޑް / އައިޑީ' : 'Grade / ID'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނެގި ތާރީޚް' : 'Issue Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ސުންގަޑި' : 'Due Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙާލަތު' : 'Status'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredIssuedRows.map(loan => (
-                  <tr key={loan.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{loan.bookTitle}</td>
-                    <td className="p-3.5 text-slate-200">{loan.userName}</td>
-                    <td className="p-3.5 text-slate-400">{loan.userGrade || 'Student'}</td>
-                    <td className="p-3.5 text-slate-300">{loan.issueDate}</td>
-                    <td className="p-3.5 text-slate-300 font-medium">{loan.dueDate}</td>
+                  <tr key={loan.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{loan.bookTitle}</td>
+                    <td className="p-3.5 text-slate-700">{loan.userName}</td>
+                    <td className="p-3.5 text-slate-500">{loan.userGrade || 'Student'}</td>
+                    <td className="p-3.5 text-slate-600">{loan.issueDate}</td>
+                    <td className="p-3.5 text-slate-800 font-bold">{loan.dueDate}</td>
                     <td className="p-3.5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                         loan.status === 'overdue'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
                       }`}>
                         {loan.status}
                       </span>
@@ -564,8 +580,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 ))}
                 {filteredIssuedRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500">
-                      No issued book records matching criteria.
+                    <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                      {language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތެއް ނެތެވެ.' : 'No issued book records matching criteria.'}
                     </td>
                   </tr>
                 )}
@@ -577,13 +593,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 2. RETURNED BOOKS REPORT */}
       {activeReport === 'returned' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <CheckCircle2 className="w-6 h-6 text-emerald-400" /> Returned Books Report
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" /> {language === 'dv' ? 'އަނބުރާ ލިބުނު ފޮތްތަކުގެ ރިޕޯޓް' : 'Returned Books Report'}
               </h3>
-              <p className="text-xs text-slate-400">Historical register of returned circulation items.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރެވުނު ފޮތްތަކުގެ ތާރީޚީ ލޮގް.' : 'Historical register of returned circulation items.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -591,10 +609,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search returned books..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search returned books...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -603,46 +621,46 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   ['Book Title', 'Borrower', 'Issue Date', 'Due Date', 'Return Date', 'Late Fee'],
                   filteredReturnedRows.map(l => [l.bookTitle, l.userName, l.issueDate, l.dueDate, l.returnDate || '', l.lateFee || 0])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-emerald-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Book Title</th>
-                  <th className="p-3.5 font-bold">Borrower Name</th>
-                  <th className="p-3.5 font-bold">Issue Date</th>
-                  <th className="p-3.5 font-bold">Due Date</th>
-                  <th className="p-3.5 font-bold">Return Date</th>
-                  <th className="p-3.5 font-bold">Late Fee Paid</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނެގި ފަރާތް' : 'Borrower Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނެގި ތާރީޚް' : 'Issue Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ސުންގަޑި' : 'Due Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙަވާލުކުރި ތާރީޚް' : 'Return Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޖޫރިމަނާ' : 'Late Fee Paid'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredReturnedRows.map(loan => (
-                  <tr key={loan.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{loan.bookTitle}</td>
-                    <td className="p-3.5 text-slate-200">{loan.userName}</td>
-                    <td className="p-3.5 text-slate-400">{loan.issueDate}</td>
-                    <td className="p-3.5 text-slate-400">{loan.dueDate}</td>
-                    <td className="p-3.5 text-emerald-400 font-semibold">{loan.returnDate || 'Returned'}</td>
-                    <td className="p-3.5 text-slate-300">
-                      {loan.lateFee > 0 ? (
-                        <span className="text-emerald-400 font-bold">${loan.lateFee.toFixed(2)}</span>
+                  <tr key={loan.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{loan.bookTitle}</td>
+                    <td className="p-3.5 text-slate-700">{loan.userName}</td>
+                    <td className="p-3.5 text-slate-500">{loan.issueDate}</td>
+                    <td className="p-3.5 text-slate-500">{loan.dueDate}</td>
+                    <td className="p-3.5 text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</td>
+                    <td className="p-3.5 text-slate-800 font-bold">
+                      {(loan.lateFee || 0) > 0 ? (
+                        <span className="text-emerald-700 font-extrabold">${(loan.lateFee || 0).toFixed(2)}</span>
                       ) : (
-                        <span className="text-slate-500">$0.00</span>
+                        <span className="text-slate-400">$0.00</span>
                       )}
                     </td>
                   </tr>
                 ))}
                 {filteredReturnedRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500">
-                      No returned book logs found.
+                    <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                      {language === 'dv' ? 'އަނބުރާ ލިބުނު ފޮތެއްގެ ލޮގެއް ނެތެވެ.' : 'No returned book logs found.'}
                     </td>
                   </tr>
                 )}
@@ -654,13 +672,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 3. OVERDUE BOOKS REPORT */}
       {activeReport === 'overdue' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <Clock className="w-6 h-6 text-amber-400" /> Overdue Books Report
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <Clock className="w-6 h-6 text-amber-600" /> {language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : 'Overdue Books Report'}
               </h3>
-              <p className="text-xs text-slate-400">Detailed overview of items past due date with calculated late fees.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'މުއްދަތު ހަމަވެގެން ނުލިބިވާ ފޮތްތަކާއި ޖޫރިމަނާގެ ތަފްޞީލު.' : 'Detailed overview of items past due date with calculated late fees.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -668,54 +688,54 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search overdue items..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search overdue items...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
               <button
                 onClick={() => exportToCSV('Overdue_Books_Report',
                   ['Book Title', 'Borrower', 'Due Date', 'Accumulated Fee', 'Status'],
-                  filteredOverdueRows.map(l => [l.bookTitle, l.userName, l.dueDate, `$${l.lateFee.toFixed(2)}`, l.status])
+                  filteredOverdueRows.map(l => [l.bookTitle, l.userName, l.dueDate, `$${(l.lateFee || 0).toFixed(2)}`, l.status])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600/20 text-amber-300 border border-amber-500/30 text-xs font-semibold hover:bg-amber-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-amber-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Book Title</th>
-                  <th className="p-3.5 font-bold">Borrower Name</th>
-                  <th className="p-3.5 font-bold">Original Due Date</th>
-                  <th className="p-3.5 font-bold">Accumulated Fine</th>
-                  <th className="p-3.5 font-bold">Status</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނެގި ފަރާތް' : 'Borrower Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ސުންގަޑި' : 'Original Due Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'އަރާފައިވާ ޖޫރިމަނާ' : 'Accumulated Fine'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙާލަތު' : 'Status'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredOverdueRows.map(loan => (
-                  <tr key={loan.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{loan.bookTitle}</td>
-                    <td className="p-3.5 text-slate-200">{loan.userName}</td>
-                    <td className="p-3.5 text-amber-300 font-semibold">{loan.dueDate}</td>
-                    <td className="p-3.5 text-amber-400 font-black">${loan.lateFee.toFixed(2)}</td>
+                  <tr key={loan.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{loan.bookTitle}</td>
+                    <td className="p-3.5 text-slate-700">{loan.userName}</td>
+                    <td className="p-3.5 text-amber-700 font-bold">{loan.dueDate}</td>
+                    <td className="p-3.5 text-amber-800 font-black">${(loan.lateFee || 0).toFixed(2)}</td>
                     <td className="p-3.5">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        OVERDUE
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                        {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'OVERDUE'}
                       </span>
                     </td>
                   </tr>
                 ))}
                 {filteredOverdueRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-500">
-                      Great news! No overdue books currently.
+                    <td colSpan={5} className="p-8 text-center text-slate-400 font-medium">
+                      {language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތެއް ނެތެވެ.' : 'Great news! No overdue books currently.'}
                     </td>
                   </tr>
                 )}
@@ -727,13 +747,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 4. ACTIVE MEMBERS REPORT */}
       {activeReport === 'active-members' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <Users className="w-6 h-6 text-purple-400" /> Active Members Report
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <Users className="w-6 h-6 text-purple-600" /> {language === 'dv' ? 'މެންބަރުންގެ ޙަރަކާތްތަކުގެ ރިޕޯޓް' : 'Active Members Report'}
               </h3>
-              <p className="text-xs text-slate-400">Library user directory, role breakdown, and loan statistics.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'މެންބަރުންގެ ޑައިރެކްޓަރީ އަދި ފޮތް ނެގުމުގެ ތަފާސްހިސާބު.' : 'Library user directory, role breakdown, and loan statistics.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -741,10 +763,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search member name or email..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search member name or email...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -753,46 +775,46 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   ['Name', 'Email', 'Role', 'Grade/ID', 'Active Borrows', 'Total Borrows', 'Unpaid Fines'],
                   filteredMemberRows.map(m => [m.user.name, m.user.email, m.user.role, m.user.studentIdCode || m.user.grade || 'N/A', m.activeBorrows, m.totalBorrows, `$${m.unpaidFines.toFixed(2)}`])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 text-xs font-semibold hover:bg-purple-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-purple-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Member Name</th>
-                  <th className="p-3.5 font-bold">Role</th>
-                  <th className="p-3.5 font-bold">Grade / Code</th>
-                  <th className="p-3.5 font-bold">Email</th>
-                  <th className="p-3.5 font-bold">Active Borrows</th>
-                  <th className="p-3.5 font-bold">Unpaid Fines</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ރޯލް' : 'Role'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ގްރޭޑް / ކޯޑު' : 'Grade / Code'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'އީމެއިލް' : 'Email'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'Active Borrows'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ނުދައްކާވާ ޖޫރިމަނާ' : 'Unpaid Fines'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredMemberRows.map(item => (
-                  <tr key={item.user.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{item.user.name}</td>
+                  <tr key={item.user.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{item.user.name}</td>
                     <td className="p-3.5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        item.user.role === 'admin' ? 'bg-amber-500/20 text-amber-300' :
-                        item.user.role === 'parent' ? 'bg-purple-500/20 text-purple-300' :
-                        'bg-blue-500/20 text-blue-300'
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                        item.user.role === 'admin' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                        item.user.role === 'parent' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                        'bg-sky-100 text-sky-900 border border-sky-300'
                       }`}>
                         {item.user.role}
                       </span>
                     </td>
-                    <td className="p-3.5 text-slate-400">{item.user.studentIdCode || item.user.grade || 'N/A'}</td>
-                    <td className="p-3.5 text-slate-300">{item.user.email}</td>
-                    <td className="p-3.5 font-semibold text-white">{item.activeBorrows}</td>
-                    <td className="p-3.5 font-bold text-slate-300">
+                    <td className="p-3.5 text-slate-600">{item.user.studentIdCode || item.user.grade || 'N/A'}</td>
+                    <td className="p-3.5 text-slate-600 font-mono text-[11px]">{item.user.email}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{item.activeBorrows}</td>
+                    <td className="p-3.5 font-black text-slate-800">
                       {item.unpaidFines > 0 ? (
-                        <span className="text-amber-400">${item.unpaidFines.toFixed(2)}</span>
+                        <span className="text-amber-700">${item.unpaidFines.toFixed(2)}</span>
                       ) : (
-                        <span className="text-slate-500">$0.00</span>
+                        <span className="text-slate-400">$0.00</span>
                       )}
                     </td>
                   </tr>
@@ -805,22 +827,24 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 5. INVENTORY SUMMARY */}
       {activeReport === 'inventory' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <FileText className="w-6 h-6 text-blue-400" /> Book Inventory Summary
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-600" /> {language === 'dv' ? 'އިންވެންޓްރީ ޚުލާޞާ' : 'Book Inventory Summary'}
               </h3>
-              <p className="text-xs text-slate-400">Complete catalog stock details, locations, and copy availabilities.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'ލައިބްރަރީގެ ފޮތްތަކުގެ ސްޓޮކް އަދި ހުރި ތަން.' : 'Complete catalog stock details, locations, and copy availabilities.'}
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <select
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
-                className="bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-bold"
               >
-                <option value="all">All Genres ({books.length})</option>
+                <option value="all">{language === 'dv' ? `ހުރިހާ ބާވަތްތަކެއް (${books.length})` : `All Genres (${books.length})`}</option>
                 {categories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -830,10 +854,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Filter inventory..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Filter inventory...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -842,36 +866,36 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   ['Title', 'Author', 'Category', 'ISBN', 'Barcode', 'Shelf Location', 'Total Copies', 'Available Copies'],
                   filteredInventoryRows.map(b => [b.title, b.author, b.category, b.isbn, b.barcode, b.shelfLocation, b.totalCopies, b.availableCopies])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-semibold hover:bg-blue-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-blue-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Book Title</th>
-                  <th className="p-3.5 font-bold">Author</th>
-                  <th className="p-3.5 font-bold">Genre</th>
-                  <th className="p-3.5 font-bold">Shelf Location</th>
-                  <th className="p-3.5 font-bold">Total Copies</th>
-                  <th className="p-3.5 font-bold">Available Copies</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'މުޞައްނިފު' : 'Author'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ބާވަތް' : 'Genre'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ހުރި ތަން' : 'Shelf Location'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޖުމްލަ ކޮޕީ' : 'Total Copies'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ހުރި ކޮޕީ' : 'Available Copies'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredInventoryRows.map(book => (
-                  <tr key={book.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{book.title}</td>
-                    <td className="p-3.5 text-slate-300">{book.author}</td>
-                    <td className="p-3.5 text-slate-400">{book.category}</td>
-                    <td className="p-3.5 text-indigo-300 font-medium">{book.shelfLocation}</td>
-                    <td className="p-3.5 font-semibold text-white">{book.totalCopies}</td>
+                  <tr key={book.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{book.title}</td>
+                    <td className="p-3.5 text-slate-700">{book.author}</td>
+                    <td className="p-3.5 text-slate-600">{book.category}</td>
+                    <td className="p-3.5 text-indigo-700 font-bold">{book.shelfLocation}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{book.totalCopies}</td>
                     <td className="p-3.5">
-                      <span className={`font-bold ${book.availableCopies > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {book.availableCopies} available
+                      <span className={`font-bold ${book.availableCopies > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {book.availableCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'available'}
                       </span>
                     </td>
                   </tr>
@@ -884,13 +908,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 6. FINE COLLECTION REPORT */}
       {activeReport === 'fines' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <DollarSign className="w-6 h-6 text-teal-400" /> Fine Collection & Penalty Report
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <DollarSign className="w-6 h-6 text-teal-600" /> {language === 'dv' ? 'ޖޫރިމަނާގެ ތަފްޞީލު ރިޕޯޓް' : 'Fine Collection & Penalty Report'}
               </h3>
-              <p className="text-xs text-slate-400">Financial tracking for assessed late return fees and payment statuses.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'ޖޫރިމަނާގެ ފައިސާ އަދި ދެއްކި ޙާލަތު.' : 'Financial tracking for assessed late return fees and payment statuses.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -898,56 +924,56 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search fines..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search fines...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
               <button
                 onClick={() => exportToCSV('Fine_Collection_Report',
                   ['Borrower', 'Book Title', 'Due Date', 'Fine Amount', 'Paid Status'],
-                  filteredFineRows.map(l => [l.userName, l.bookTitle, l.dueDate, `$${l.lateFee.toFixed(2)}`, l.feePaid ? 'Paid' : 'Pending'])
+                  filteredFineRows.map(l => [l.userName, l.bookTitle, l.dueDate, `$${(l.lateFee || 0).toFixed(2)}`, l.feePaid ? 'Paid' : 'Pending'])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30 text-xs font-semibold hover:bg-teal-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-teal-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Borrower Name</th>
-                  <th className="p-3.5 font-bold">Book Title</th>
-                  <th className="p-3.5 font-bold">Due Date</th>
-                  <th className="p-3.5 font-bold">Assessed Fee</th>
-                  <th className="p-3.5 font-bold">Payment Status</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Borrower Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ސުންގަޑި' : 'Due Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޖޫރިމަނާ' : 'Assessed Fee'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙާލަތު' : 'Payment Status'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredFineRows.map(loan => (
-                  <tr key={loan.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 font-bold text-white">{loan.userName}</td>
-                    <td className="p-3.5 text-slate-200">{loan.bookTitle}</td>
-                    <td className="p-3.5 text-slate-400">{loan.dueDate}</td>
-                    <td className="p-3.5 font-black text-amber-400">${loan.lateFee.toFixed(2)}</td>
+                  <tr key={loan.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 font-bold text-slate-900">{loan.userName}</td>
+                    <td className="p-3.5 text-slate-700">{loan.bookTitle}</td>
+                    <td className="p-3.5 text-slate-500">{loan.dueDate}</td>
+                    <td className="p-3.5 font-black text-amber-700">${(loan.lateFee || 0).toFixed(2)}</td>
                     <td className="p-3.5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        loan.feePaid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                        loan.feePaid ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-900 border border-rose-300'
                       }`}>
-                        {loan.feePaid ? 'PAID' : 'UNPAID'}
+                        {loan.feePaid ? (language === 'dv' ? 'ދައްކާފައި' : 'PAID') : (language === 'dv' ? 'ނުދައްކާ' : 'UNPAID')}
                       </span>
                     </td>
                   </tr>
                 ))}
                 {filteredFineRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-500">
-                      No fine assessment records found.
+                    <td colSpan={5} className="p-8 text-center text-slate-400 font-medium">
+                      {language === 'dv' ? 'ޖޫރިމަނާގެ ރެކޯޑެއް ނެތެވެ.' : 'No fine assessment records found.'}
                     </td>
                   </tr>
                 )}
@@ -959,13 +985,15 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* VIEW: 7. ACTIVITY LOG SUMMARY */}
       {activeReport === 'activity-log' && (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <Activity className="w-6 h-6 text-pink-400" /> Library Activity Log Summary
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-pink-600" /> {language === 'dv' ? 'ޙަރަކާތްތަކުގެ ލޮގް' : 'Library Activity Log Summary'}
               </h3>
-              <p className="text-xs text-slate-400">Chronological transaction history of checkouts, returns, and payments.</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'dv' ? 'ލައިބްރަރީގައި ހިނގާފައިވާ ޙަރަކާތްތަކުގެ ތާރީޚީ ރެކޯޑް.' : 'Chronological transaction history of checkouts, returns, and payments.'}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -973,10 +1001,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Filter activity logs..."
+                  placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Filter activity logs...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -985,40 +1013,40 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   ['Date', 'Type', 'Description', 'User', 'Status'],
                   filteredActivityLogs.map(l => [l.date, l.type, l.description, l.user, l.status])
                 )}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-pink-600/20 text-pink-300 border border-pink-500/30 text-xs font-semibold hover:bg-pink-600/30 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-900 border border-purple-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" /> CSV Export
+                <Download className="w-3.5 h-3.5 text-pink-600" /> {language === 'dv' ? 'ސީ.އެސް.ވީ' : 'CSV Export'}
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
+            <table className="w-full text-left text-xs text-slate-800 border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px] bg-white/5">
-                  <th className="p-3.5 font-bold">Transaction Date</th>
-                  <th className="p-3.5 font-bold">Activity Type</th>
-                  <th className="p-3.5 font-bold">Description</th>
-                  <th className="p-3.5 font-bold">Member Name</th>
-                  <th className="p-3.5 font-bold">Status</th>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ތާރީޚް' : 'Transaction Date'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙަރަކާތުގެ ބާވަތް' : 'Activity Type'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ތަފްޞީލު' : 'Description'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
+                  <th className="p-3.5 font-bold">{language === 'dv' ? 'ޙާލަތު' : 'Status'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filteredActivityLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/5 transition">
-                    <td className="p-3.5 text-slate-400 font-medium">{log.date}</td>
+                  <tr key={log.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3.5 text-slate-500 font-medium">{log.date}</td>
                     <td className="p-3.5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        log.type === 'BOOK_ISSUED' ? 'bg-indigo-500/20 text-indigo-300' :
-                        log.type === 'BOOK_RETURNED' ? 'bg-emerald-500/20 text-emerald-300' :
-                        'bg-teal-500/20 text-teal-300'
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                        log.type.includes('ދޫކުރެވުނު') || log.type === 'BOOK_ISSUED' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' :
+                        log.type.includes('ލިބުނު') || log.type === 'BOOK_RETURNED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                        'bg-teal-100 text-teal-900 border border-teal-300'
                       }`}>
                         {log.type}
                       </span>
                     </td>
-                    <td className="p-3.5 text-white font-medium">{log.description}</td>
-                    <td className="p-3.5 text-slate-300">{log.user}</td>
-                    <td className="p-3.5 text-emerald-400 font-semibold">{log.status}</td>
+                    <td className="p-3.5 text-slate-900 font-bold">{log.description}</td>
+                    <td className="p-3.5 text-slate-700">{log.user}</td>
+                    <td className="p-3.5 text-emerald-700 font-bold">{log.status}</td>
                   </tr>
                 ))}
               </tbody>

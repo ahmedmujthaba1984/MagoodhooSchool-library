@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   BookOpen, CheckCircle, RotateCcw, Clock, AlertTriangle,
   Bookmark, ShieldAlert, Sparkles, UserCheck, DollarSign,
-  ArrowRight, Users, Check, AlertCircle, School, Calendar
+  ArrowRight, Users, Check, AlertCircle, School, Calendar, XCircle
 } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
 import { useLanguage } from '../lib/i18n';
@@ -13,6 +13,7 @@ interface MyBorrowingsProps {
   reservations: Reservation[];
   books: Book[];
   onRenewLoan: (loan: Loan) => void;
+  onCancelReservation?: (reservationId: string) => void;
 }
 
 export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
@@ -20,7 +21,8 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
   loans,
   reservations,
   books,
-  onRenewLoan
+  onRenewLoan,
+  onCancelReservation
 }) => {
   const { t, language } = useLanguage();
   // Filter loans for current user
@@ -303,15 +305,29 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             {userReservations.map(res => (
               <div
                 key={res.id}
-                className="p-4 bg-purple-50/80 border border-purple-200/80 rounded-2xl flex items-center justify-between text-xs text-purple-950 shadow-2xs"
+                className="p-4 bg-purple-50/80 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs text-purple-950 shadow-2xs"
               >
                 <div>
-                  <span className="font-bold text-sm text-slate-900">{res.bookTitle}</span>
-                  <p className="text-[11px] text-purple-800 font-medium mt-0.5">Reservation submitted on: {res.requestDate}</p>
+                  <span className="font-bold text-sm text-slate-900 block">{res.bookTitle}</span>
+                  <p className="text-[11px] text-purple-800 font-medium mt-0.5">
+                    {language === 'dv' ? 'ރިޒަވޭޝަން ހުށަހެޅި ތާރީޚް:' : 'Reservation submitted on:'} {res.requestDate}
+                  </p>
                 </div>
-                <span className="bg-purple-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
-                  {res.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-purple-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
+                    {res.status}
+                  </span>
+                  {onCancelReservation && (
+                    <button
+                      onClick={() => onCancelReservation(res.id)}
+                      className="bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
+                      title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Reservation'}
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>{language === 'dv' ? 'ކެންސަލް' : 'Cancel'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

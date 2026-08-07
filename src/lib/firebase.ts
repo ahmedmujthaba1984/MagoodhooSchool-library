@@ -198,6 +198,10 @@ export async function updateReservation(id: string, data: Partial<Reservation>) 
   await updateDoc(doc(db, RESERVATIONS_COL, id), data);
 }
 
+export async function cancelReservation(id: string) {
+  await deleteDoc(doc(db, RESERVATIONS_COL, id));
+}
+
 // 5. SETTINGS
 export function subscribeSettings(callback: (settings: LibrarySettings) => void) {
   return onSnapshot(doc(db, SETTINGS_COL, 'main'), (snapshot) => {

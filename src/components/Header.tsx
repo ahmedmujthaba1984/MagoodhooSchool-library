@@ -221,9 +221,10 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Navigation Tabs */}
-      <div className="bg-slate-50/80 px-4 sm:px-6 lg:px-8 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto flex items-center space-x-1.5 overflow-x-auto py-2 scrollbar-none">
+      {/* Main Navigation Tabs with Device View Mode Indicators */}
+      <div className="bg-slate-50/80 px-3 sm:px-6 lg:px-8 border-t border-slate-200">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto py-2 scrollbar-none">
+          <div className="flex items-center space-x-1.5 shrink-0">
           <button
             onClick={() => setActiveTab('catalog')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -351,6 +352,16 @@ export const Header: React.FC<HeaderProps> = ({
             <Key className="w-4 h-4" />
             {t.login}
           </button>
+          </div>
+
+          {/* Active Device View Indicator Badge */}
+          <div className="hidden xl:flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shrink-0 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="sm:inline lg:hidden text-slate-700">📱 Mobile View</span>
+            <span className="hidden lg:inline xl:hidden text-slate-700">🎟️ Tablet View</span>
+            <span className="hidden xl:inline 2xl:hidden text-slate-700">💻 Laptop View</span>
+            <span className="hidden 2xl:inline text-slate-700">🖥️ PC View</span>
+          </div>
         </div>
       </div>
 

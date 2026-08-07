@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, BookOpen, BookMarked, CheckCircle, Clock, AlertTriangle, Bookmark, Shield, MapPin, Eye, Info, Plus, FileSpreadsheet, User, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, BookOpen, BookMarked, CheckCircle, Clock, AlertTriangle, Bookmark, Shield, MapPin, Eye, Info, Plus, FileSpreadsheet, User, Edit, Trash2, ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
 import { Book, UserProfile, Reservation } from '../types';
 import { AddBookModal } from './AddBookModal';
 import { useLanguage } from '../lib/i18n';
@@ -15,6 +15,7 @@ interface BookCatalogProps {
   onEditBook?: (book: Book) => void;
   onDeleteBook?: (bookId: string) => void;
   onOpenImportModal?: (type?: 'books' | 'parents' | 'staff') => void;
+  onCancelReservation?: (reservationId: string) => void;
 }
 
 export const BookCatalog: React.FC<BookCatalogProps> = ({
@@ -27,7 +28,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   onAddBook,
   onEditBook,
   onDeleteBook,
-  onOpenImportModal
+  onOpenImportModal,
+  onCancelReservation
 }) => {
   const { t, isRtl, language } = useLanguage();
 
@@ -330,19 +332,35 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     </button>
                   ) : (
                     <>
-                      {/* Reserve Online Button */}
-                      <button
-                        onClick={() => onReserveBook(book)}
-                        disabled={isReserved}
-                        className={`flex-1 font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 ${
-                          isReserved
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow'
-                        }`}
-                      >
-                        <Bookmark className="w-3.5 h-3.5" />
-                        {isReserved ? 'Reserved Online' : 'Reserve Online'}
-                      </button>
+                      {/* Reserve Online / Cancel Button */}
+                      {isReserved ? (
+                        <div className="flex-1 flex items-center gap-1">
+                          <span className="flex-1 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1">
+                            <Bookmark className="w-3.5 h-3.5" />
+                            {language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved Online'}
+                          </span>
+                          {onCancelReservation && (
+                            <button
+                              onClick={() => {
+                                const userRes = reservations.find(r => r.bookId === book.id && (r.userId === currentUser.id || r.userName === currentUser.name) && r.status === 'pending');
+                                if (userRes) onCancelReservation(userRes.id);
+                              }}
+                              className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold transition shadow cursor-pointer active:scale-95 shrink-0"
+                              title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Reservation'}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onReserveBook(book)}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 shadow cursor-pointer active:scale-95"
+                        >
+                          <Bookmark className="w-3.5 h-3.5" />
+                          {language === 'dv' ? 'އޮންލައިންކޮށް ނަންނޯޓު ކުރައްވާ' : 'Reserve Online'}
+                        </button>
+                      )}
 
                       {/* Librarian Quick Checkout */}
                       {currentUser.role === 'admin' && (

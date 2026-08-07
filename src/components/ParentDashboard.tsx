@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, BookOpen, Clock, AlertCircle, CheckCircle, RotateCcw, Calendar, DollarSign, Shield, ArrowRight, User, Trash2 } from 'lucide-react';
+import { Users, UserPlus, BookOpen, Clock, AlertCircle, CheckCircle, RotateCcw, Calendar, DollarSign, Shield, ArrowRight, User, Trash2, XCircle } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
 import { useLanguage } from '../lib/i18n';
 
@@ -13,6 +13,7 @@ interface ParentDashboardProps {
   onAddChildToParent: (childName: string, grade: string, studentIdCode: string) => void;
   onOpenAddParentModal?: () => void;
   onDeleteUser?: (userId: string) => void;
+  onCancelReservation?: (reservationId: string) => void;
 }
 
 export const ParentDashboard: React.FC<ParentDashboardProps> = ({
@@ -24,7 +25,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   onRenewLoan,
   onAddChildToParent,
   onOpenAddParentModal,
-  onDeleteUser
+  onDeleteUser,
+  onCancelReservation
 }) => {
   const { t, language } = useLanguage();
   // Find all children linked to this parent account
@@ -110,63 +112,71 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       </div>
 
       {/* Aggregate Overview Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 text-indigo-900 rounded-2xl border border-indigo-200">
-            <BookOpen className="w-6 h-6 text-indigo-600" />
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-3 sm:gap-4">
+          <div className="p-2.5 sm:p-3 bg-indigo-100 text-indigo-900 rounded-2xl border border-indigo-200 shrink-0">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900">{totalActiveLoans}</div>
-            <div className="text-xs text-slate-500 font-bold">Books Currently on Loan</div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">{totalActiveLoans}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold leading-tight">
+              {language === 'dv' ? 'މިވަގުތު ނަގާފައިވާ' : 'Books Currently on Loan'}
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 text-emerald-900 rounded-2xl border border-emerald-200">
-            <CheckCircle className="w-6 h-6 text-emerald-600" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-3 sm:gap-4">
+          <div className="p-2.5 sm:p-3 bg-emerald-100 text-emerald-900 rounded-2xl border border-emerald-200 shrink-0">
+            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900">{totalReturned}</div>
-            <div className="text-xs text-slate-500 font-bold">Previously Returned Books</div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">{totalReturned}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold leading-tight">
+              {language === 'dv' ? 'އަނބުރާ ދެއްކި ފޮތްތައް' : 'Previously Returned Books'}
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-amber-100 text-amber-900 rounded-2xl border border-amber-200">
-            <Clock className="w-6 h-6 text-amber-600" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-3 sm:gap-4">
+          <div className="p-2.5 sm:p-3 bg-amber-100 text-amber-900 rounded-2xl border border-amber-200 shrink-0">
+            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900">{totalOverdue}</div>
-            <div className="text-xs text-slate-500 font-bold">Overdue Books</div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">{totalOverdue}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold leading-tight">
+              {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Overdue Books'}
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-rose-100 text-rose-900 rounded-2xl border border-rose-200">
-            <DollarSign className="w-6 h-6 text-rose-600" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-3 sm:gap-4">
+          <div className="p-2.5 sm:p-3 bg-rose-100 text-rose-900 rounded-2xl border border-rose-200 shrink-0">
+            <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-rose-600" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900">${totalFeesDue.toFixed(2)}</div>
-            <div className="text-xs text-slate-500 font-bold">Outstanding Late Fees</div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">${totalFeesDue.toFixed(2)}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold leading-tight">
+              {language === 'dv' ? 'ދައްކަންޖެހޭ ޖޫރިމަނާ' : 'Outstanding Late Fees'}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Children Accounts Tab Switcher */}
       {children.length > 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
           
           {/* Child Tabs Header */}
-          <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider pr-2 flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-purple-600" /> Select Child:
+          <div className="bg-slate-50 p-3.5 sm:p-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+              <span className="text-[11px] sm:text-xs font-extrabold text-slate-500 uppercase tracking-wider pr-1 flex items-center gap-1 shrink-0">
+                <User className="w-3.5 h-3.5 text-purple-600" /> {language === 'dv' ? 'ދަރިވަރު ޚިޔާރުކުރައްވާ:' : 'Select Child:'}
               </span>
               {children.map((child) => (
                 <button
                   key={child.id}
                   onClick={() => setActiveChildId(child.id)}
-                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 sm:px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 active:scale-95 cursor-pointer ${
                     activeChildId === child.id || (!activeChildId && children[0].id === child.id)
                       ? 'bg-purple-600 text-white shadow-md'
                       : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
@@ -183,7 +193,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             </div>
 
             {selectedChild && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                 <div className="text-xs font-mono bg-purple-50 text-purple-900 border border-purple-200 px-3 py-1 rounded-xl font-bold">
                   Student ID: <span className="font-extrabold">{selectedChild.studentIdCode}</span>
                 </div>
@@ -194,7 +204,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     title="Remove Child Account"
                     id={`remove-child-btn-${selectedChild.id}`}
                   >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Remove Student
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span className="hidden sm:inline">{language === 'dv' ? 'އުނިކުރައްވާ' : 'Remove Student'}</span>
                   </button>
                 )}
               </div>
@@ -203,20 +214,20 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
           {/* Child Specific Content Body */}
           {selectedChild && (
-            <div className="p-6 space-y-8">
+            <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
               
               {/* Section 1: Books Currently On Loan */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-purple-600" />
-                    Books Currently On Loan ({childActiveLoans.length})
+                    {language === 'dv' ? `މިވަގުތު ނަގާފައިވާ ފޮތްތައް (${childActiveLoans.length})` : `Books Currently On Loan (${childActiveLoans.length})`}
                   </h3>
                 </div>
 
                 {childActiveLoans.length === 0 ? (
                   <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-medium">
-                    No active loans for {selectedChild.name} at this time.
+                    {language === 'dv' ? `${selectedChild.name} ނަގާފައިވާ އެއްވެސް ފޮތެއް މިވަގުތަކު ނެތެވެ.` : `No active loans for ${selectedChild.name} at this time.`}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -227,7 +238,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       return (
                         <div
                           key={loan.id}
-                          className={`p-4 rounded-2xl border flex gap-4 ${
+                          className={`p-3.5 sm:p-4 rounded-2xl border flex gap-3 sm:gap-4 ${
                             isOverdue ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-slate-50 border-slate-200 text-slate-800'
                           }`}
                         >
@@ -235,19 +246,19 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                             <img
                               src={book.coverUrl}
                               alt={book.title}
-                              className="w-16 h-22 object-cover rounded-xl shadow-md border border-slate-200 flex-shrink-0"
+                              className="w-14 sm:w-16 h-20 sm:h-22 object-cover rounded-xl shadow-md border border-slate-200 flex-shrink-0"
                             />
                           )}
                           <div className="flex-1 flex flex-col justify-between">
                             <div>
-                              <div className="flex justify-between items-start">
-                                <h4 className="font-extrabold text-slate-900 text-sm line-clamp-1">{loan.bookTitle}</h4>
+                              <div className="flex justify-between items-start gap-1">
+                                <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm line-clamp-1">{loan.bookTitle}</h4>
                                 {isOverdue ? (
-                                  <span className="bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                                  <span className="bg-rose-600 text-white text-[9px] sm:text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow shrink-0">
                                     OVERDUE
                                   </span>
                                 ) : (
-                                  <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
                                     ACTIVE
                                   </span>
                                 )}
@@ -257,25 +268,25 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                                 <div>Issued: <span className="font-bold text-slate-800">{loan.issueDate}</span></div>
                                 <div>Due Date: <span className={`font-extrabold ${isOverdue ? 'text-rose-700' : 'text-slate-900'}`}>{loan.dueDate}</span></div>
                                 {isOverdue && loan.lateFee > 0 && (
-                                  <div className="text-rose-700 font-bold mt-1">
-                                    Late Fee Accumulating: ${loan.lateFee.toFixed(2)}
+                                  <div className="text-rose-700 font-bold mt-1 text-[11px]">
+                                    Late Fee: ${loan.lateFee.toFixed(2)}
                                   </div>
                                 )}
                               </div>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-200">
-                              <span className="text-[11px] text-slate-500 font-medium">Renewals used: {loan.renewalCount}/2</span>
+                              <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">Renewed: {loan.renewalCount}/2</span>
                               <button
                                 onClick={() => onRenewLoan(loan)}
                                 disabled={isOverdue || loan.renewalCount >= 2}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer ${
                                   isOverdue || loan.renewalCount >= 2
                                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
                                     : 'bg-purple-600 hover:bg-purple-700 text-white shadow'
                                 }`}
                               >
-                                <RotateCcw className="w-3 h-3" /> Renew Online
+                                <RotateCcw className="w-3 h-3" /> {language === 'dv' ? 'މުއްދަތު އިތުރުކުރައްވާ' : 'Renew Online'}
                               </button>
                             </div>
                           </div>
@@ -288,62 +299,94 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
               {/* Section 2: Previously Returned Books */}
               <div>
-                <h3 className="text-base font-black text-slate-900 mb-4 flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-slate-900 mb-4 flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  Previously Returned Books History ({childReturnedLoans.length})
+                  {language === 'dv' ? `އަނބުރާ ޙަވާލުކުރެވިފައިވާ ފޮތްތަކުގެ ތާރީޚް (${childReturnedLoans.length})` : `Previously Returned Books History (${childReturnedLoans.length})`}
                 </h3>
 
                 {childReturnedLoans.length === 0 ? (
                   <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-medium">
-                    No past borrowing history recorded yet for {selectedChild.name}.
+                    {language === 'dv' ? `${selectedChild.name} ގެ ނެގުންތަކުގެ ތާރީޚެއް ނެތެވެ.` : `No past borrowing history recorded yet for ${selectedChild.name}.`}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
-                    <table className="w-full text-left text-xs text-slate-700">
-                      <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
-                        <tr>
-                          <th className="p-3">Book Title</th>
-                          <th className="p-3">Issue Date</th>
-                          <th className="p-3">Returned On</th>
-                          <th className="p-3">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {childReturnedLoans.map(loan => (
-                          <tr key={loan.id} className="hover:bg-slate-50 transition">
-                            <td className="p-3 font-bold text-slate-900">{loan.bookTitle}</td>
-                            <td className="p-3 font-mono text-slate-600">{loan.issueDate}</td>
-                            <td className="p-3 font-mono text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</td>
-                            <td className="p-3">
-                              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                                Returned OK
-                              </span>
-                            </td>
+                  <>
+                    {/* Mobile Cards View */}
+                    <div className="sm:hidden space-y-2.5">
+                      {childReturnedLoans.map(loan => (
+                        <div key={loan.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between items-center">
+                          <div>
+                            <div className="font-extrabold text-slate-900">{loan.bookTitle}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">Issued: {loan.issueDate} • Returned: <span className="text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</span></div>
+                          </div>
+                          <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                            Returned OK
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Tablet / Laptop / PC Table View */}
+                    <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+                          <tr>
+                            <th className="p-3">Book Title</th>
+                            <th className="p-3">Issue Date</th>
+                            <th className="p-3">Returned On</th>
+                            <th className="p-3">Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {childReturnedLoans.map(loan => (
+                            <tr key={loan.id} className="hover:bg-slate-50 transition">
+                              <td className="p-3 font-bold text-slate-900">{loan.bookTitle}</td>
+                              <td className="p-3 font-mono text-slate-600">{loan.issueDate}</td>
+                              <td className="p-3 font-mono text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</td>
+                              <td className="p-3">
+                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                  Returned OK
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
 
               {/* Section 3: Online Book Reservations Queue */}
               {childReservations.length > 0 && (
                 <div>
-                  <h3 className="text-base font-black text-slate-900 mb-3 flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 mb-3 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-indigo-600" />
-                    Online Reserved Books ({childReservations.length})
+                    {language === 'dv' ? `ނަންނޯޓު ކުރެވިފައިވާ ފޮތްތައް (${childReservations.length})` : `Online Reserved Books (${childReservations.length})`}
                   </h3>
                   <div className="space-y-2">
                     {childReservations.map(res => (
-                      <div key={res.id} className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between text-xs text-indigo-900 font-medium">
+                      <div key={res.id} className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-indigo-900 font-medium shadow-2xs">
                         <div>
-                          <span className="font-bold text-slate-900">{res.bookTitle}</span>
-                          <p className="text-[11px] text-slate-500">Requested on: {res.requestDate}</p>
+                          <span className="font-bold text-slate-900 text-sm block">{res.bookTitle}</span>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {language === 'dv' ? 'އެދިފައިވާ ތާރީޚް:' : 'Requested on:'} {res.requestDate}
+                          </p>
                         </div>
-                        <span className="bg-indigo-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase">
-                          {res.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="bg-indigo-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase">
+                            {res.status}
+                          </span>
+                          {onCancelReservation && (
+                            <button
+                              onClick={() => onCancelReservation(res.id)}
+                              className="bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
+                              title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Reservation'}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>{language === 'dv' ? 'ކެންސަލް' : 'Cancel'}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

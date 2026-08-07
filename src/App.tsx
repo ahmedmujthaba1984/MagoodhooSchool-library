@@ -13,6 +13,7 @@ import {
   updateLoan,
   createReservation,
   updateReservation,
+  cancelReservation,
   updateSettings,
   saveUserProfile,
   createUserProfile,
@@ -164,7 +165,15 @@ export default function App() {
     };
 
     await createReservation(newRes);
-    alert(`Successfully submitted online reservation request for "${book.title}"!`);
+    alert(language === 'dv' ? `"${book.title}" އަށް އޮންލައިންކޮށް ނަންނޯޓު ކުރެވިއްޖެ!` : `Successfully submitted online reservation request for "${book.title}"!`);
+  };
+
+  // Handle Online Book Reservation Cancellation
+  const handleCancelReservation = async (reservationId: string) => {
+    if (confirm(language === 'dv' ? 'މި ރިޒަވޭޝަން ކެންސަލް ކުރަން ބޭނުންފުޅުތޯ؟' : 'Are you sure you want to cancel this online book reservation?')) {
+      await cancelReservation(reservationId);
+      alert(language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރެވިއްޖެ.' : 'Reservation successfully cancelled.');
+    }
   };
 
   // Handle Librarian Checkout Process
@@ -689,6 +698,7 @@ export default function App() {
                   }}
                   onDeleteBook={handleDeleteBook}
                   onOpenImportModal={handleOpenImportModal}
+                  onCancelReservation={handleCancelReservation}
                 />
               )}
 
@@ -726,6 +736,7 @@ export default function App() {
                   books={books}
                   onRenewLoan={handleRenewLoan}
                   onDeleteUser={handleDeleteUser}
+                  onCancelReservation={handleCancelReservation}
                   onAddChildToParent={async (name, grade, studentIdCode) => {
                     const childProfile: Omit<UserProfile, 'id'> = {
                       name,
@@ -787,6 +798,7 @@ export default function App() {
                   reservations={reservations}
                   books={books}
                   onRenewLoan={handleRenewLoan}
+                  onCancelReservation={handleCancelReservation}
                 />
               )}
 
