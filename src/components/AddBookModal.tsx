@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BookOpen, Plus, Sparkles, QrCode, ShieldAlert, Image, Check, X, Wand2, Globe, Search, Loader2, DownloadCloud, AlertCircle } from 'lucide-react';
 import { Book } from '../types';
+import { generateAiBookInfo } from '../lib/aiService';
 
 interface AddBookModalProps {
   isOpen: boolean;
@@ -223,24 +224,15 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     setOnlineFetchError(null);
 
     try {
-      const res = await fetch('/api/ai/generate-book-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, author })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.description) setDescription(data.description);
-        if (data.category) setCategory(data.category);
-        if (data.publicationYear) setPublicationYear(data.publicationYear);
-        if (data.publisher) setPublisher(data.publisher);
-        if (data.shelfLocation) setShelfLocation(data.shelfLocation);
-        if (!barcode && !isbn) handleGenerateBarcode();
-      } else {
-        setOnlineFetchError(`AI Auto-Fill Error: ${data.error || 'Failed to auto-generate info'}`);
-      }
+      const data = await generateAiBookInfo({ title, author });
+      if (data.description) setDescription(data.description);
+      if (data.category) setCategory(data.category);
+      if (data.publicationYear) setPublicationYear(data.publicationYear);
+      if (data.publisher) setPublisher(data.publisher);
+      if (data.shelfLocation) setShelfLocation(data.shelfLocation);
+      if (!barcode && !isbn) handleGenerateBarcode();
     } catch (err: any) {
-      setOnlineFetchError(`AI Auto-Fill Error: ${err.message}`);
+      setOnlineFetchError(`AI Auto-Fill Error: ${err.message || 'Failed to auto-generate info'}`);
     } finally {
       setIsAIGenerating(false);
     }

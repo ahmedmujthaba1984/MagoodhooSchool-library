@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
@@ -10,9 +11,9 @@ app.use(express.json({ limit: '10mb' }));
 
 // Initialize server-side Gemini client using GEMINI_API_KEY
 const getGeminiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is missing.');
+    return null;
   }
   return new GoogleGenAI({
     apiKey,
@@ -31,6 +32,9 @@ app.post('/api/ai/ask-librarian', async (req, res) => {
   try {
     const { message, catalogContext, userGrade, language } = req.body;
     const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY environment variable is not configured.' });
+    }
 
     const isDhivehi = language === 'dv';
     const langInstruction = isDhivehi
@@ -70,6 +74,9 @@ app.post('/api/ai/generate-book-info', async (req, res) => {
       return res.status(400).json({ error: 'Title and Author are required.' });
     }
     const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY environment variable is not configured.' });
+    }
 
     const isDhivehi = language === 'dv';
     const prompt = `You are a school librarian cataloging a book titled "${title}" by "${author}".
@@ -100,6 +107,9 @@ app.post('/api/ai/quiz-generator', async (req, res) => {
   try {
     const { bookTitle, author, language } = req.body;
     const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY environment variable is not configured.' });
+    }
 
     const isDhivehi = language === 'dv';
     const langPrompt = isDhivehi

@@ -6,25 +6,13 @@ import {
 } from 'lucide-react';
 import { Book, UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { askAiLibrarian, generateAiQuiz, QuizData } from '../lib/aiService';
 
 interface AIAssistantProps {
   books: Book[];
   currentUser: UserProfile;
   onSelectBook?: (book: Book) => void;
   onNavigateTab?: (tab: string) => void;
-}
-
-interface QuizQuestion {
-  question: string;
-  options: string[];
-  answerIndex: number;
-  explanation: string;
-}
-
-interface QuizData {
-  summary: string;
-  questions: QuizQuestion[];
-  discussionPrompts: string[];
 }
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({
@@ -73,31 +61,25 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setIsChatLoading(true);
 
     try {
-      const res = await fetch('/api/ai/ask-librarian', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: textToSend,
-          catalogContext: books.map(b => ({
-            title: b.title,
-            author: b.author,
-            category: b.category,
-            shelfLocation: b.shelfLocation,
-            availableCopies: b.availableCopies
-          })),
-          userGrade: currentUser.grade || currentUser.role,
-          language
-        })
+      const responseText = await askAiLibrarian({
+        message: textToSend,
+        catalogContext: books.map(b => ({
+          title: b.title,
+          author: b.author,
+          category: b.category,
+          shelfLocation: b.shelfLocation,
+          availableCopies: b.availableCopies
+        })),
+        userGrade: currentUser.grade || currentUser.role,
+        language
       });
 
-      const data = await res.json();
-      if (res.ok && data.text) {
-        setChatMessages(prev => [...prev, { role: 'assistant', text: data.text }]);
-      } else {
-        setChatMessages(prev => [...prev, { role: 'assistant', text: `⚠️ Error: ${data.error || 'Failed to get response.'}` }]);
-      }
+      setChatMessages(prev => [...prev, { role: 'assistant', text: responseText }]);
     } catch (err: any) {
-      setChatMessages(prev => [...prev, { role: 'assistant', text: `⚠️ Connection error: ${err.message || 'Server unreachable.'}` }]);
+      const errorMsg = language === 'dv'
+        ? '⚠️ މައާފަށް އެދެން! އޭއައި ސާވަރަށް ގުޅުމުގައި މައްސަލައެއް ޖެހިއްޖެ. އަލުން މަސައްކަތް ކޮށްލައްވާ.'
+        : '⚠️ Libby AI is temporarily unavailable. Please try again in a moment.';
+      setChatMessages(prev => [...prev, { role: 'assistant', text: errorMsg }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -112,22 +94,12 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setShowResults(false);
 
     try {
-      const res = await fetch('/api/ai/quiz-generator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookTitle: selectedQuizBook.title,
-          author: selectedQuizBook.author,
-          language
-        })
+      const data = await generateAiQuiz({
+        bookTitle: selectedQuizBook.title,
+        author: selectedQuizBook.author,
+        language
       });
-
-      const data = await res.json();
-      if (res.ok && data.questions) {
-        setQuizData(data);
-      } else {
-        alert(language === 'dv' ? `ކުއިޒް އުފެއްދުމުގައި މައްސަލައެއް ޖެހިއްޖެ: ${data.error || ''}` : `Failed to generate quiz: ${data.error || 'Unknown error'}`);
-      }
+      setQuizData(data);
     } catch (err: any) {
       alert(`Error generating quiz: ${err.message}`);
     } finally {
@@ -150,23 +122,13 @@ ${JSON.stringify(books.map(b => ({ title: b.title, author: b.author, category: b
 Format the recommendations clearly with bullet points and brief reasons why they'd love each book.`;
 
     try {
-      const res = await fetch('/api/ai/ask-librarian', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: prompt,
-          catalogContext: books,
-          userGrade: recGrade,
-          language
-        })
+      const resultText = await askAiLibrarian({
+        message: prompt,
+        catalogContext: books,
+        userGrade: recGrade,
+        language
       });
-
-      const data = await res.json();
-      if (res.ok && data.text) {
-        setRecResult(data.text);
-      } else {
-        setRecResult(`Error: ${data.error || 'Failed to generate recommendations.'}`);
-      }
+      setRecResult(resultText);
     } catch (err: any) {
       setRecResult(`Connection error: ${err.message}`);
     } finally {
