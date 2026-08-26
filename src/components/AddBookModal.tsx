@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { BookOpen, Plus, Sparkles, QrCode, ShieldAlert, Image, Check, X, Wand2, Globe, Search, Loader2, DownloadCloud, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Plus, Sparkles, QrCode, ShieldAlert, Image, Check, X, Wand2, Globe, Search, Loader2, DownloadCloud, AlertCircle, Pencil, Trash2, FolderPlus } from 'lucide-react';
 import { Book } from '../types';
 import { generateAiBookInfo } from '../lib/aiService';
+import { subscribeCategories, addCategoryToStore, updateCategoryInStore, deleteCategoryFromStore, DEFAULT_CATEGORIES } from '../lib/categories';
 
 interface AddBookModalProps {
   isOpen: boolean;
@@ -62,12 +63,81 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
   const [publisher, setPublisher] = useState('Oakridge Academic Press');
   const [publicationYear, setPublicationYear] = useState(2024);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
 
   // Internet Book Data Fetching States
   const [onlineQuery, setOnlineQuery] = useState('');
   const [isFetchingOnline, setIsFetchingOnline] = useState(false);
   const [onlineFetchError, setOnlineFetchError] = useState<string | null>(null);
   const [onlineResults, setOnlineResults] = useState<any[]>([]);
+
+  // Dynamic Categories Management States
+  const [categoriesList, setCategoriesList] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState<boolean>(false);
+  const [newCatInput, setNewCatInput] = useState<string>('');
+  
+  const [editingCatTarget, setEditingCatTarget] = useState<string | null>(null);
+  const [editCatInput, setEditCatInput] = useState<string>('');
+  
+  const [deletingCatTarget, setDeletingCatTarget] = useState<string | null>(null);
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsub = subscribeCategories((cats) => {
+      if (cats && cats.length > 0) {
+        setCategoriesList(cats);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleAddNewCategory = async () => {
+    const name = newCatInput.trim();
+    if (!name) return;
+    await addCategoryToStore(name);
+    setCategory(name);
+    setNewCatInput('');
+    setIsAddCategoryOpen(false);
+  };
+
+  const handleSaveEditCategory = async () => {
+    if (!editingCatTarget || !editCatInput.trim()) return;
+    const oldName = editingCatTarget;
+    const newName = editCatInput.trim();
+    await updateCategoryInStore(oldName, newName);
+    if (category === oldName) {
+      setCategory(newName);
+    }
+    setEditingCatTarget(null);
+    setEditCatInput('');
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCatTarget) return;
+    const target = deletingCatTarget;
+    await deleteCategoryFromStore(target);
+    if (category === target) {
+      const remaining = categoriesList.filter(c => c !== target);
+      setCategory(remaining[0] || 'General Literature');
+    }
+    setDeletingCatTarget(null);
+  };
+
+  const handleCloseModal = () => {
+    setIsAddCategoryOpen(false);
+    setIsManageCategoriesOpen(false);
+    setEditingCatTarget(null);
+    setDeletingCatTarget(null);
+    setOnlineFetchError(null);
+    setOnlineResults([]);
+    setTitle('');
+    setAuthor('');
+    setIsbn('');
+    setBarcode('');
+    setBarcodeImageUrl('');
+    setDescription('');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -212,8 +282,6 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     handleGenerateBarcode();
   };
 
-  const [isAIGenerating, setIsAIGenerating] = useState(false);
-
   // Gemini AI Book Information Auto-Generator
   const handleAIGenerateBookInfo = async () => {
     if (!title.trim() || !author.trim()) {
@@ -290,7 +358,12 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleCloseModal();
+      }}
+    >
       <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 text-slate-800 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
@@ -305,8 +378,13 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-xl transition"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleCloseModal();
+            }}
+            className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-xl transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -591,21 +669,73 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
           {/* Category & Shelf Location */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Category / Genre</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                id="add-book-category-select"
-              >
-                <option value="Fiction / Literature">Fiction / Literature</option>
-                <option value="Science & Nature">Science & Nature</option>
-                <option value="History & Social Studies">History & Social Studies</option>
-                <option value="Children Literature">Children Literature</option>
-                <option value="Reference & Dictionaries">Reference & Dictionaries</option>
-                <option value="Arts & Music">Arts & Music</option>
-                <option value="Computer Science & STEM">Computer Science & STEM</option>
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-bold text-slate-700 text-xs sm:text-sm">Category / Genre</label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCatInput('');
+                      setIsAddCategoryOpen(true);
+                    }}
+                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-extrabold flex items-center gap-0.5 hover:underline cursor-pointer"
+                    title="Add new category"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                  <span className="text-slate-300 text-xs">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsManageCategoriesOpen(true)}
+                    className="text-slate-500 hover:text-slate-700 text-[11px] font-extrabold flex items-center gap-0.5 hover:underline cursor-pointer"
+                    title="Manage category list"
+                  >
+                    <FolderPlus className="w-3 h-3" /> Manage
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={category}
+                  onChange={(e) => {
+                    if (e.target.value === '__ADD_NEW__') {
+                      setNewCatInput('');
+                      setIsAddCategoryOpen(true);
+                    } else {
+                      setCategory(e.target.value);
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm"
+                  id="add-book-category-select"
+                >
+                  {categoriesList.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__ADD_NEW__" className="font-bold text-indigo-600">+ Add New Category...</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCatTarget(category);
+                    setEditCatInput(category);
+                  }}
+                  className="p-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl transition border border-slate-200 shrink-0 cursor-pointer"
+                  title="Edit selected category name"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDeletingCatTarget(category)}
+                  className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition border border-rose-200 shrink-0 cursor-pointer"
+                  title="Delete selected category"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -722,8 +852,8 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300"
+              onClick={handleCloseModal}
+              className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300 cursor-pointer"
             >
               Cancel
             </button>
@@ -741,6 +871,276 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
         </form>
 
       </div>
+
+      {/* 1. Add Category Modal */}
+      {isAddCategoryOpen && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddCategoryOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-indigo-600" /> Add New Category
+              </h3>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsAddCategoryOpen(false);
+                }}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                Category / Genre Name
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={newCatInput}
+                onChange={(e) => setNewCatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewCategory(); } }}
+                placeholder="e.g., Graphic Novels & Comics"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsAddCategoryOpen(false);
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddNewCategory}
+                disabled={!newCatInput.trim()}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition shadow-md disabled:opacity-50 cursor-pointer"
+              >
+                Save Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit Category Modal */}
+      {editingCatTarget && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingCatTarget(null);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-indigo-600" /> Edit Category
+              </h3>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEditingCatTarget(null);
+                }}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                Rename Category
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={editCatInput}
+                onChange={(e) => setEditCatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEditCategory(); } }}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEditingCatTarget(null);
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditCategory}
+                disabled={!editCatInput.trim()}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition shadow-md disabled:opacity-50 cursor-pointer"
+              >
+                Update Name
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Delete Category Modal */}
+      {deletingCatTarget && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeletingCatTarget(null);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-2xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Delete Category</h3>
+                <p className="text-xs text-slate-500">This action will remove the category option.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700 font-semibold bg-rose-50 p-3.5 rounded-2xl border border-rose-200">
+              Are you sure you want to delete <span className="font-extrabold text-rose-800">"{deletingCatTarget}"</span>?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDeletingCatTarget(null);
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteCategory}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs transition shadow-md cursor-pointer"
+              >
+                Yes, Delete Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Manage All Categories Modal */}
+      {isManageCategoriesOpen && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsManageCategoriesOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <FolderPlus className="w-5 h-5 text-indigo-600" /> Manage Categories
+                </h3>
+                <p className="text-xs text-slate-500">Add, edit, or delete book categories & genres.</p>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsManageCategoriesOpen(false);
+                }}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Add Bar */}
+            <div className="flex items-center gap-2 shrink-0 pt-2">
+              <input
+                type="text"
+                placeholder="Enter new category name..."
+                value={newCatInput}
+                onChange={(e) => setNewCatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewCategory(); } }}
+                className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddNewCategory}
+                disabled={!newCatInput.trim()}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow disabled:opacity-50 flex items-center gap-1 shrink-0"
+              >
+                <Plus className="w-4 h-4" /> Add
+              </button>
+            </div>
+
+            {/* List of Categories */}
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 border border-slate-200 rounded-2xl p-2 bg-slate-50/50">
+              {categoriesList.map((cat) => (
+                <div key={cat} className="flex items-center justify-between py-2.5 px-3 hover:bg-white rounded-xl transition group">
+                  <span className="text-xs font-bold text-slate-800">{cat}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCatTarget(cat);
+                        setEditCatInput(cat);
+                      }}
+                      className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition"
+                      title="Edit Category"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingCatTarget(cat)}
+                      className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end shrink-0 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsManageCategoriesOpen(false)}
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

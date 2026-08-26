@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { QrCode, X, Camera, Keyboard, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react';
-import { Book } from '../types';
+import { QrCode, X, Camera, Keyboard, CheckCircle2, AlertCircle, BookOpen, RotateCcw, User } from 'lucide-react';
+import { Book, UserProfile, Loan } from '../types';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   books: Book[];
+  users?: UserProfile[];
+  loans?: Loan[];
+  onProcessReturn?: (loan: Loan, calculatedFee: number) => void;
   onScanResult: (scannedCode: string, matchedBook?: Book) => void;
 }
 
@@ -14,10 +17,19 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   isOpen,
   onClose,
   books,
+  users = [],
+  loans = [],
+  onProcessReturn,
   onScanResult
 }) => {
   const [manualInput, setManualInput] = useState('');
-  const [lastScanned, setLastScanned] = useState<{ code: string; book?: Book } | null>(null);
+  const [lastScanned, setLastScanned] = useState<{
+    code: string;
+    book?: Book;
+    activeLoan?: Loan;
+    borrower?: UserProfile;
+    returnedSuccess?: boolean;
+  } | null>(null);
   const [scannerMode, setScannerMode] = useState<'camera' | 'usb'>('camera');
   const [scanError, setScanError] = useState<string | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
@@ -63,7 +75,21 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       b => b.barcode.toLowerCase() === trimmed.toLowerCase() || b.isbn.toLowerCase() === trimmed.toLowerCase() || b.id === trimmed
     );
 
-    setLastScanned({ code: trimmed, book: matched });
+    const activeLoan = loans.find(
+      l => l.bookId === matched?.id && (l.status === 'active' || l.status === 'overdue')
+    );
+
+    const borrowerUser = users.find(
+      u => u.id === activeLoan?.userId
+    );
+
+    setLastScanned({
+      code: trimmed,
+      book: matched,
+      activeLoan,
+      borrower: borrowerUser,
+      returnedSuccess: false
+    });
     setScanError(null);
     onScanResult(trimmed, matched);
   };
@@ -175,7 +201,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
           {/* Scanned Result Banner */}
           {lastScanned && (
-            <div className={`mt-5 p-4 rounded-2xl border text-sm ${
+            <div className={`mt-5 p-4 rounded-2xl border text-sm space-y-3 ${
               lastScanned.book ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
             }`}>
               <div className="flex items-start gap-3">
@@ -184,18 +210,19 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 ) : (
                   <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                 )}
-                <div className="flex-1">
+                <div className="flex-1 space-y-2">
                   <p className="font-bold text-white">
-                    Scanned Code: <span className="font-mono text-xs bg-black/40 px-2 py-0.5 rounded border border-white/10 text-indigo-300">{lastScanned.code}</span>
+                    Scanned Barcode: <span className="font-mono text-xs bg-black/40 px-2 py-0.5 rounded border border-white/10 text-indigo-300">{lastScanned.code}</span>
                   </p>
+                  
                   {lastScanned.book ? (
-                    <div className="mt-2 flex gap-3 items-center bg-black/40 p-2.5 rounded-xl border border-emerald-500/20">
+                    <div className="flex gap-3 items-center bg-black/40 p-2.5 rounded-xl border border-emerald-500/20">
                       <img
                         src={lastScanned.book.coverUrl}
                         alt={lastScanned.book.title}
-                        className="w-12 h-16 object-cover rounded-lg shadow border border-white/10"
+                        className="w-12 h-16 object-cover rounded-lg shadow border border-white/10 shrink-0"
                       />
-                      <div>
+                      <div className="space-y-0.5">
                         <div className="font-bold text-white text-xs">{lastScanned.book.title}</div>
                         <div className="text-[11px] text-slate-400">by {lastScanned.book.author}</div>
                         <div className="text-[10px] text-slate-300 mt-0.5">
@@ -208,6 +235,54 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       No exact book match in database. (You can still process this code or add a new record).
                     </p>
                   )}
+
+                  {/* Active Loan Member Verification & Instant Return */}
+                  {lastScanned.activeLoan && (
+                    <div className="bg-purple-950/60 border border-purple-500/30 p-3 rounded-xl space-y-2.5 text-xs text-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold uppercase text-[10px] tracking-wider text-purple-300 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-purple-400" /> Borrower Member Verified
+                        </span>
+                        <span className="text-[10px] font-mono text-purple-300">Due: {lastScanned.activeLoan.dueDate}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-black/30 p-2 rounded-lg">
+                        <div>
+                          <div className="font-extrabold text-white">{lastScanned.borrower?.name || lastScanned.activeLoan.userName}</div>
+                          <div className="text-[10px] text-purple-200 font-mono">
+                            ID: {lastScanned.borrower?.studentIdCode || lastScanned.borrower?.id || lastScanned.activeLoan.userId} ({lastScanned.borrower?.grade || 'Member'})
+                          </div>
+                        </div>
+
+                        {lastScanned.returnedSuccess ? (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Returned!
+                          </span>
+                        ) : onProcessReturn ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let lateFee = 0;
+                              if (lastScanned.activeLoan) {
+                                const dueDate = new Date(lastScanned.activeLoan.dueDate);
+                                const today = new Date();
+                                if (today > dueDate) {
+                                  const diffDays = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
+                                  lateFee = diffDays * 0.5;
+                                }
+                                onProcessReturn(lastScanned.activeLoan, lateFee);
+                                setLastScanned(prev => prev ? { ...prev, returnedSuccess: true } : null);
+                              }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Return Book Now
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>

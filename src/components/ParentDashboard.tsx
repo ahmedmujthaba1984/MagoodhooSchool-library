@@ -415,15 +415,25 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
       {/* Add Child Account Modal */}
       {showAddChildModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddChildModal(false);
+          }}
+        >
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 text-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b pb-3 border-slate-100">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-purple-600" /> Add Student Child Account
               </h3>
               <button
-                onClick={() => setShowAddChildModal(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold text-sm"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowAddChildModal(false);
+                }}
+                className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -480,14 +490,18 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddChildModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddChildModal(false);
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl shadow transition"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl shadow transition cursor-pointer"
                 >
                   Save Child Account
                 </button>
@@ -499,7 +513,12 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
       {/* REMOVE CHILD CONFIRMATION MODAL */}
       {childToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setChildToDelete(null);
+          }}
+        >
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4 text-slate-800">
             <div className="flex items-center gap-3 text-rose-600">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
@@ -517,7 +536,12 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
-                onClick={() => setChildToDelete(null)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setChildToDelete(null);
+                }}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
               >
                 Cancel

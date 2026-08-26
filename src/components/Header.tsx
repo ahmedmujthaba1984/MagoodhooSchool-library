@@ -221,147 +221,146 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Navigation Tabs with Device View Mode Indicators */}
-      <div className="bg-slate-50/80 px-3 sm:px-6 lg:px-8 border-t border-slate-200">
+      {/* Main Navigation Tabs - Simplified Easy Template Bar */}
+      <div className="bg-slate-50/90 px-3 sm:px-6 lg:px-8 border-t border-slate-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto py-2 scrollbar-none">
           <div className="flex items-center space-x-1.5 shrink-0">
-          <button
-            onClick={() => setActiveTab('catalog')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'catalog'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/60'
-            }`}
-            id="tab-catalog"
-          >
-            <BookOpen className="w-4 h-4" />
-            {t.catalog}
-          </button>
+            {/* Dashboard for Admin */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-700 hover:text-indigo-600 hover:bg-slate-200/70'
+                }`}
+                id="tab-dashboard"
+              >
+                <Home className="w-4 h-4" />
+                {language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard'}
+              </button>
+            )}
 
-          <button
-            onClick={() => setActiveTab('ai-assistant')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'ai-assistant'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20 ring-2 ring-purple-400/30'
-                : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200'
-            }`}
-            id="tab-ai-assistant"
-          >
-            <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-            {t.aiLibrarian}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('reference')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'reference'
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'text-slate-600 hover:text-amber-600 hover:bg-amber-50'
-            }`}
-            id="tab-reference"
-          >
-            <BookMarked className="w-4 h-4" />
-            {t.reference}
-          </button>
-
-          {currentUser.role === 'parent' && (
+            {/* Catalog */}
             <button
-              onClick={() => setActiveTab('parent-portal')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'parent-portal'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-purple-700 hover:bg-purple-50'
+              onClick={() => setActiveTab('catalog')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'catalog'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-700 hover:text-indigo-600 hover:bg-slate-200/70'
               }`}
-              id="tab-parent-portal"
+              id="tab-catalog"
             >
-              <Users className="w-4 h-4" />
-              Parent Portal
+              <BookOpen className="w-4 h-4" />
+              {t.catalog}
             </button>
-          )}
 
-          <button
-            onClick={() => setActiveTab('my-loans')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'my-loans'
-                ? 'bg-sky-600 text-white shadow-md'
-                : 'text-slate-600 hover:text-sky-600 hover:bg-sky-50'
-            }`}
-            id="tab-my-loans"
-          >
-            <UserCheck className="w-4 h-4" />
-            {t.borrowingHistory}
-          </button>
+            {/* Circulation Desk */}
+            {(currentUser.role === 'admin' || currentUser.role === 'student' || currentUser.role === 'staff') && (
+              <button
+                onClick={() => setActiveTab('checkout-hub')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'checkout-hub' || activeTab === 'borrow-book' || activeTab === 'return-book'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-slate-700 hover:text-emerald-600 hover:bg-emerald-50'
+                }`}
+                id="tab-checkout-hub"
+              >
+                <QrCode className="w-4 h-4" />
+                {language === 'dv' ? 'ފޮތް ދޫކުރުން / ހަވާލުކުރުން' : 'Circulation Desk'}
+              </button>
+            )}
 
-          {(currentUser.role === 'admin' || currentUser.role === 'student') && (
+            {/* Parent Portal */}
+            {currentUser.role === 'parent' && (
+              <button
+                onClick={() => setActiveTab('parent-portal')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'parent-portal'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'text-purple-700 hover:bg-purple-50'
+                }`}
+                id="tab-parent-portal"
+              >
+                <Users className="w-4 h-4" />
+                {language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal'}
+              </button>
+            )}
+
+            {/* Member Directory */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('students')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'students'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-700 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+                id="tab-students"
+              >
+                <Users className="w-4 h-4" />
+                {language === 'dv' ? 'ދަރިވަރުން އަދި މެންބަރުން' : 'Members Directory'}
+              </button>
+            )}
+
+            {/* Admin Panel */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('admin-panel')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'admin-panel' || activeTab === 'manage-students'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'text-slate-700 hover:text-amber-600 hover:bg-amber-50'
+                }`}
+                id="tab-admin-panel"
+              >
+                <Shield className="w-4 h-4" />
+                {language === 'dv' ? 'އެޑްމިން ޕެނަލް' : 'Admin & Reports'}
+                {overdueCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                    {overdueCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* AI Assistant */}
             <button
-              onClick={() => setActiveTab('checkout-hub')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'checkout-hub'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-emerald-600 hover:bg-emerald-50'
+              onClick={() => setActiveTab('ai-assistant')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'ai-assistant'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md ring-2 ring-purple-400/30'
+                  : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200'
               }`}
-              id="tab-checkout-hub"
+              id="tab-ai-assistant"
             >
-              <QrCode className="w-4 h-4" />
-              {t.scanCheckout}
+              <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+              {t.aiLibrarian}
             </button>
-          )}
 
-          {currentUser.role === 'admin' && (
+            {/* Help / FAQ */}
             <button
-              onClick={() => setActiveTab('admin-panel')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'admin-panel'
-                  ? 'bg-orange-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-orange-600 hover:bg-orange-50'
+              onClick={() => setActiveTab('faq')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'faq'
+                  ? 'bg-slate-800 text-white shadow-md'
+                  : 'text-slate-700 hover:bg-slate-200/70'
               }`}
-              id="tab-admin-panel"
+              id="tab-faq"
             >
-              <Shield className="w-4 h-4" />
-              {t.adminInventory}
-              {overdueCount > 0 && (
-                <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-                  {overdueCount}
-                </span>
-              )}
+              <Home className="w-4 h-4" />
+              {language === 'dv' ? 'އެހީ' : 'Help & FAQ'}
             </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'reports'
-                ? 'bg-pink-600 text-white shadow-md'
-                : 'text-slate-600 hover:text-pink-600 hover:bg-pink-50'
-            }`}
-            id="tab-reports"
-          >
-            <Sparkles className="w-4 h-4" />
-            {t.reportsTrends}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('login')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'login'
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
-            }`}
-            id="tab-login-portal"
-          >
-            <Key className="w-4 h-4" />
-            {t.login}
-          </button>
           </div>
 
-          {/* Active Device View Indicator Badge */}
-          <div className="hidden xl:flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shrink-0 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="sm:inline lg:hidden text-slate-700">📱 Mobile View</span>
-            <span className="hidden lg:inline xl:hidden text-slate-700">🎟️ Tablet View</span>
-            <span className="hidden xl:inline 2xl:hidden text-slate-700">💻 Laptop View</span>
-            <span className="hidden 2xl:inline text-slate-700">🖥️ PC View</span>
-          </div>
+          {/* Quick Language Toggle */}
+          <button
+            onClick={() => setLanguage(language === 'en' ? 'dv' : 'en')}
+            className="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3 py-1.5 rounded-xl text-xs font-black transition shrink-0 shadow-xs cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{language === 'en' ? 'ދިވެހި' : 'English'}</span>
+          </button>
         </div>
       </div>
 

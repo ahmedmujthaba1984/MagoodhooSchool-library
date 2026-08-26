@@ -89,6 +89,21 @@ export interface LibrarySettings {
   autoEmailRemindersDaysBefore: number;
   damagedBookMinorFee: number;
   policyNote: string;
+  alertEmail?: string;
+  alertSmsNumber?: string;
+  enableAutoDueDateAlerts?: boolean;
+  notifyParentOnOverdue?: boolean;
+}
+
+export interface NotificationLog {
+  id: string;
+  type: 'email' | 'sms';
+  recipient: string;
+  bookTitle: string;
+  userName: string;
+  sentAt: string;
+  status: 'sent' | 'failed';
+  messageId: string;
 }
 
 export interface CategoryOption {

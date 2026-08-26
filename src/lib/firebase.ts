@@ -107,14 +107,21 @@ export async function initializeDatabaseIfEmpty() {
 // --------------------------------------------------------------------------
 
 // 1. BOOKS
-export function subscribeBooks(callback: (books: Book[]) => void) {
-  return onSnapshot(collection(db, BOOKS_COL), (snapshot) => {
-    const books: Book[] = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as Book));
-    callback(books);
-  });
+export function subscribeBooks(callback: (books: Book[]) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    collection(db, BOOKS_COL),
+    (snapshot) => {
+      const books: Book[] = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Book));
+      callback(books);
+    },
+    (err) => {
+      console.warn('Firestore subscribeBooks error:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 export async function addBook(book: Omit<Book, 'id'>) {
@@ -131,14 +138,21 @@ export async function deleteBook(id: string) {
 }
 
 // 2. USERS / MEMBERS
-export function subscribeUsers(callback: (users: UserProfile[]) => void) {
-  return onSnapshot(collection(db, USERS_COL), (snapshot) => {
-    const users: UserProfile[] = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as UserProfile));
-    callback(users);
-  });
+export function subscribeUsers(callback: (users: UserProfile[]) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    collection(db, USERS_COL),
+    (snapshot) => {
+      const users: UserProfile[] = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as UserProfile));
+      callback(users);
+    },
+    (err) => {
+      console.warn('Firestore subscribeUsers error:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 export async function saveUserProfile(user: UserProfile) {
@@ -159,14 +173,21 @@ export async function deleteUserProfile(id: string) {
 }
 
 // 3. LOANS
-export function subscribeLoans(callback: (loans: Loan[]) => void) {
-  return onSnapshot(collection(db, LOANS_COL), (snapshot) => {
-    const loans: Loan[] = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as Loan));
-    callback(loans);
-  });
+export function subscribeLoans(callback: (loans: Loan[]) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    collection(db, LOANS_COL),
+    (snapshot) => {
+      const loans: Loan[] = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Loan));
+      callback(loans);
+    },
+    (err) => {
+      console.warn('Firestore subscribeLoans error:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 export async function createLoan(loan: Omit<Loan, 'id'>) {
@@ -179,14 +200,21 @@ export async function updateLoan(id: string, data: Partial<Loan>) {
 }
 
 // 4. RESERVATIONS
-export function subscribeReservations(callback: (reservations: Reservation[]) => void) {
-  return onSnapshot(collection(db, RESERVATIONS_COL), (snapshot) => {
-    const reservations: Reservation[] = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as Reservation));
-    callback(reservations);
-  });
+export function subscribeReservations(callback: (reservations: Reservation[]) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    collection(db, RESERVATIONS_COL),
+    (snapshot) => {
+      const reservations: Reservation[] = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Reservation));
+      callback(reservations);
+    },
+    (err) => {
+      console.warn('Firestore subscribeReservations error:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 export async function createReservation(res: Omit<Reservation, 'id'>) {
@@ -203,14 +231,21 @@ export async function cancelReservation(id: string) {
 }
 
 // 5. SETTINGS
-export function subscribeSettings(callback: (settings: LibrarySettings) => void) {
-  return onSnapshot(doc(db, SETTINGS_COL, 'main'), (snapshot) => {
-    if (snapshot.exists()) {
-      callback(snapshot.data() as LibrarySettings);
-    } else {
-      callback(initialSettings);
+export function subscribeSettings(callback: (settings: LibrarySettings) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    doc(db, SETTINGS_COL, 'main'),
+    (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data() as LibrarySettings);
+      } else {
+        callback(initialSettings);
+      }
+    },
+    (err) => {
+      console.warn('Firestore subscribeSettings error:', err);
+      if (onError) onError(err);
     }
-  });
+  );
 }
 
 export async function updateSettings(settings: Partial<LibrarySettings>) {

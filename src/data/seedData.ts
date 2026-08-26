@@ -21,6 +21,10 @@ export const initialSettings: LibrarySettings = {
   autoEmailRemindersDaysBefore: 2,
   damagedBookMinorFee: 3.00,
   policyNote: "Books must be returned in good condition. Fines apply daily after grace period. Unpaid fines over $10 will block further book borrowing.",
+  alertEmail: "library-alerts@fmagoodhooschool.edu.mv",
+  alertSmsNumber: "+9607771111",
+  enableAutoDueDateAlerts: true,
+  notifyParentOnOverdue: true,
 };
 
 export const sampleUsers: UserProfile[] = [

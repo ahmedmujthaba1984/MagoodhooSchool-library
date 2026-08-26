@@ -8,8 +8,8 @@ interface QuickCheckoutProps {
   users: UserProfile[];
   loans: Loan[];
   settings: LibrarySettings;
-  onProcessCheckout: (bookId: string, studentId: string, dueDateDays: number) => void;
-  onProcessReturn: (loanId: string, markFeePaid: boolean) => void;
+  onProcessCheckout: (book: Book, borrower: UserProfile, dueDateDays: number) => void;
+  onProcessReturn: (loan: Loan, calculatedFee: number) => void;
   onOpenScanner: () => void;
 }
 
@@ -34,10 +34,23 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
   // Return Form State
   const [returnBarcode, setReturnBarcode] = useState('');
+  const [autoReturnOnScan, setAutoReturnOnScan] = useState(true);
+  const [lastReturnedReceipt, setLastReturnedReceipt] = useState<{
+    bookTitle: string;
+    bookCover?: string;
+    userName: string;
+    userGrade?: string;
+    studentIdCode?: string;
+    userRole?: string;
+    loanIssueDate: string;
+    loanDueDate: string;
+    returnDate: string;
+    lateFee: number;
+  } | null>(null);
   const [returnSuccessMessage, setReturnSuccessMessage] = useState<string | null>(null);
   const [returnErrorMessage, setReturnErrorMessage] = useState<string | null>(null);
 
-  // Match Book & Student
+  // Match Book & Student for Checkout
   const matchedBook = books.find(
     b => b.barcode.toLowerCase() === selectedBookBarcode.trim().toLowerCase() ||
          b.isbn.toLowerCase() === selectedBookBarcode.trim().toLowerCase() ||
@@ -49,6 +62,26 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
          u.id === selectedStudentCode.trim() ||
          u.name.toLowerCase().includes(selectedStudentCode.trim().toLowerCase())
   );
+
+  // Match Book & Member for Return
+  const returnTargetBook = books.find(
+    b => b.barcode.toLowerCase() === returnBarcode.trim().toLowerCase() ||
+         b.isbn.toLowerCase() === returnBarcode.trim().toLowerCase() ||
+         b.id === returnBarcode.trim()
+  );
+
+  const returnActiveLoan = loans.find(
+    l => l.bookId === returnTargetBook?.id && (l.status === 'active' || l.status === 'overdue')
+  );
+
+  const returnBorrowerUser = users.find(
+    u => u.id === returnActiveLoan?.userId
+  ) || (returnActiveLoan ? {
+    id: returnActiveLoan.userId,
+    name: returnActiveLoan.userName,
+    role: 'student',
+    grade: returnActiveLoan.userGrade
+  } as UserProfile : undefined);
 
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +108,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
       return;
     }
 
-    onProcessCheckout(matchedBook.id, matchedStudent.id, borrowDays);
+    onProcessCheckout(matchedBook, matchedStudent, borrowDays);
     setCheckoutSuccessMessage(`Successfully checked out "${matchedBook.title}" to ${matchedStudent.name}!`);
     setSelectedBookBarcode('');
     setSelectedStudentCode('');
@@ -88,29 +121,60 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
     if (!returnBarcode.trim()) return;
 
-    // Find active loan for this book barcode or ISBN
-    const targetBook = books.find(
-      b => b.barcode.toLowerCase() === returnBarcode.trim().toLowerCase() ||
-           b.isbn.toLowerCase() === returnBarcode.trim().toLowerCase() ||
-           b.id === returnBarcode.trim()
-    );
-
-    if (!targetBook) {
-      setReturnErrorMessage('Book barcode or ISBN not found in catalog.');
+    if (!returnTargetBook) {
+      setReturnErrorMessage(
+        language === 'dv'
+          ? 'މި ބާކޯޑު ނުވަތަ އައި.އެސް.ބީ.އެން ލައިބްރަރީ ކެޓަލޮގުން ނުފެނުނު.'
+          : `No book found in catalog matching barcode/ISBN "${returnBarcode.trim()}".`
+      );
       return;
     }
 
-    const activeLoan = loans.find(
-      l => l.bookId === targetBook.id && (l.status === 'active' || l.status === 'overdue')
-    );
-
-    if (!activeLoan) {
-      setReturnErrorMessage(`No active loan record found for "${targetBook.title}".`);
+    if (!returnActiveLoan) {
+      setReturnErrorMessage(
+        language === 'dv'
+          ? `"${returnTargetBook.title}" މިވަގުތު ދޫކޮށްފައެއް ނެތް.`
+          : `"${returnTargetBook.title}" is not currently checked out (all copies are in inventory).`
+      );
       return;
     }
 
-    onProcessReturn(activeLoan.id, true);
-    setReturnSuccessMessage(`Successfully processed return for "${targetBook.title}"! Stock restored to available copies.`);
+    // Calculate late fee if overdue
+    let lateFee = 0;
+    const dueDate = new Date(returnActiveLoan.dueDate);
+    const today = new Date();
+    if (today > dueDate) {
+      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      lateFee = diffDays * (settings.dailyLateFee || 0.5);
+    }
+
+    // Execute return
+    onProcessReturn(returnActiveLoan, lateFee);
+
+    const borrowerName = returnBorrowerUser?.name || returnActiveLoan.userName;
+    const studentCode = returnBorrowerUser?.studentIdCode || returnBorrowerUser?.id || returnActiveLoan.userId;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    setLastReturnedReceipt({
+      bookTitle: returnTargetBook.title,
+      bookCover: returnTargetBook.coverUrl,
+      userName: borrowerName,
+      userGrade: returnBorrowerUser?.grade || returnActiveLoan.userGrade,
+      studentIdCode: studentCode,
+      userRole: returnBorrowerUser?.role || 'student',
+      loanIssueDate: returnActiveLoan.issueDate,
+      loanDueDate: returnActiveLoan.dueDate,
+      returnDate: todayStr,
+      lateFee
+    });
+
+    setReturnSuccessMessage(
+      language === 'dv'
+        ? `"${returnTargetBook.title}" އަނބުރާ ބަލައިގަނެވިއްޖެ! މެންބަރު: ${borrowerName}`
+        : `Successfully checked in "${returnTargetBook.title}" returned by member ${borrowerName}!`
+    );
+
     setReturnBarcode('');
   };
 
@@ -375,10 +439,21 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl space-y-6">
           <form onSubmit={handleReturnSubmit} className="space-y-6">
             
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-2xl border border-emerald-100 space-y-3">
-              <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-emerald-600" /> Scan Returned Book Barcode or ISBN
-              </label>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-2xl border border-emerald-100 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-emerald-600" /> Scan Returned Book Barcode or ISBN
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoReturnOnScan}
+                    onChange={(e) => setAutoReturnOnScan(e.target.checked)}
+                    className="accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <span>⚡ Auto Member Check & Return</span>
+                </label>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
@@ -392,12 +467,116 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 />
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer shrink-0"
                 >
-                  <RotateCcw className="w-4 h-4" /> Process Check-In
+                  <RotateCcw className="w-4 h-4" /> Check Member & Process Return
                 </button>
               </div>
+
+              {/* Live Member Match Preview Card */}
+              {returnTargetBook && returnActiveLoan && (
+                <div className="p-4 bg-emerald-100/60 border-2 border-emerald-500/40 rounded-2xl space-y-3 animate-in fade-in zoom-in-95 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 bg-emerald-200/80 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-700" /> Borrower Member Identified
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-600">
+                      ISBN: {returnTargetBook.isbn}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-3.5 rounded-xl border border-emerald-200 shadow-xs">
+                    <div className="flex items-center gap-3">
+                      {returnTargetBook.coverUrl ? (
+                        <img src={returnTargetBook.coverUrl} alt={returnTargetBook.title} className="w-12 h-16 object-cover rounded-lg shadow-sm border border-slate-200 shrink-0" />
+                      ) : (
+                        <div className="w-12 h-16 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border">
+                          <BookOpen className="w-6 h-6 text-slate-400" />
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        <h4 className="font-black text-sm text-slate-900">{returnTargetBook.title}</h4>
+                        <p className="text-xs font-semibold text-indigo-700">Author: {returnTargetBook.author}</p>
+                        <p className="text-[11px] text-slate-500">Location: {returnTargetBook.shelfLocation}</p>
+                      </div>
+                    </div>
+
+                    {returnBorrowerUser && (
+                      <div className="flex items-center gap-3 bg-purple-50 p-2.5 rounded-xl border border-purple-200 shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-purple-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
+                          {returnBorrowerUser.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="text-xs font-extrabold text-purple-950">{returnBorrowerUser.name}</div>
+                          <div className="text-[10px] text-purple-700 font-medium">
+                            ID: <span className="font-mono font-bold text-purple-900">{returnBorrowerUser.studentIdCode || returnBorrowerUser.id}</span> ({returnBorrowerUser.grade || 'Member'})
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-medium text-slate-700 px-1">
+                    <div>Issued: <strong className="text-slate-900">{returnActiveLoan.issueDate}</strong> | Due: <strong className="text-slate-900">{returnActiveLoan.dueDate}</strong></div>
+                    {returnActiveLoan.status === 'overdue' && (
+                      <span className="text-[11px] font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded-full">
+                        Overdue Notice
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Last Return Receipt Confirmation Card */}
+            {lastReturnedReceipt && (
+              <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-3 border-2 border-emerald-400/50">
+                <div className="flex items-center justify-between border-b border-white/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+                    <span className="font-extrabold text-sm uppercase tracking-wider text-emerald-100">
+                      Return Verified & Stock Restored
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono bg-white/20 px-2.5 py-0.5 rounded-full text-emerald-100">
+                    {lastReturnedReceipt.returnDate}
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {lastReturnedReceipt.bookCover && (
+                      <img src={lastReturnedReceipt.bookCover} alt="" className="w-12 h-16 object-cover rounded-xl shadow border border-white/30 shrink-0" />
+                    )}
+                    <div>
+                      <div className="font-extrabold text-base text-white">{lastReturnedReceipt.bookTitle}</div>
+                      <div className="text-xs text-emerald-100 font-medium">
+                        Book copy returned and catalog inventory updated.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 space-y-1 text-xs shrink-0">
+                    <div className="text-[10px] uppercase font-extrabold text-emerald-200">Borrower Member</div>
+                    <div className="font-black text-sm text-white">{lastReturnedReceipt.userName}</div>
+                    <div className="text-[11px] text-emerald-100 font-mono">
+                      ID: {lastReturnedReceipt.studentIdCode} ({lastReturnedReceipt.userGrade})
+                    </div>
+                  </div>
+                </div>
+
+                {lastReturnedReceipt.lateFee > 0 ? (
+                  <div className="p-2.5 bg-amber-500/20 border border-amber-300/40 rounded-xl text-xs font-bold text-amber-200 flex items-center justify-between">
+                    <span>Overdue Late Fee:</span>
+                    <span className="font-mono text-sm font-black text-amber-300">${lastReturnedReceipt.lateFee.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-emerald-200 font-semibold italic">
+                    ✓ Returned on time — No overdue fees. Member account cleared.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Active Loans Quick Check-in List */}
             <div className="space-y-3">
@@ -413,8 +592,23 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     key={loan.id}
                     type="button"
                     onClick={() => {
-                      onProcessReturn(loan.id, true);
-                      setReturnSuccessMessage(`Checked in "${loan.bookTitle}" returned by ${loan.userName}!`);
+                      const lateFee = loan.status === 'overdue' ? (loan.lateFee || 1.0) : 0;
+                      onProcessReturn(loan, lateFee);
+                      const borrower = users.find(u => u.id === loan.userId);
+                      const bookObj = books.find(b => b.id === loan.bookId);
+                      setLastReturnedReceipt({
+                        bookTitle: loan.bookTitle,
+                        bookCover: bookObj?.coverUrl,
+                        userName: loan.userName,
+                        userGrade: loan.userGrade,
+                        studentIdCode: borrower?.studentIdCode || borrower?.id || loan.userId,
+                        userRole: borrower?.role || 'student',
+                        loanIssueDate: loan.issueDate,
+                        loanDueDate: loan.dueDate,
+                        returnDate: new Date().toISOString().split('T')[0],
+                        lateFee
+                      });
+                      setReturnSuccessMessage(`Checked in "${loan.bookTitle}" returned by member ${loan.userName}!`);
                     }}
                     className={`p-4 rounded-2xl border text-left transition flex items-start justify-between group shadow-sm hover:shadow-md cursor-pointer ${
                       loan.status === 'overdue' 

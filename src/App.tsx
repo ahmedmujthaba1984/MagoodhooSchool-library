@@ -35,12 +35,11 @@ import { FaqHelpView } from './components/FaqHelpView';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { AddParentModal } from './components/AddParentModal';
 import { AddBookModal } from './components/AddBookModal';
-import { LoginModal } from './components/LoginModal';
 import { LoginPage } from './components/LoginPage';
 import { ImportModal } from './components/ImportModal';
 import { AIAssistant } from './components/AIAssistant';
 import { useLanguage } from './lib/i18n';
-import { sampleUsers, initialSettings } from './data/seedData';
+import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './data/seedData';
 import {
   LayoutDashboard,
   BookOpen,
@@ -81,10 +80,10 @@ const GUEST_USER: UserProfile = {
 
 export default function App() {
   const { t, language } = useLanguage();
-  const [books, setBooks] = useState<Book[]>([]);
+  const [books, setBooks] = useState<Book[]>(sampleBooks);
   const [users, setUsers] = useState<UserProfile[]>(sampleUsers);
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [loans, setLoans] = useState<Loan[]>(sampleLoans);
+  const [reservations, setReservations] = useState<Reservation[]>(sampleReservations);
   const [settings, setSettings] = useState<LibrarySettings>(initialSettings);
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(sampleUsers[0]);
@@ -95,10 +94,9 @@ export default function App() {
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState<boolean>(false);
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState<boolean>(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Initialize and subscribe to Firestore
   useEffect(() => {
@@ -109,22 +107,52 @@ export default function App() {
     let unsubscribeSet: () => void;
 
     async function init() {
-      await initializeDatabaseIfEmpty();
+      try {
+        await initializeDatabaseIfEmpty();
+      } catch (err) {
+        console.warn("Database initialization skipped or running offline:", err);
+      }
 
-      unsubscribeBooks = subscribeBooks((data) => {
-        setBooks(data);
-        setIsLoading(false);
-      });
-
-      unsubscribeUsers = subscribeUsers((data) => {
-        if (data.length > 0) {
-          setUsers(data);
+      unsubscribeBooks = subscribeBooks(
+        (data) => {
+          if (data && data.length > 0) {
+            setBooks(data);
+          }
+          setIsLoading(false);
+        },
+        (err) => {
+          console.warn("Books subscription error:", err);
+          setIsLoading(false);
         }
-      });
+      );
 
-      unsubscribeLoans = subscribeLoans((data) => setLoans(data));
-      unsubscribeRes = subscribeReservations((data) => setReservations(data));
-      unsubscribeSet = subscribeSettings((data) => setSettings(data));
+      unsubscribeUsers = subscribeUsers(
+        (data) => {
+          if (data && data.length > 0) {
+            setUsers(data);
+          }
+        },
+        (err) => console.warn("Users subscription error:", err)
+      );
+
+      unsubscribeLoans = subscribeLoans(
+        (data) => {
+          if (data && data.length > 0) setLoans(data);
+        },
+        (err) => console.warn("Loans subscription error:", err)
+      );
+
+      unsubscribeRes = subscribeReservations(
+        (data) => {
+          if (data && data.length > 0) setReservations(data);
+        },
+        (err) => console.warn("Reservations subscription error:", err)
+      );
+
+      unsubscribeSet = subscribeSettings(
+        (data) => setSettings(data),
+        (err) => console.warn("Settings subscription error:", err)
+      );
     }
 
     init();
@@ -170,9 +198,10 @@ export default function App() {
 
   // Handle Online Book Reservation Cancellation
   const handleCancelReservation = async (reservationId: string) => {
-    if (confirm(language === 'dv' ? 'މި ރިޒަވޭޝަން ކެންސަލް ކުރަން ބޭނުންފުޅުތޯ؟' : 'Are you sure you want to cancel this online book reservation?')) {
+    try {
       await cancelReservation(reservationId);
-      alert(language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރެވިއްޖެ.' : 'Reservation successfully cancelled.');
+    } catch (err) {
+      console.error("Error cancelling reservation:", err);
     }
   };
 
@@ -422,31 +451,29 @@ export default function App() {
 
   if (currentUser.role === 'admin') {
     navItems = [
-      { id: 'dashboard', label: language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard', icon: LayoutDashboard },
-      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
-      { id: 'add-book', label: language === 'dv' ? 'އާ ފޮތެއް އިތުރުކުރައްވާ' : 'Add New Book', icon: PlusCircle },
-      { id: 'borrow-book', label: language === 'dv' ? 'ފޮތް ދޫކުރުން (ޑެސްކު)' : 'Borrow Book (Desk)', icon: BookMarked },
-      { id: 'return-book', label: language === 'dv' ? 'ފޮތް އަނބުރާ ޙަވާލުކުރުން' : 'Return Book (Desk)', icon: RotateCcw },
-      { id: 'students', label: language === 'dv' ? 'ދަރިވަރުންގެ ޑައިރެކްޓަރީ' : 'Student Directory', icon: Users },
-      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal (Admin)', icon: Users },
-      { id: 'manage-students', label: language === 'dv' ? 'ސިސްޓަމް އެޑްމިން ޕެނަލް' : 'System Admin Panel', icon: UserCheck },
-      { id: 'issued-books', label: language === 'dv' ? 'ދޫކުރެވިފައިވާ ފޮތްތައް' : 'Issued Books', icon: ClipboardList, badge: loans.filter(l => l.status === 'active').length },
-      { id: 'late-returns', label: language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : 'Late Returns Desk', icon: AlertTriangle, badge: overdueCount, badgeColor: 'bg-rose-500' },
-      { id: 'reports', label: language === 'dv' ? 'ރިޕޯޓް އަދި އެނަލިޓިކްސް' : 'Reports & Analytics', icon: BarChart3 },
-      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'FAQ / Help Desk', icon: HelpCircle },
+      { id: 'dashboard', label: language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard Overview', icon: LayoutDashboard },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog & Search', icon: BookOpen },
+      { id: 'checkout-hub', label: language === 'dv' ? 'ފޮތް ދޫކުރުން / ހަވާލުކުރުން' : 'Circulation Desk (Checkout/Return)', icon: RotateCcw, badge: loans.filter(l => l.status === 'active').length },
+      { id: 'students', label: language === 'dv' ? 'ދަރިވަރުން އަދި މެންބަރުން' : 'Student & Parent Directory', icon: Users },
+      { id: 'admin-panel', label: language === 'dv' ? 'އެޑްމިން އަދި ރިޕޯޓްތައް' : 'Admin Settings & Reports', icon: Shield, badge: overdueCount > 0 ? overdueCount : undefined, badgeColor: 'bg-rose-500' },
+      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Librarian Companion', icon: Sparkles },
+      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'Help & Guidelines', icon: HelpCircle },
     ];
   } else if (currentUser.role === 'parent') {
     navItems = [
-      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal', icon: Users },
+      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal & Children Loans', icon: Users },
       { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Browse Book Catalog', icon: BookOpen },
       { id: 'my-borrowings', label: language === 'dv' ? 'ޢާއިލާގެ ނެގުންތަކުގެ ތާރީޚް' : 'Family Borrowing History', icon: ClipboardList },
+      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Reading Helper', icon: Sparkles },
       { id: 'faq', label: language === 'dv' ? 'ބެލެނިވެރިންގެ އިރުޝާދު' : 'Parent Guide & FAQ', icon: HelpCircle },
     ];
   } else {
     // Student or Guest Visitor
     navItems = [
-      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
-      { id: 'my-borrowings', label: language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'My Borrowings', icon: ClipboardList },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog & Search', icon: BookOpen },
+      { id: 'my-borrowings', label: language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'My Borrowings & Due Dates', icon: ClipboardList },
+      { id: 'reference', label: language === 'dv' ? 'ރެފަރެންސް ފޮތްތައް' : 'Reference Collection', icon: BookMarked },
+      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Companion', icon: Sparkles },
       { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'FAQ & Help', icon: HelpCircle },
     ];
   }
@@ -464,7 +491,7 @@ export default function App() {
         onOpenScanner={() => setIsScannerOpen(true)}
         overdueCount={overdueCount}
         onLogout={handleLogout}
-        onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        onOpenLoginModal={() => setActiveTab('login')}
         onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
@@ -555,7 +582,10 @@ export default function App() {
                     <LogOut className="w-3.5 h-3.5 text-rose-400" /> {t.logout}
                   </button>
                   <button
-                    onClick={() => setIsLoginModalOpen(true)}
+                    onClick={() => {
+                      setActiveTab('login');
+                      setIsSidebarOpen(false);
+                    }}
                     className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
                     id="sidebar-switch-account-btn"
                   >
@@ -570,7 +600,10 @@ export default function App() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <button
-                    onClick={() => setIsLoginModalOpen(true)}
+                    onClick={() => {
+                      setActiveTab('login');
+                      setIsSidebarOpen(false);
+                    }}
                     className="flex-1 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <LogIn className="w-3.5 h-3.5 text-blue-400" /> {t.login}
@@ -645,7 +678,7 @@ export default function App() {
 
                 <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
                   <button
-                    onClick={() => setIsLoginModalOpen(true)}
+                    onClick={() => setActiveTab('login')}
                     className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 px-3.5 py-2 rounded-xl font-extrabold text-xs transition shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer active:scale-95"
                     id="role-switch-btn"
                   >
@@ -654,6 +687,101 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {/* Easy Portal 1-Click Quick Action Cards Launchpad */}
+              {activeTab !== 'login' && (
+                <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <button
+                    onClick={() => setActiveTab('checkout-hub')}
+                    className="p-3.5 bg-white hover:bg-emerald-50/80 border border-slate-200 hover:border-emerald-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
+                  >
+                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 group-hover:scale-105 transition shrink-0">
+                      <BookMarked className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-700">
+                        {language === 'dv' ? 'ފޮތް ދޫކުރުން' : 'Borrow Book'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {language === 'dv' ? 'އަވަސް ޗެކްއައުޓް' : 'Quick Checkout'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('checkout-hub')}
+                    className="p-3.5 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
+                  >
+                    <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 group-hover:scale-105 transition shrink-0">
+                      <RotateCcw className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-blue-700">
+                        {language === 'dv' ? 'ފޮތް ޙަވާލުކުރުން' : 'Return Book'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {language === 'dv' ? 'އެނބުރުން ނޯޓުކުރުން' : 'Check-in Item'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setIsScannerOpen(true)}
+                    className="p-3.5 bg-white hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
+                  >
+                    <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-700 group-hover:scale-105 transition shrink-0">
+                      <Scan className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-indigo-700">
+                        {language === 'dv' ? 'ބާކޯޑު ސްކޭން' : 'Scan Barcode'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {language === 'dv' ? 'ކެމެރާ / ސްކޭނަރު' : 'Camera or Reader'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (currentUser.role === 'admin') setIsAddBookModalOpen(true);
+                      else setActiveTab('catalog');
+                    }}
+                    className="p-3.5 bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
+                  >
+                    <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 group-hover:scale-105 transition shrink-0">
+                      <PlusCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-amber-700">
+                        {currentUser.role === 'admin'
+                          ? (language === 'dv' ? 'އާ ފޮތެއް އިތުރުކުރައްވާ' : 'Add New Book')
+                          : (language === 'dv' ? 'ފޮތް ހޯއްދަވާ' : 'Find Books')}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {language === 'dv' ? 'ސްޓޮކް އަދި ކެޓަލޮގް' : 'Catalog database'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('catalog')}
+                    className="p-3.5 bg-white hover:bg-purple-50/80 border border-slate-200 hover:border-purple-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3 col-span-2 sm:col-span-1"
+                  >
+                    <div className="p-2.5 rounded-xl bg-purple-100 text-purple-700 group-hover:scale-105 transition shrink-0">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-purple-700">
+                        {language === 'dv' ? 'ކެޓަލޮގް ބައްލަވާ' : 'Browse Catalog'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {language === 'dv' ? 'ފޮތްތަކުގެ ލިސްޓު' : 'Filter & Reserve'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
               {activeTab === 'login' && (
                 <LoginPage
                   currentUser={currentUser}
@@ -693,6 +821,7 @@ export default function App() {
                   }}
                   onViewReferenceOnly={() => setActiveTab('reference')}
                   onAddBook={handleAddBook}
+                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
                   onEditBook={(book) => {
                     setIsAddBookModalOpen(true);
                   }}
@@ -901,6 +1030,9 @@ export default function App() {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         books={books}
+        users={users}
+        loans={loans}
+        onProcessReturn={handleProcessReturn}
         onScanResult={(scannedCode, matchedBook) => {
           if (matchedBook) {
             setActiveTab('catalog');
@@ -914,23 +1046,6 @@ export default function App() {
         onClose={() => setIsAddParentModalOpen(false)}
         allUsers={users}
         onCreateParentAccount={handleCreateParentAccount}
-      />
-
-      {/* Login Modal */}
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        allUsers={users}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          if (user.role === 'parent') {
-            setActiveTab('parent-portal');
-          } else if (user.role === 'admin') {
-            setActiveTab('manage-students');
-          } else {
-            setActiveTab('catalog');
-          }
-        }}
       />
 
       {/* Mobile Bottom Navigation Bar (Optimized for Smartphones & Tablets) */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet, Mail, Send, Smartphone, BellRing } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
 import { useLanguage } from '../lib/i18n';
 
@@ -76,7 +76,69 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [policyAutoEmailRemindersDaysBefore, setPolicyAutoEmailRemindersDaysBefore] = useState(settings.autoEmailRemindersDaysBefore ?? 2);
   const [policyDamagedBookMinorFee, setPolicyDamagedBookMinorFee] = useState(settings.damagedBookMinorFee ?? 3.00);
   const [policyNoteText, setPolicyNoteText] = useState(settings.policyNote || 'Books must be returned in good condition. Fines apply daily after grace period.');
+  const [policyAlertEmail, setPolicyAlertEmail] = useState(settings.alertEmail || 'library-alerts@fmagoodhooschool.edu.mv');
+  const [policyAlertSmsNumber, setPolicyAlertSmsNumber] = useState(settings.alertSmsNumber || '+9607771111');
+  const [policyEnableAutoDueDateAlerts, setPolicyEnableAutoDueDateAlerts] = useState(settings.enableAutoDueDateAlerts ?? true);
+  const [policyNotifyParentOnOverdue, setPolicyNotifyParentOnOverdue] = useState(settings.notifyParentOnOverdue ?? true);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState(false);
+
+  // Overdue Dispatch State
+  const [dispatchStatusMessage, setDispatchStatusMessage] = useState<string | null>(null);
+  const [isDispatching, setIsDispatching] = useState<string | null>(null);
+
+  const handleDispatchOverdueAlert = async (loan: Loan, channel: 'email' | 'sms' | 'both' = 'both') => {
+    setIsDispatching(loan.id);
+    setDispatchStatusMessage(null);
+
+    const borrowerUser = users.find(u => u.id === loan.userId);
+    const parentUser = users.find(u => u.id === borrowerUser?.parentId || u.childrenIds?.includes(loan.userId));
+
+    const recipientEmail = borrowerUser?.email || settings.alertEmail || 'library-alerts@fmagoodhooschool.edu.mv';
+    const recipientPhone = borrowerUser?.phone || settings.alertSmsNumber || '+9607771111';
+
+    // Calculate days overdue
+    const dueDate = new Date(loan.dueDate);
+    const today = new Date();
+    const daysOverdue = Math.max(1, Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24)));
+
+    try {
+      const res = await fetch('/api/notifications/send-overdue-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          loanId: loan.id,
+          recipientEmail,
+          recipientPhone,
+          recipientName: loan.userName,
+          bookTitle: loan.bookTitle,
+          dueDate: loan.dueDate,
+          daysOverdue,
+          lateFee: loan.lateFee,
+          channel,
+          language
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        let parentNotice = '';
+        if (policyNotifyParentOnOverdue && parentUser?.email) {
+          parentNotice = ` (Copy also forwarded to Parent: ${parentUser.email})`;
+        }
+        setDispatchStatusMessage(
+          language === 'dv'
+            ? `"${loan.bookTitle}" އަށް މުއްދަތު ހަމަވިކަމުގެ އިންޒާރު ފޮނުވިއްޖެ! (${data.recipientEmail})${parentNotice}`
+            : `Overdue alert dispatched to ${loan.userName} (${data.recipientEmail}) & predefined admin email (${policyAlertEmail})!${parentNotice}`
+        );
+      } else {
+        setDispatchStatusMessage(`Error: ${data.error || 'Failed to dispatch alert.'}`);
+      }
+    } catch (err: any) {
+      setDispatchStatusMessage(`Failed to connect to notification gateway: ${err.message}`);
+    } finally {
+      setIsDispatching(null);
+    }
+  };
 
   const openNewBookModal = () => {
     setEditingBookId(null);
@@ -164,6 +226,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       autoEmailRemindersDaysBefore: policyAutoEmailRemindersDaysBefore,
       damagedBookMinorFee: policyDamagedBookMinorFee,
       policyNote: policyNoteText,
+      alertEmail: policyAlertEmail,
+      alertSmsNumber: policyAlertSmsNumber,
+      enableAutoDueDateAlerts: policyEnableAutoDueDateAlerts,
+      notifyParentOnOverdue: policyNotifyParentOnOverdue,
     });
     setSettingsSavedMessage(true);
     setTimeout(() => setSettingsSavedMessage(false), 3000);
@@ -336,13 +402,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 2: OVERDUE & LATE FEES */}
+      {/* TAB 2: OVERDUE & LATE FEES & NOTIFICATIONS */}
       {activeTab === 'late-fees' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl space-y-4">
-          <div>
-            <h3 className="text-base font-black text-slate-900">Overdue Loans & Fee Collection</h3>
-            <p className="text-xs text-slate-500 font-medium">Monitor late items and mark fees as collected</p>
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <BellRing className="w-5 h-5 text-rose-600" />
+                {language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކާއި، އީމެއިލް / އެސް.އެމް.އެސް އިންޒާރު' : 'Overdue Due Date Email & SMS Notification Center'}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {language === 'dv'
+                  ? `މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކުގެ މައުލޫމާތު އަދި ކަނޑައެޅިފައިވާ އީމެއިލް (${policyAlertEmail}) އަށް އިންޒާރު ފޮނުއްވުން`
+                  : `Automated & manual email/SMS alerts to students, parents, and predefined admin alert email (${policyAlertEmail})`}
+              </p>
+            </div>
+
+            {overdueLoans.length > 0 && (
+              <button
+                onClick={() => {
+                  overdueLoans.forEach(loan => handleDispatchOverdueAlert(loan, 'both'));
+                }}
+                className="bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Send className="w-4 h-4 text-amber-200" />
+                {language === 'dv' ? 'ހުރިހާ މުއްދަތު ހަމަވި ފޮތްތަކަށް އީމެއިލް ފޮނުއްވާ' : `Dispatch All Overdue Alerts to ${policyAlertEmail}`}
+              </button>
+            )}
           </div>
+
+          {dispatchStatusMessage && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-sm animate-in fade-in">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{dispatchStatusMessage}</span>
+            </div>
+          )}
 
           {overdueLoans.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 font-medium">
@@ -358,39 +452,86 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="p-3">Due Date</th>
                     <th className="p-3">Calculated Fee</th>
                     <th className="p-3">Payment Status</th>
-                    <th className="p-3 text-right">Action</th>
+                    <th className="p-3 text-center">Send Email / SMS Alert</th>
+                    <th className="p-3 text-right">Fee Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {overdueLoans.map(loan => (
-                    <tr key={loan.id} className="hover:bg-slate-50 transition">
-                      <td className="p-3 font-extrabold text-slate-900">{loan.userName} ({loan.userGrade})</td>
-                      <td className="p-3 font-bold text-slate-800">{loan.bookTitle}</td>
-                      <td className="p-3 font-mono text-rose-700 font-extrabold">{loan.dueDate}</td>
-                      <td className="p-3 font-mono text-base font-black text-rose-600">${loan.lateFee.toFixed(2)}</td>
-                      <td className="p-3">
-                        {loan.feePaid ? (
-                          <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                            Paid
-                          </span>
-                        ) : (
-                          <span className="bg-rose-100 text-rose-900 border border-rose-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                            Unpaid Fee
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        {!loan.feePaid && (
-                          <button
-                            onClick={() => onMarkFeePaid(loan.id)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl transition shadow"
-                          >
-                            Collect Fee (${loan.lateFee.toFixed(2)})
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {overdueLoans.map(loan => {
+                    const borrower = users.find(u => u.id === loan.userId);
+                    const recipientEmail = borrower?.email || policyAlertEmail;
+                    const recipientPhone = borrower?.phone || policyAlertSmsNumber;
+                    const subject = encodeURIComponent(`OVERDUE NOTICE: Return needed for "${loan.bookTitle}" - Magoodhoo Library`);
+                    const body = encodeURIComponent(`Dear ${loan.userName},\n\nYour borrowed book "${loan.bookTitle}" is overdue (Due Date: ${loan.dueDate}).\nLate fee accrued: $${loan.lateFee.toFixed(2)}.\n\nPlease return this book to Magoodhoo School Library as soon as possible.\n\nThank you.`);
+
+                    return (
+                      <tr key={loan.id} className="hover:bg-slate-50 transition">
+                        <td className="p-3">
+                          <div className="font-extrabold text-slate-900">{loan.userName}</div>
+                          <div className="text-[10px] text-slate-500">{borrower?.email || loan.userGrade}</div>
+                        </td>
+                        <td className="p-3 font-bold text-slate-800">{loan.bookTitle}</td>
+                        <td className="p-3 font-mono text-rose-700 font-extrabold">{loan.dueDate}</td>
+                        <td className="p-3 font-mono text-base font-black text-rose-600">${loan.lateFee.toFixed(2)}</td>
+                        <td className="p-3">
+                          {loan.feePaid ? (
+                            <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="bg-rose-100 text-rose-900 border border-rose-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                              Unpaid Fee
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Email & SMS Alert Dispatch Column */}
+                        <td className="p-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              disabled={isDispatching === loan.id}
+                              onClick={() => handleDispatchOverdueAlert(loan, 'both')}
+                              className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              title="Send API Email & SMS Notification"
+                            >
+                              <Send className="w-3 h-3" />
+                              {isDispatching === loan.id ? 'Sending...' : 'Send Alert'}
+                            </button>
+
+                            <a
+                              href={`mailto:${recipientEmail}?cc=${encodeURIComponent(policyAlertEmail)}&subject=${subject}&body=${body}`}
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[10px] px-2 py-1.5 rounded-lg transition flex items-center gap-1"
+                              title="Open in Email App"
+                            >
+                              <Mail className="w-3 h-3 text-blue-600" /> Mailto
+                            </a>
+
+                            {recipientPhone && (
+                              <a
+                                href={`sms:${recipientPhone}?body=${encodeURIComponent(`Magoodhoo Library Notice: "${loan.bookTitle}" is overdue. Please return to desk.`)}`}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px] px-2 py-1.5 rounded-lg transition flex items-center gap-1"
+                                title="Open SMS"
+                              >
+                                <Smartphone className="w-3 h-3 text-emerald-600" /> SMS
+                              </a>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3 text-right">
+                          {!loan.feePaid && (
+                            <button
+                              onClick={() => onMarkFeePaid(loan.id)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl transition shadow cursor-pointer shrink-0"
+                            >
+                              Collect Fee (${loan.lateFee.toFixed(2)})
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -894,7 +1035,76 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Section 4: Notice Note */}
+            {/* Section 5: Predefined Due Date Email & SMS Alert Gateway */}
+            <div className="bg-gradient-to-br from-amber-50/60 to-orange-50/60 p-5 rounded-2xl border border-amber-200/80 space-y-4">
+              <h4 className="font-extrabold text-amber-950 text-sm flex items-center gap-2 border-b border-amber-200/80 pb-2">
+                <BellRing className="w-4 h-4 text-amber-600" />
+                {language === 'dv' ? 'މުއްދަތު ހަމަވުމުން އިންޒާރު ފޮނުވާ އީމެއިލް އަދި އެސް.އެމް.އެސް ފޮނުވާ ނަންބަރު' : 'Predefined Due Date Email & SMS Notification Gateway'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-amber-950 mb-1 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-amber-700" />
+                    {language === 'dv' ? 'އިންޒާރު ފޮނުވާ އީމެއިލް (Predefined Alert Email)' : 'Predefined Admin/Library Alert Email'}
+                  </label>
+                  <input
+                    type="email"
+                    value={policyAlertEmail}
+                    onChange={(e) => setPolicyAlertEmail(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="e.g. library-alerts@fmagoodhooschool.edu.mv"
+                  />
+                  <p className="text-[10px] text-amber-800/80 mt-1">
+                    {language === 'dv' ? 'ފޮތުގެ މުއްދަތު ހަމަވުމުން އޮޓޮމެޓިކުން މެސެޖު ކޮޕީ ފޮނުވާ އީމެއިލް' : 'All due date alerts will forward a copy to this predefined email address'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-amber-950 mb-1 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-700" />
+                    {language === 'dv' ? 'އެސް.އެމް.އެސް ގޭޓްވޭ ނަންބަރު' : 'Predefined SMS Gateway Phone Number'}
+                  </label>
+                  <input
+                    type="tel"
+                    value={policyAlertSmsNumber}
+                    onChange={(e) => setPolicyAlertSmsNumber(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="e.g. +9607771111"
+                  />
+                  <p className="text-[10px] text-amber-800/80 mt-1">
+                    {language === 'dv' ? 'އަވަސް އެސް.އެމް.އެސް މެސެޖު ފޮނުވާނެ ނަންބަރު' : 'Phone number used for SMS due date notifications'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col justify-center space-y-2.5 bg-white p-3.5 rounded-xl border border-amber-200">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policyEnableAutoDueDateAlerts}
+                      onChange={(e) => setPolicyEnableAutoDueDateAlerts(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                    />
+                    <span className="font-extrabold text-xs text-amber-950">
+                      {language === 'dv' ? 'މުއްދަތު ހަމަވުމުން އޮޓޮމެޓިކުން އީމެއިލް / އެސް.އެމް.އެސް ފޮނުވުން' : 'Enable Automated Due Date Email & SMS Dispatches'}
+                    </span>
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policyNotifyParentOnOverdue}
+                      onChange={(e) => setPolicyNotifyParentOnOverdue(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                    />
+                    <span className="font-extrabold text-xs text-amber-950">
+                      {language === 'dv' ? 'ބެލެނިވެރިޔާގެ އީމެއިލަށްވެސް ކޮޕީއެއް ފޮނުވުން' : 'Include Parent Guardian Email in Overdue Alerts'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 6: Notice Note */}
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
               <label className="block font-bold text-slate-800 text-xs">
                 {language === 'dv' ? 'މެންބަރުންނަށް ފެންނާނެ އުޞޫލުގެ އިޢުލާން' : 'Public Policy Notice / Member Instructions'}
@@ -930,13 +1140,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Add/Edit Book Modal */}
       {showBookModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowBookModal(false);
+          }}
+        >
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4 text-slate-800">
             <div className="flex items-center justify-between border-b pb-3 border-slate-100">
               <h3 className="text-base font-black text-slate-900">
                 {editingBookId ? 'Edit Book Details' : 'Add New Book Record'}
               </h3>
-              <button onClick={() => setShowBookModal(false)} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowBookModal(false);
+                }}
+                className="text-slate-400 hover:text-slate-700 font-bold p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleSaveBook} className="space-y-3 text-xs">
@@ -1058,8 +1283,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowBookModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowBookModal(false);
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition border border-slate-300 cursor-pointer"
                 >
                   Cancel
                 </button>

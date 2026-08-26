@@ -12,6 +12,7 @@ interface BookCatalogProps {
   onOpenCheckoutForBook: (book: Book) => void;
   onViewReferenceOnly: () => void;
   onAddBook?: (bookData: Omit<Book, 'id'>) => Promise<void>;
+  onOpenAddBookModal?: () => void;
   onEditBook?: (book: Book) => void;
   onDeleteBook?: (bookId: string) => void;
   onOpenImportModal?: (type?: 'books' | 'parents' | 'staff') => void;
@@ -26,6 +27,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   onOpenCheckoutForBook,
   onViewReferenceOnly,
   onAddBook,
+  onOpenAddBookModal,
   onEditBook,
   onDeleteBook,
   onOpenImportModal,
@@ -57,6 +59,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
+  const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
 
   // Stats
   const totalPhysicalCopies = books.reduce((acc, b) => acc + (b.totalCopies || 1), 0);
@@ -124,9 +127,16 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   <FileSpreadsheet className="w-4 h-4 text-indigo-600" /> {t.importBulk}
                 </button>
               )}
-              {currentUser.role === 'admin' && onAddBook && (
+              {currentUser.role === 'admin' && (onAddBook || onOpenAddBookModal) && (
                 <button
-                  onClick={() => setIsAddBookModalOpen(true)}
+                  type="button"
+                  onClick={() => {
+                    if (onOpenAddBookModal) {
+                      onOpenAddBookModal();
+                    } else {
+                      setIsAddBookModalOpen(true);
+                    }
+                  }}
                   className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-md transition flex items-center gap-2 active:scale-95 cursor-pointer"
                   id="catalog-add-book-btn"
                 >
@@ -557,11 +567,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 </button>
 
                                 <button
-                                  onClick={() => {
-                                    if (onDeleteBook && confirm(language === 'dv' ? `"${book.title}" ފޮހެލަން ބޭނުންފުޅުތޯ؟` : `Are you sure you want to delete "${book.title}"?`)) {
-                                      onDeleteBook(book.id);
-                                    }
-                                  }}
+                                  type="button"
+                                  onClick={() => setBookToDelete(book)}
                                   className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-sm cursor-pointer"
                                   title={language === 'dv' ? 'ފޮތުގެ ރެކޯޑް ފޮހެލައްވާ' : 'Delete Book Record'}
                                 >
@@ -725,6 +732,64 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           onClose={() => setIsAddBookModalOpen(false)}
           onAddBook={onAddBook}
         />
+      )}
+
+      {/* Delete Book Modal */}
+      {bookToDelete && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setBookToDelete(null);
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4 text-slate-800">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">
+                  {language === 'dv' ? 'ފޮތް ފޮހެލުން' : 'Delete Book Record'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {language === 'dv' ? 'މި ފޮތް ސިސްޓަމުން ފޮހެލަން ބޭނުންފުޅުތޯ؟' : 'Are you sure you want to delete this book?'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+              <p className="font-bold text-slate-900">{bookToDelete.title}</p>
+              <p className="text-slate-600">{language === 'dv' ? 'ލިޔުންތެރިޔާ:' : 'Author:'} {bookToDelete.author}</p>
+              <p className="text-slate-500 font-mono">ISBN: {bookToDelete.isbn}</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBookToDelete(null);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                {language === 'dv' ? 'ކެންސަލް' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteBook) {
+                    onDeleteBook(bookToDelete.id);
+                  }
+                  setBookToDelete(null);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow cursor-pointer active:scale-95"
+              >
+                {language === 'dv' ? 'ފޮހެލައްވާ' : 'Delete Book'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

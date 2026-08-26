@@ -85,7 +85,12 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/15 max-h-[90vh] overflow-y-auto space-y-5 text-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -100,8 +105,13 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1.5 hover:bg-white/10 rounded-xl transition"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            className="text-slate-400 hover:text-white p-1.5 hover:bg-white/10 rounded-xl transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -272,8 +282,12 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
           <div className="pt-3 flex justify-end gap-2 border-t border-white/10">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 bg-white/10 text-slate-200 rounded-xl font-semibold hover:bg-white/20 transition border border-white/10"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              className="px-4 py-2.5 bg-white/10 text-slate-200 rounded-xl font-semibold hover:bg-white/20 transition border border-white/10 cursor-pointer"
             >
               Cancel
             </button>
