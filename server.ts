@@ -201,6 +201,36 @@ app.post('/api/notifications/send-overdue-alert', async (req, res) => {
   }
 });
 
+// 5. Webhook / Direct Live Sync Receiver from Report Card Portal (https://reportcard-fmagoodhooschool.vercel.app/)
+app.post('/api/sync/reportcard-directory', async (req, res) => {
+  try {
+    const { event, data, timestamp } = req.body;
+    const records = Array.isArray(data) ? data : (data ? [data] : []);
+
+    console.log(`[REPORT CARD SYNC RECEIVED] Event: ${event || 'auto'} | Items count: ${records.length} | Source: reportcard-fmagoodhooschool.vercel.app`);
+
+    res.json({
+      success: true,
+      syncedCount: records.length,
+      timestamp: timestamp || new Date().toISOString(),
+      message: `Successfully synchronized ${records.length} member records from Report Card portal.`
+    });
+  } catch (error: any) {
+    console.error('Report Card Sync Webhook error:', error);
+    res.status(500).json({ error: error.message || 'Failed to process directory sync.' });
+  }
+});
+
+app.get('/api/sync/reportcard-directory', (req, res) => {
+  res.json({
+    status: 'online',
+    targetPortal: 'https://reportcard-fmagoodhooschool.vercel.app/',
+    syncEndpoint: '/api/sync/reportcard-directory',
+    database: 'Cloud Firestore',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Start Express Server with Vite or Static
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

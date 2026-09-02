@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet, Mail, Send, Smartphone, BellRing } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet, Mail, Send, Smartphone, BellRing, Zap, Radio } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
 import { useLanguage } from '../lib/i18n';
 
@@ -16,6 +16,7 @@ interface AdminPanelProps {
   onMarkFeePaid: (loanId: string) => void;
   onOpenAddParentModal?: () => void;
   onOpenImportModal?: (type?: 'books' | 'parents') => void;
+  onOpenReportCardSyncModal?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -30,7 +31,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSettings,
   onMarkFeePaid,
   onOpenAddParentModal,
-  onOpenImportModal
+  onOpenImportModal,
+  onOpenReportCardSyncModal
 }) => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'inventory' | 'late-fees' | 'barcode-labels' | 'users' | 'settings'>('inventory');
@@ -610,11 +612,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <p className="text-xs text-slate-500 font-medium">Manage registered parent accounts, student links, and member profiles</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {onOpenReportCardSyncModal && (
+                <button
+                  onClick={onOpenReportCardSyncModal}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-xs"
+                  id="admin-reportcard-sync-btn"
+                  title="Real-Time Cloud Firestore Sync with https://reportcard-fmagoodhooschool.vercel.app/"
+                >
+                  <Zap className="w-4 h-4 text-indigo-600" />
+                  <span>{language === 'dv' ? 'ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް' : 'Report Card Live Sync'}</span>
+                </button>
+              )}
               {onOpenImportModal && (
                 <button
                   onClick={() => onOpenImportModal('parents')}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 border border-slate-300"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 border border-slate-300 cursor-pointer"
                   id="admin-import-parents-btn"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-purple-600" /> Import Parents CSV
@@ -623,7 +636,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               {onOpenAddParentModal && (
                 <button
                   onClick={onOpenAddParentModal}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 cursor-pointer"
                   id="admin-add-parent-account-btn"
                 >
                   <Plus className="w-4 h-4" /> Register New Parent Account
@@ -1104,7 +1117,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Section 6: Notice Note */}
+            {/* Section 6: Report Card Portal Live Sync Integration */}
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-5 rounded-2xl border border-indigo-500/30 space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/20 border border-indigo-400/30 rounded-xl text-indigo-300">
+                    <Zap className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                      <span>{language === 'dv' ? 'ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް އިންޓަގްރޭޝަން' : 'Report Card Portal Cloud Firestore Live Sync'}</span>
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black px-2 py-0.5 rounded-full">
+                        ⚡ Real-Time Active
+                      </span>
+                    </h4>
+                    <p className="text-xs text-indigo-200 mt-0.5">
+                      Target: <span className="underline font-mono">https://reportcard-fmagoodhooschool.vercel.app/</span>
+                    </p>
+                  </div>
+                </div>
+
+                {onOpenReportCardSyncModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenReportCardSyncModal}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 shadow-sm"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>{language === 'dv' ? 'ސިންކް ކޮންފިގަރޭޝަން ބައްލަވާ' : 'Configure Live Sync'}</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                {language === 'dv'
+                  ? 'ރިޕޯޓް ކާޑު ޕޯޓަލްގައި ދަރިވަރުން ނުވަތަ ބެލެނިވެރިންގެ މަޢުލޫމާތަށް ގެންނަ ކޮންމެ ބަދަލެއް ވަގުތުން މި ލައިބްރަރީ ސިސްޓަމަށް ސިންކް ވެއެވެ.'
+                  : 'Every student enrollment, guardian update, and contact edit in the Report Card portal automatically syncs into this Library Member Directory in real-time via Cloud Firestore snapshot listeners & automated webhooks.'}
+              </p>
+            </div>
+
+            {/* Section 7: Notice Note */}
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
               <label className="block font-bold text-slate-800 text-xs">
                 {language === 'dv' ? 'މެންބަރުންނަށް ފެންނާނެ އުޞޫލުގެ އިޢުލާން' : 'Public Policy Notice / Member Instructions'}

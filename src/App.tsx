@@ -38,6 +38,8 @@ import { AddBookModal } from './components/AddBookModal';
 import { LoginPage } from './components/LoginPage';
 import { ImportModal } from './components/ImportModal';
 import { AIAssistant } from './components/AIAssistant';
+import { ReportCardSyncModal } from './components/ReportCardSyncModal';
+import { portalSyncManager } from './lib/externalPortalSync';
 import { useLanguage } from './lib/i18n';
 import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './data/seedData';
 import {
@@ -95,10 +97,11 @@ export default function App() {
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState<boolean>(false);
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isReportCardSyncModalOpen, setIsReportCardSyncModalOpen] = useState<boolean>(false);
   const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Initialize and subscribe to Firestore
+  // Initialize and subscribe to Firestore & External Report Card Portal Sync
   useEffect(() => {
     let unsubscribeBooks: () => void;
     let unsubscribeUsers: () => void;
@@ -111,6 +114,13 @@ export default function App() {
         await initializeDatabaseIfEmpty();
       } catch (err) {
         console.warn("Database initialization skipped or running offline:", err);
+      }
+
+      // Start Real-Time Live Cloud Firestore Sync from Report Card Portal (https://reportcard-fmagoodhooschool.vercel.app/)
+      try {
+        portalSyncManager.startRealtimeSync();
+      } catch (e) {
+        console.warn("Report Card Live Sync init note:", e);
       }
 
       unsubscribeBooks = subscribeBooks(
@@ -163,6 +173,7 @@ export default function App() {
       if (unsubscribeLoans) unsubscribeLoans();
       if (unsubscribeRes) unsubscribeRes();
       if (unsubscribeSet) unsubscribeSet();
+      portalSyncManager.stopRealtimeSync();
     };
   }, []);
 
@@ -851,6 +862,7 @@ export default function App() {
                   currentUserRole={currentUser.role}
                   onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
                   onOpenImportModal={handleOpenImportModal}
+                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
                   onSelectMemberForCheckout={(memberId) => setActiveTab('borrow-book')}
                   onDeleteUser={handleDeleteUser}
                 />
@@ -901,6 +913,7 @@ export default function App() {
                   onMarkFeePaid={handleMarkFeePaid}
                   onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
                   onOpenImportModal={handleOpenImportModal}
+                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
                 />
               )}
 
@@ -1107,6 +1120,12 @@ export default function App() {
         onImportBooks={handleBulkImportBooks}
         onImportParents={handleBulkImportParents}
         onImportStaff={handleBulkImportStaff}
+      />
+
+      {/* Cloud Firestore Report Card Portal Real-Time Sync Modal */}
+      <ReportCardSyncModal
+        isOpen={isReportCardSyncModalOpen}
+        onClose={() => setIsReportCardSyncModalOpen(false)}
       />
 
     </div>

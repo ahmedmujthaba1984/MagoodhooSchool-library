@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Users, Search, Filter, UserCheck, Shield, UserPlus, CreditCard, BookOpen, AlertTriangle, Phone, Mail, FileSpreadsheet, Printer, Download, Check, X, ChevronRight, QrCode, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Search, Filter, UserCheck, Shield, UserPlus, CreditCard, BookOpen, AlertTriangle, Phone, Mail, FileSpreadsheet, Printer, Download, Check, X, ChevronRight, QrCode, Trash2, Zap, Radio } from 'lucide-react';
 import { UserProfile, UserRole, Loan, Book } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { portalSyncManager, SyncStatusState } from '../lib/externalPortalSync';
 
 interface MemberDirectoryProps {
   allUsers: UserProfile[];
@@ -10,6 +11,7 @@ interface MemberDirectoryProps {
   currentUserRole?: string;
   onOpenAddParentModal?: () => void;
   onOpenImportModal?: (type: 'books' | 'parents' | 'staff') => void;
+  onOpenReportCardSyncModal?: () => void;
   onSelectMemberForCheckout?: (memberId: string) => void;
   onDeleteUser?: (userId: string) => void;
 }
@@ -21,16 +23,23 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
   currentUserRole,
   onOpenAddParentModal,
   onOpenImportModal,
+  onOpenReportCardSyncModal,
   onSelectMemberForCheckout,
   onDeleteUser
 }) => {
-  const { t, isRtl } = useLanguage();
+  const { t, language, isRtl } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
   const [showLibraryCardModal, setShowLibraryCardModal] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatusState>(portalSyncManager.getStatus());
+
+  useEffect(() => {
+    const unsub = portalSyncManager.subscribeStatus((st) => setSyncStatus(st));
+    return () => unsub();
+  }, []);
 
   // Filter users based on search and role
   const filteredUsers = allUsers.filter(user => {
@@ -162,6 +171,26 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {onOpenReportCardSyncModal && (
+              <button
+                onClick={onOpenReportCardSyncModal}
+                className={`font-black text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 shadow-xs border cursor-pointer ${
+                  syncStatus.isLiveConnected
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200'
+                }`}
+                id="directory-reportcard-sync-btn"
+                title="Real-Time Cloud Firestore Sync with https://reportcard-fmagoodhooschool.vercel.app/"
+              >
+                <Zap className={`w-3.5 h-3.5 ${syncStatus.isLiveConnected ? 'text-emerald-600 animate-pulse' : 'text-indigo-600'}`} />
+                <span>
+                  {language === 'dv' ? 'ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް' : 'Report Card Live Sync'}
+                </span>
+                {syncStatus.isLiveConnected && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                )}
+              </button>
+            )}
             {onOpenAddParentModal && (
               <button
                 onClick={onOpenAddParentModal}
