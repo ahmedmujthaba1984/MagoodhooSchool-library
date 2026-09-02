@@ -35,17 +35,30 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
   const [showLibraryCardModal, setShowLibraryCardModal] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusState>(portalSyncManager.getStatus());
+  const [isSyncingDirectory, setIsSyncingDirectory] = useState(false);
 
   useEffect(() => {
     const unsub = portalSyncManager.subscribeStatus((st) => setSyncStatus(st));
     return () => unsub();
   }, []);
 
+  const handleQuickSync = async () => {
+    setIsSyncingDirectory(true);
+    try {
+      await portalSyncManager.performManualSync();
+    } catch (e) {
+      console.warn('Manual sync error:', e);
+    } finally {
+      setIsSyncingDirectory(false);
+    }
+  };
+
   // Filter users based on search and role
   const filteredUsers = allUsers.filter(user => {
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.dhivehiName && user.dhivehiName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.studentIdCode && user.studentIdCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (user.staffIdCode && user.staffIdCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -220,6 +233,46 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
         </div>
       </div>
 
+      {/* Quick Sync Banner for Magoodhoo School Report Card Portal */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-indigo-500/30">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-400 animate-pulse" />
+            <h3 className="text-sm sm:text-base font-black text-white">
+              {language === 'dv' ? 'މަގޫދޫ ސްކޫލް ރިޕޯޓް ކާޑު ޕޯޓަލް ސިންކް' : 'Magoodhoo School Report Card Portal Directory'}
+            </h3>
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+              215 Students • 215 Parents • 46 Staff
+            </span>
+          </div>
+          <p className="text-xs text-indigo-200">
+            {language === 'dv'
+              ? 'ރިޕޯޓް ކާޑު ޕޯޓަލް (reportcard-fmagoodhooschool.vercel.app) އިން ހުރިހާ ގްރޭޑްތަކެއްގެ (LKG އިން Grade 10) ދަރިވަރުންނާއި ބެލެނިވެރިން ސިންކްކުރައްވާ.'
+              : 'Direct live synchronization with https://reportcard-fmagoodhooschool.vercel.app/ across all 12 grades (LKG to Grade 10), parent contacts, and staff roster.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+          <button
+            onClick={handleQuickSync}
+            disabled={isSyncingDirectory}
+            className="w-full md:w-auto px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+            id="directory-quick-sync-btn"
+          >
+            <Zap className={`w-3.5 h-3.5 ${isSyncingDirectory ? 'animate-spin' : ''}`} />
+            <span>{isSyncingDirectory ? (language === 'dv' ? 'ސިންކް ވަނީ...' : 'Syncing Directory...') : (language === 'dv' ? 'މިހާރު ސިންކްކުރައްވާ (215 ދަރިވަރުން)' : 'Sync 215 Students & Parents')}</span>
+          </button>
+          {onOpenReportCardSyncModal && (
+            <button
+              onClick={onOpenReportCardSyncModal}
+              className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+              title="Configure Cloud Firestore and Sync Settings"
+            >
+              Settings
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Search Bar & View Mode Toggle */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:max-w-md">
@@ -289,7 +342,12 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                         {user.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-extrabold text-slate-900 text-sm leading-snug">{user.name}</div>
+                        <div className="font-extrabold text-slate-900 text-sm leading-snug flex items-center gap-1.5 flex-wrap">
+                          <span>{user.name}</span>
+                          {user.dhivehiName && (
+                            <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100">{user.dhivehiName}</span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-slate-500 font-medium truncate max-w-[180px]">{user.email}</div>
                       </div>
                     </div>
@@ -412,8 +470,13 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                             {user.name.charAt(0)}
                           </div>
                           <div>
-                            <div className="font-extrabold text-slate-900">{user.name}</div>
-                            <div className="text-[11px] text-slate-500 font-medium">{user.id}</div>
+                            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                              <span>{user.name}</span>
+                              {user.dhivehiName && (
+                                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">{user.dhivehiName}</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-medium">{user.studentIdCode ? `ID: ${user.studentIdCode}` : user.id}</div>
                           </div>
                         </div>
                       </td>
@@ -490,7 +553,12 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                   {selectedMember.name.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">{selectedMember.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-black text-slate-900">{selectedMember.name}</h3>
+                    {selectedMember.dhivehiName && (
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">{selectedMember.dhivehiName}</span>
+                    )}
+                  </div>
                   <div className="mt-0.5">{getRoleBadge(selectedMember.role)}</div>
                 </div>
               </div>

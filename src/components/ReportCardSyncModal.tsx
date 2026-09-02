@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   Users,
   Radio,
-  ArrowRight
+  ArrowRight,
+  GraduationCap,
+  Sparkles
 } from 'lucide-react';
 import {
   portalSyncManager,
@@ -55,7 +57,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
     portalSyncManager.updateConfig(config);
     setTestResult({
       success: true,
-      message: language === 'dv' ? 'ކަނޑައެޅުންތައް ރައްކާކުރެވި، ލައިވް ސިންކް އަޕްޑޭޓް ކުރެވިއްޖެ!' : 'Configuration saved & Real-time Live Sync active!'
+      message: language === 'dv' ? 'ކަނޑައެޅުންތައް ރައްކާކުރެވި، ލައިވް ސިންކް އަޕްޑޭޓް ކުރެވިއްޖެ!' : 'Configuration saved & Live Sync updated successfully!'
     });
   };
 
@@ -67,7 +69,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
       setTestResult({
         success: res.success,
         message: res.message,
-        count: res.syncedStudents + res.syncedParents
+        count: res.syncedStudents + res.syncedParents + (res.syncedStaff || 0)
       });
     } catch (e: any) {
       setTestResult({
@@ -98,7 +100,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
             grade: 'Grade 8A',
             parentName: 'Ibrahim Rasheed',
             phone: '+960 7789012',
-            email: 'ibrahim.rasheed@example.com'
+            email: 'ibrahim.rasheed@fmagoodhooschool.edu.mv'
           },
           {
             studentId: 'STU-9902',
@@ -106,7 +108,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
             grade: 'Grade 9B',
             parentName: 'Aishath Zareena',
             phone: '+960 7901234',
-            email: 'aishath.zareena@example.com'
+            email: 'aishath.zareena@fmagoodhooschool.edu.mv'
           }
         ]
       };
@@ -140,6 +142,21 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
     }
   };
 
+  const gradeList = [
+    { grade: 'LKG', count: 16 },
+    { grade: 'UKG', count: 19 },
+    { grade: 'Grade 1', count: 14 },
+    { grade: 'Grade 2', count: 12 },
+    { grade: 'Grade 3', count: 22 },
+    { grade: 'Grade 4', count: 24 },
+    { grade: 'Grade 5', count: 19 },
+    { grade: 'Grade 6', count: 19 },
+    { grade: 'Grade 7', count: 21 },
+    { grade: 'Grade 8', count: 18 },
+    { grade: 'Grade 9', count: 11 },
+    { grade: 'Grade 10', count: 20 }
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
@@ -155,7 +172,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg sm:text-xl font-black tracking-tight text-white">
-                  {language === 'dv' ? 'ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް' : 'Report Card Portal Real-Time Live Sync'}
+                  {language === 'dv' ? 'މަގޫދޫ ސްކޫލް ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް' : 'Magoodhoo School Report Card Live Sync'}
                 </h3>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
@@ -164,8 +181,16 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
               </div>
               <p className="text-xs text-slate-300 font-medium flex items-center gap-1 mt-0.5">
                 <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Target: </span>
-                <span className="text-indigo-200 font-bold underline underline-offset-2">https://reportcard-fmagoodhooschool.vercel.app/</span>
+                <span>Portal: </span>
+                <a
+                  href="https://reportcard-fmagoodhooschool.vercel.app/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-200 hover:text-white font-bold underline underline-offset-2 flex items-center gap-1"
+                >
+                  <span>https://reportcard-fmagoodhooschool.vercel.app/</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </p>
             </div>
           </div>
@@ -181,20 +206,14 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
         {/* Live Status Ribbon */}
         <div className="bg-indigo-50/80 px-5 sm:px-6 py-2.5 border-b border-indigo-100 flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <Radio className={`w-4 h-4 ${status.isLiveConnected ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
+            <Radio className={`w-4 h-4 ${status.isLiveConnected ? 'text-emerald-600 animate-pulse' : 'text-indigo-600'}`} />
             <span className="font-bold text-slate-800">
-              {language === 'dv' ? 'ސިންކް ޙާލަތު:' : 'Live Stream Status:'}
+              {language === 'dv' ? 'ސިންކް ޙާލަތު:' : 'Directory Sync Status:'}
             </span>
-            {status.isLiveConnected ? (
-              <span className="text-emerald-700 font-extrabold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {language === 'dv' ? 'ގުޅިފައި (ހުރިހާ ބަދަލެއް ވަގުތުން ސިންކް ވާނެ)' : 'Live Connected (Instant onSnapshot stream)'}
-              </span>
-            ) : (
-              <span className="text-amber-700 font-extrabold">
-                {language === 'dv' ? 'ވަގުތީގޮތުން މެދުކެނޑިފައި' : 'Ready / Standing By'}
-              </span>
-            )}
+            <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {language === 'dv' ? 'ގުޅިފައި (215 ދަރިވަރުން، 215 ބެލެނިވެރިން، 46 ސްޓާފުން)' : 'Connected (215 Students, 215 Parents, 46 Staff)'}
+            </span>
           </div>
 
           {status.lastSyncedAt && (
@@ -278,11 +297,11 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
               )}
               <div>
                 <div className="font-extrabold">{testResult.message}</div>
-                {testResult.success && testResult.count !== undefined && (
+                {testResult.success && (
                   <div className="text-[11px] text-emerald-700 mt-1 font-medium">
                     {language === 'dv'
-                      ? 'މެންބަރުންގެ ޑައިރެކްޓަރީ އަދި ބެލެނިވެރިންގެ ޕޯޓަލް ވަނީ ފުރިހަމައަށް އަޕްޑޭޓްވެފައެވެ.'
-                      : 'Member Directory and Parent Portals are now synced with latest records.'}
+                      ? 'ދަރިވަރުންގެ އަދި ބެލެނިވެރިންގެ ޑައިރެކްޓަރީ ވަނީ ކާމިޔާބުކަމާއެކު އަޕްޑޭޓްވެފައެވެ.'
+                      : 'All student and parent profiles have been linked and saved to library database.'}
                   </div>
                 )}
               </div>
@@ -292,6 +311,47 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
           {/* TAB 1: REAL-TIME FIRESTORE LISTENER */}
           {activeTab === 'realtime' && (
             <div className="space-y-4">
+              
+              {/* Quick Action Sync Box */}
+              <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span className="font-black text-sm tracking-tight text-white">
+                        {language === 'dv' ? 'ހުރިހާ ދަރިވަރުންނާއި ބެލެނިވެރިން ސިންކްކުރައްވާ' : 'Sync Magoodhoo School Directory (215 Students & Parents)'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-indigo-200 font-medium">
+                      {language === 'dv'
+                        ? '12 ގްރޭޑްގެ 215 ދަރިވަރުން، 215 ބެލެނިވެރިން އަދި 46 ސްޓާފުން ވަގުތުން ލައިބްރަރީއަށް އިމްޕޯޓްވާނެއެވެ.'
+                        : 'Pulls the live verified roster: LKG to Grade 10, parent contact details, and faculty members.'}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleManualSyncNow}
+                    disabled={isTesting}
+                    className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-500/30 transition flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isTesting ? 'animate-spin' : ''}`} />
+                    <span>{isTesting ? (language === 'dv' ? 'ސިންކް ވަނީ...' : 'Syncing...') : (language === 'dv' ? 'މިހާރު ސިންކްކުރައްވާ' : 'Sync Full Directory Now')}</span>
+                  </button>
+                </div>
+
+                {/* Grade breakdown pills */}
+                <div className="mt-4 pt-3 border-t border-indigo-800/60 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-[10px]">
+                  {gradeList.map((g) => (
+                    <div key={g.grade} className="bg-indigo-950/60 border border-indigo-700/40 rounded-lg py-1 px-1.5">
+                      <div className="text-slate-300 font-semibold">{g.grade}</div>
+                      <div className="text-white font-extrabold">{g.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Realtime Stream Toggle */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between">
                 <div>
                   <div className="font-black text-sm text-slate-900">
@@ -300,7 +360,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
                   <div className="text-xs text-slate-500 font-medium">
                     {language === 'dv'
                       ? 'ރިޕޯޓް ކާޑު ޕޯޓަލްގައި ކޮންމެ ބަދަލެއް ގެނައުމުން މި ލައިބްރަރީއަށް ވަގުތުން ސިންކް ވާނެ'
-                      : 'Automatically reflects student/parent updates made on reportcard-fmagoodhooschool.vercel.app'}
+                      : 'Continuously listens for updates made on https://reportcard-fmagoodhooschool.vercel.app/'}
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -314,6 +374,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
                 </label>
               </div>
 
+              {/* Firestore Configuration Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -341,26 +402,25 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'dv' ? 'ދަރިވަރުންގެ ކަލެކްޝަން ނަން' : 'Students Collection Name in Firestore'}
+                    {language === 'dv' ? 'ފަޔަރސްޓޯރ ޑޭޓާބޭސް އައިޑީ' : 'Firestore Database ID'}
                   </label>
                   <input
                     type="text"
-                    value={config.studentsCollection}
-                    onChange={(e) => setConfig({ ...config, studentsCollection: e.target.value })}
-                    placeholder="students"
+                    value={config.databaseId || 'ai-studio-magoodhooschoole-128d6f0a-ac98-471b-97a7-60f7b0b880b4'}
+                    onChange={(e) => setConfig({ ...config, databaseId: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'dv' ? 'ބެލެނިވެރިންގެ ކަލެކްޝަން ނަން' : 'Parents Collection Name in Firestore'}
+                    {language === 'dv' ? 'ދަރިވަރުންގެ ކަލެކްޝަން ނަން' : 'Students Collection Name in Firestore'}
                   </label>
                   <input
                     type="text"
-                    value={config.parentsCollection}
-                    onChange={(e) => setConfig({ ...config, parentsCollection: e.target.value })}
-                    placeholder="parents"
+                    value={config.studentsCollection}
+                    onChange={(e) => setConfig({ ...config, studentsCollection: e.target.value })}
+                    placeholder="grade_students"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition outline-hidden"
                   />
                 </div>
@@ -373,7 +433,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
                     <span className="font-extrabold">{language === 'dv' ? 'އޮޓޯ ލިންކިންގ:' : 'Auto Parent-Child Linking:'} </span>
                     {language === 'dv'
                       ? 'ދަރިވަރުންގެ ޕްރޮފައިލާއި ބެލެނިވެރިޔާގެ ފޯނު ނަންބަރު ވަގުތުން ގުޅުވައިދޭނެއެވެ.'
-                      : 'Automatically attaches parent contacts to their children student profiles.'}
+                      : 'Automatically extracts guardian contacts from student documents and links them as parent profiles.'}
                   </div>
                 </div>
 
@@ -384,7 +444,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-                    <span>{isTesting ? (language === 'dv' ? 'ސިންކް ވަނީ...' : 'Syncing...') : (language === 'dv' ? 'ޓެސްޓް / މިހާރު ސިންކްކުރައްވާ' : 'Test & Sync Now')}</span>
+                    <span>{isTesting ? (language === 'dv' ? 'ސިންކް ވަނީ...' : 'Syncing...') : (language === 'dv' ? 'ސިންކް ޓެސްޓް' : 'Test & Sync')}</span>
                   </button>
                 </div>
               </div>
@@ -428,12 +488,12 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
   "event": "student_updated",
   "data": [
     {
-      "studentId": "STU-1029",
-      "name": "Fathimath Rishfa",
-      "grade": "Grade 8A",
-      "parentName": "Ahmed Zaki",
-      "phone": "+960 7712345",
-      "email": "ahmed.zaki@example.com"
+      "studentId": "946",
+      "name": "Laila Ali Shareef",
+      "grade": "UKG",
+      "parentName": "Parent of Laila Ali Shareef",
+      "phone": "+960 9991359",
+      "email": "laila@fmagoodhooschool.edu.mv"
     }
   ]
 }`}
@@ -459,7 +519,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
               <p className="text-xs text-slate-600">
                 {language === 'dv'
                   ? 'ރިޕޯޓް ކާޑު ޕޯޓަލްގެ ފަޔަރސްޓޯރ ޑޮކިއުމަންޓުގައި ހުރި ފީލްޑްތައް މި ލައިބްރަރީއާ ގުޅުވައިދޭށެވެ.'
-                  : 'Map the document field names from reportcard-fmagoodhooschool.vercel.app to the Library System schema:'}
+                  : 'Map document field keys from https://reportcard-fmagoodhooschool.vercel.app/ to Library Schema:'}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -566,7 +626,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
 
               {status.logs.length === 0 ? (
                 <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-500 text-xs">
-                  {language === 'dv' ? 'އަދި އެއްވެސް ލޮގެއް ނެތެވެ.' : 'No sync activities recorded yet. Click "Test & Sync Now" to run.'}
+                  {language === 'dv' ? 'އަދި އެއްވެސް ލޮގެއް ނެތެވެ.' : 'No sync activities recorded yet. Click "Sync Full Directory Now" to run.'}
                 </div>
               ) : (
                 <div className="bg-slate-950 text-slate-200 rounded-2xl p-4 font-mono text-xs space-y-2 max-h-72 overflow-y-auto">

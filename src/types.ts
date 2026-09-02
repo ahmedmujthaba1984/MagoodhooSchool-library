@@ -4,6 +4,8 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  dhivehiName?: string;
+  gender?: string;
   role: UserRole;
   parentId?: string; // For student: parent user id
   childrenIds?: string[]; // For parent: list of student ids

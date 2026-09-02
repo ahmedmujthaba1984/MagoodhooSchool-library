@@ -140,6 +140,16 @@ export default function App() {
         (data) => {
           if (data && data.length > 0) {
             setUsers(data);
+            const studentCount = data.filter(u => u.role === 'student').length;
+            if (studentCount < 50 && !localStorage.getItem('portal_directory_auto_synced_v2')) {
+              localStorage.setItem('portal_directory_auto_synced_v2', 'true');
+              portalSyncManager.performManualSync().catch(e => console.warn('Auto sync notice:', e));
+            }
+          } else {
+            if (!localStorage.getItem('portal_directory_auto_synced_v2')) {
+              localStorage.setItem('portal_directory_auto_synced_v2', 'true');
+              portalSyncManager.performManualSync().catch(e => console.warn('Auto sync notice:', e));
+            }
           }
         },
         (err) => console.warn("Users subscription error:", err)

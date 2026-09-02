@@ -1,0 +1,693 @@
+[
+  {
+    "id": "stf-01",
+    "staffIdCode": "MS-STF-01",
+    "name": "Mohamed Fayaz",
+    "dhivehiName": "މުޙައްމަދު ފަޔާޟް",
+    "designation": "Principal",
+    "email": "mohamed.fayaz@fmagoodhooschool.edu.mv",
+    "department": "Executive & Leadership",
+    "role": "admin",
+    "status": "Active",
+    "assignedGrades": [
+      "LKG",
+      "UKG",
+      "Grade 1",
+      "Grade 2",
+      "Grade 3",
+      "Grade 4",
+      "Grade 5",
+      "Grade 6",
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-02",
+    "staffIdCode": "MS-STF-02",
+    "name": "Ibrahim Rasheed",
+    "dhivehiName": "އިބްރާހީމް ރަޝީދު",
+    "designation": "Leading Teacher",
+    "email": "ibrahim.rasheed@fmagoodhooschool.edu.mv",
+    "department": "Academic Leadership",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 4",
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-03",
+    "staffIdCode": "MS-STF-03",
+    "name": "Aishath Sulthana",
+    "dhivehiName": "ޢާއިޝަތު ސުލްޠާނާ",
+    "designation": "Leading Teacher",
+    "email": "aishath.sulthana@fmagoodhooschool.edu.mv",
+    "department": "Academic Leadership",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8"
+    ]
+  },
+  {
+    "id": "stf-04",
+    "staffIdCode": "MS-STF-04",
+    "name": "Fathimath Dhunya",
+    "dhivehiName": "ފާޠިމަތު ދުންޔާ",
+    "designation": "Leading Teacher",
+    "email": "fathmath.dhunya@fmagoodhooschool.edu.mv",
+    "department": "Academic Leadership",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "LKG",
+      "UKG",
+      "Grade 1",
+      "Grade 2",
+      "Grade 3"
+    ]
+  },
+  {
+    "id": "stf-05",
+    "staffIdCode": "MS-STF-05",
+    "name": "Fathimath Sadhma",
+    "dhivehiName": "ފާޠިމަތު ސަދުމާ",
+    "designation": "Leading Teacher",
+    "email": "fathmath.sadhuma@fmagoodhooschool.edu.mv",
+    "department": "Academic Leadership",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-06",
+    "staffIdCode": "MS-STF-06",
+    "name": "Ihsana Yauqoob",
+    "dhivehiName": "އިޙްސާނާ ޔަޢުޤޫބު",
+    "designation": "Teacher",
+    "email": "ihusana.yauqoob@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-07",
+    "staffIdCode": "MS-STF-07",
+    "name": "Ramza Yoosuf",
+    "dhivehiName": "ރަމްޒާ ޔޫސުފް",
+    "designation": "Teacher",
+    "email": "ramza.yoosuf@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 6",
+      "Grade 7",
+      "Grade 8"
+    ]
+  },
+  {
+    "id": "stf-08",
+    "staffIdCode": "MS-STF-08",
+    "name": "Adam Saeed",
+    "dhivehiName": "އާދަމް ސަޢީދު",
+    "designation": "Teacher",
+    "email": "adam.saeed@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-09",
+    "staffIdCode": "MS-STF-09",
+    "name": "Aminath Niuma",
+    "dhivehiName": "ޢާމިނަތު ނިއުމާ",
+    "designation": "Teacher",
+    "email": "aminath.niuma@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 5",
+      "Grade 6",
+      "Grade 7"
+    ]
+  },
+  {
+    "id": "stf-10",
+    "staffIdCode": "MS-STF-10",
+    "name": "Risma Ibrahim",
+    "dhivehiName": "ރިސްމާ އިބްރާހީމް",
+    "designation": "Teacher",
+    "email": "risma.ibrahim@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1",
+      "Grade 2",
+      "Grade 3",
+      "Grade 4"
+    ]
+  },
+  {
+    "id": "stf-11",
+    "staffIdCode": "MS-STF-11",
+    "name": "Khadeeja Riyasa",
+    "dhivehiName": "ޚަދީޖާ ރިޔާސާ",
+    "designation": "Teacher",
+    "email": "khadheeja.riyasha@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-12",
+    "staffIdCode": "MS-STF-12",
+    "name": "Khadeeja Samahath",
+    "dhivehiName": "ޚަދީޖާ ސަމާހަތު",
+    "designation": "Teacher",
+    "email": "khadheeja.samahath@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1"
+    ]
+  },
+  {
+    "id": "stf-13",
+    "staffIdCode": "MS-STF-13",
+    "name": "Dheena Moosa",
+    "dhivehiName": "ދީނާ މޫސާ",
+    "designation": "Teacher",
+    "email": "dheena.moosa@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 2"
+    ]
+  },
+  {
+    "id": "stf-14",
+    "staffIdCode": "MS-STF-14",
+    "name": "Hawwa Suha",
+    "dhivehiName": "ޙައްވާ ސުހާ",
+    "designation": "Teacher",
+    "email": "hawwa.suha@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-15",
+    "staffIdCode": "MS-STF-15",
+    "name": "Sadiya Sulaiman",
+    "dhivehiName": "ސާދިޔާ ސުލައިމާން",
+    "designation": "Teacher",
+    "email": "sadiya.sulaiman@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 5",
+      "Grade 6",
+      "Grade 7",
+      "Grade 8"
+    ]
+  },
+  {
+    "id": "stf-16",
+    "staffIdCode": "MS-STF-16",
+    "name": "Fathimath Mohamed Rasheed",
+    "dhivehiName": "ފާޠިމަތު މުޙައްމަދު ރަޝީދު",
+    "designation": "Teacher",
+    "email": "fathimath.mohamed@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 4",
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-17",
+    "staffIdCode": "MS-STF-17",
+    "name": "Aminath Maldha",
+    "dhivehiName": "ޢާމިނަތު މަލްދާ",
+    "designation": "Teacher",
+    "email": "aminath.maldha@fmagoodhooschool.edu.mv",
+    "department": "Special Education",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1",
+      "Grade 2",
+      "Grade 3",
+      "Grade 4",
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-18",
+    "staffIdCode": "MS-STF-18",
+    "name": "Aminath Nabeela",
+    "dhivehiName": "ޢާމިނަތު ނަބީލާ",
+    "designation": "Teacher",
+    "email": "aiminath.nabeela@fmagoodhooschool.edu.mv",
+    "department": "Early Childhood",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "LKG",
+      "UKG"
+    ]
+  },
+  {
+    "id": "stf-19",
+    "staffIdCode": "MS-STF-19",
+    "name": "Aminath Sirumeen",
+    "dhivehiName": "ޢާމިނަތު ސިރުމީން",
+    "designation": "Teacher",
+    "email": "aminath.shirumeen@fmagoodhooschool.edu.mv",
+    "department": "Early Childhood",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "LKG",
+      "UKG"
+    ]
+  },
+  {
+    "id": "stf-20",
+    "staffIdCode": "MS-STF-20",
+    "name": "Aishath Reesha",
+    "dhivehiName": "ޢާއިޝަތު ރީޝާ",
+    "designation": "Teacher",
+    "email": "aishath.reesha@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1",
+      "Grade 2",
+      "Grade 3",
+      "Grade 4"
+    ]
+  },
+  {
+    "id": "stf-21",
+    "staffIdCode": "MS-STF-21",
+    "name": "Aminath Muna",
+    "dhivehiName": "ޢާމިނަތު މުނާ",
+    "designation": "Teacher",
+    "email": "aminath.muna@fmagoodhooschool.edu.mv",
+    "department": "Early Childhood",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "LKG",
+      "UKG"
+    ]
+  },
+  {
+    "id": "stf-22",
+    "staffIdCode": "MS-STF-22",
+    "name": "Adam Shahidh",
+    "dhivehiName": "އާދަމް ޝާހިދު",
+    "designation": "Teacher",
+    "email": "adam.shahid@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 4"
+    ]
+  },
+  {
+    "id": "stf-23",
+    "staffIdCode": "MS-STF-23",
+    "name": "Fathmath Minna",
+    "dhivehiName": "ފާޠިމަތު މިންނާ",
+    "designation": "Teacher",
+    "email": "fathimath.minna@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 3"
+    ]
+  },
+  {
+    "id": "stf-24",
+    "staffIdCode": "MS-STF-24",
+    "name": "Aishath Nazumeena",
+    "dhivehiName": "ޢާއިޝަތު ނާޒުމީނާ",
+    "designation": "Teacher",
+    "email": "aishath.nazumeena@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-25",
+    "staffIdCode": "MS-STF-25",
+    "name": "Aishath Hudha",
+    "dhivehiName": "ޢާއިޝަތު ހުދާ",
+    "designation": "School Health and Safety Officer",
+    "email": "aishath.hudha@fmagoodhooschool.edu.mv",
+    "department": "Health & Safety",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-26",
+    "staffIdCode": "MS-STF-26",
+    "name": "Dinesh George",
+    "dhivehiName": "ދިނޭޝް ޖޯޖް",
+    "designation": "Teacher",
+    "email": "george@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-27",
+    "staffIdCode": "MS-STF-27",
+    "name": "Shahir Jan Palliyalil",
+    "dhivehiName": "ޝާހިރު ޖާން ޕައްލިޔަލިލް",
+    "designation": "Teacher",
+    "email": "shahirjan.p@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-28",
+    "staffIdCode": "MS-STF-28",
+    "name": "Abdul Rasheed Parappathodi",
+    "dhivehiName": "ޢަބްދުއްރަޝީދު ޕަރައްޕަތޮޑި",
+    "designation": "Teacher",
+    "email": "abdulrasheed.p@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-29",
+    "staffIdCode": "MS-STF-29",
+    "name": "Muhzin Thoni Kadavath",
+    "dhivehiName": "މުޙްޒިން ތޯނީ ކަޑަވަތު",
+    "designation": "Teacher",
+    "email": "muhzin.tk@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-30",
+    "staffIdCode": "MS-STF-30",
+    "name": "Sabira Mohammed Asad",
+    "dhivehiName": "ޞަބީރާ މުޙައްމަދު އަސަދު",
+    "designation": "Teacher",
+    "email": "sabira.mohammedasad@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-31",
+    "staffIdCode": "MS-STF-31",
+    "name": "Fathmath Sahla",
+    "dhivehiName": "ފާޠިމަތު ސަހުލާ",
+    "designation": "School Administrator",
+    "email": "fathimath.sahula@fmagoodhooschool.edu.mv",
+    "department": "Administration",
+    "role": "admin",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-32",
+    "staffIdCode": "MS-STF-32",
+    "name": "Ahmed Mujthaba",
+    "dhivehiName": "އަޙްމަދު މުޖުތަބާ",
+    "designation": "Senior School Administration Officer",
+    "email": "ahmed.mujthaba@fmagoodhooschool.edu.mv",
+    "department": "Administration",
+    "role": "admin",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-33",
+    "staffIdCode": "MS-STF-33",
+    "name": "Aishath Najudha",
+    "dhivehiName": "ޢާއިޝަތު ނާޖުދާ",
+    "designation": "Assistant School Administration Officer",
+    "email": "aishath.najudha@fmagoodhooschool.edu.mv",
+    "department": "Administration",
+    "role": "admin",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-34",
+    "staffIdCode": "MS-STF-34",
+    "name": "Aminath Sifaya",
+    "dhivehiName": "ޢާމިނަތު ސިފާޔާ",
+    "designation": "Senior School Administration Officer",
+    "email": "aminath.sifaya@fmagoodhooschool.edu.mv",
+    "department": "Administration",
+    "role": "admin",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-35",
+    "staffIdCode": "MS-STF-35",
+    "name": "Fathimath Siyama",
+    "dhivehiName": "ފާޠިމަތު ސިޔާމާ",
+    "designation": "Assistant School Librarian",
+    "email": "fathimath.siyama@fmagoodhooschool.edu.mv",
+    "department": "Library & Resources",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-36",
+    "staffIdCode": "MS-STF-36",
+    "name": "Aishath Adam",
+    "dhivehiName": "ޢާއިޝަތު އާދަމް",
+    "designation": "Teacher",
+    "email": "aishath.adam@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7"
+    ]
+  },
+  {
+    "id": "stf-37",
+    "staffIdCode": "MS-STF-37",
+    "name": "Yahya Salih",
+    "dhivehiName": "ޔަޙްޔާ ޞާލިޙް",
+    "designation": "School Support Assistant Grade 1",
+    "email": "yahya.solih@fmagoodhooschool.edu.mv",
+    "department": "Support Services",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-38",
+    "staffIdCode": "MS-STF-38",
+    "name": "Sanfa Shaheema",
+    "dhivehiName": "ސަންފާ ޝަހީމާ",
+    "designation": "School Support Assistant Grade 1",
+    "email": "sanfa.saheema@fmagoodhooschool.edu.mv",
+    "department": "Support Services",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-39",
+    "staffIdCode": "MS-STF-39",
+    "name": "Zaahira Aboobakuru",
+    "dhivehiName": "ޒާހިރާ އަބޫބަކުރު",
+    "designation": "School Support Assistant Grade 1",
+    "email": "zahira.aboobakuru@fmagoodhooschool.edu.mv",
+    "department": "Support Services",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-40",
+    "staffIdCode": "MS-STF-40",
+    "name": "Abdulla Rasheed",
+    "dhivehiName": "ޢަބްދުﷲ ރަޝީދު",
+    "designation": "School Support Assistant Grade 1",
+    "email": "abdulla.rasheed@fmagoodhooschool.edu.mv",
+    "department": "Support Services",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-41",
+    "staffIdCode": "MS-STF-41",
+    "name": "Aminath Naseeha",
+    "dhivehiName": "ޢާމިނަތު ނަސީހާ",
+    "designation": "School Support Assistant Grade 1",
+    "email": "aminath.naseeha@fmagoodhooschool.edu.mv",
+    "department": "Support Services",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": []
+  },
+  {
+    "id": "stf-42",
+    "staffIdCode": "MS-STF-42",
+    "name": "Jumana Mahir",
+    "dhivehiName": "ޖުމާނާ މާހިރު",
+    "designation": "Teacher (Wage)",
+    "email": "jumana.mahir@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1",
+      "Grade 2"
+    ]
+  },
+  {
+    "id": "stf-43",
+    "staffIdCode": "MS-STF-43",
+    "name": "Aishath Sanifa",
+    "dhivehiName": "ޢާއިޝަތު ސަނީފާ",
+    "designation": "Teacher (Contract)",
+    "email": "aishath.sanifa@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 1",
+      "Grade 2",
+      "Grade 3"
+    ]
+  },
+  {
+    "id": "stf-44",
+    "staffIdCode": "MS-STF-44",
+    "name": "Anjanaraj",
+    "dhivehiName": "އަންޖަނަރާޖް",
+    "designation": "Teacher",
+    "email": "anjana.raj@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  },
+  {
+    "id": "stf-45",
+    "staffIdCode": "MS-STF-45",
+    "name": "Fathimath Maya",
+    "dhivehiName": "ފާޠިމަތު މާޔާ",
+    "designation": "Teacher",
+    "email": "fathimath.maya@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 4",
+      "Grade 5",
+      "Grade 6"
+    ]
+  },
+  {
+    "id": "stf-46",
+    "staffIdCode": "MS-STF-46",
+    "name": "Vishnu Sindhu Krishnan",
+    "dhivehiName": "ވިޝްނޫ ސިންދޫ ކްރިޝްނަން",
+    "designation": "Teacher",
+    "email": "vishnu.skrishnan@fmagoodhooschool.edu.mv",
+    "department": "Teaching Faculty",
+    "role": "staff",
+    "status": "Active",
+    "assignedGrades": [
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10"
+    ]
+  }
+]

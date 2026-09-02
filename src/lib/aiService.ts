@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
 export interface CatalogBookContext {
   title: string;
   author: string;
@@ -27,20 +25,7 @@ export interface BookInfo {
   shelfLocation?: string;
 }
 
-// Helper to safely get client-side API key if set
-function getClientApiKey(): string | undefined {
-  try {
-    return (
-      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-      (import.meta as any).env?.GEMINI_API_KEY ||
-      (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY || process.env?.VITE_GEMINI_API_KEY : undefined)
-    );
-  } catch (e) {
-    return undefined;
-  }
-}
-
-// Helper to safely parse JSON from response
+// Helper to safely parse JSON from server API response
 async function safeJsonFetch(url: string, bodyData: any): Promise<any | null> {
   try {
     const res = await fetch(url, {
@@ -60,12 +45,12 @@ async function safeJsonFetch(url: string, bodyData: any): Promise<any | null> {
       }
     }
   } catch (err) {
-    console.warn(`Fetch error for ${url}:`, err);
+    console.warn(`Network fetch note for ${url}:`, err);
   }
   return null;
 }
 
-// 1. Ask Libby AI Assistant
+// 1. Ask Libby AI Assistant (via secure server-side endpoint)
 export async function askAiLibrarian(params: {
   message: string;
   catalogContext: CatalogBookContext[];
@@ -75,7 +60,7 @@ export async function askAiLibrarian(params: {
   const { message, catalogContext, userGrade, language = 'en' } = params;
   const isDhivehi = language === 'dv';
 
-  // Step A: Try server API first
+  // Call server-side API with Gemini 3.8 Flash and fallback support
   const serverData = await safeJsonFetch('/api/ai/ask-librarian', {
     message,
     catalogContext,
@@ -87,40 +72,7 @@ export async function askAiLibrarian(params: {
     return serverData.text;
   }
 
-  // Step B: Direct Gemini SDK call if client key is configured
-  const apiKey = getClientApiKey();
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const langInstruction = isDhivehi
-        ? 'CRITICAL MANDATE: Write your response ENTIRELY in natural, fluent, and grammatically correct Dhivehi language (ދިވެހި ބަހުން) using clean Thaana script.'
-        : 'Respond in clear, encouraging English.';
-
-      const prompt = `You are "Libby" (ލިބީ), the friendly AI Smart Librarian for Magoodhoo School Library (މަގޫދޫ ސްކޫލް ލައިބްރަރީ).
-You are assisting a student or teacher in Grade/Role: ${userGrade || 'General Reader'}.
-Question or Request: "${message}"
-
-Available Catalog Books (Sample Context):
-${JSON.stringify((catalogContext || []).map(b => ({ title: b.title, author: b.author, category: b.category, location: b.shelfLocation })))}
-
-Guidelines:
-- ${langInstruction}
-- Provide helpful, enthusiastic, age-appropriate guidance.
-- Suggest specific books from the catalog when relevant, mentioning author and shelf location.
-- Keep output nicely formatted using markdown bold text and clean bullet points.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-      });
-
-      if (response.text) return response.text;
-    } catch (sdkError) {
-      console.warn('Client-side Gemini call failed:', sdkError);
-    }
-  }
-
-  // Step C: Smart local catalog response fallback
+  // Offline / local catalog safety net
   return generateLocalCatalogResponse(message, catalogContext, isDhivehi);
 }
 
@@ -138,36 +90,10 @@ export async function generateAiBookInfo(params: {
     return serverData;
   }
 
-  const apiKey = getClientApiKey();
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are a school librarian cataloging a book titled "${title}" by "${author}".
-Generate accurate library metadata in JSON format with:
-- "description": A captivating 2-3 sentence synopsis for students ${isDhivehi ? 'written in Dhivehi Thaana script (ދިވެހި ބަހުން)' : 'written in English'}.
-- "category": Recommended genre/category (e.g. Fiction, Fantasy, Science, History, Biography).
-- "publicationYear": Integer year.
-- "publisher": Publisher name.
-- "shelfLocation": Recommended shelf section (e.g., "Fiction - A3").`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      if (response.text) {
-        return JSON.parse(response.text);
-      }
-    } catch (e) {
-      console.warn('Client-side generateBookInfo failed:', e);
-    }
-  }
-
-  // Fallback metadata
+  // Offline fallback metadata
   return {
     description: isDhivehi
-      ? `މިއީ "${author}" ލިޔުއްވާފައިވާ "${title}" އާ ބެހޭ މަޢުލޫމާތު ހިމެނޭ ފޮތެކެވެ.`
+      ? `މިއީ "${author}" ލިޔުއްވާފައިވާ "${title}" އާ ބެހޭ ތަޢުލީމީ މުހިންމު މަޢުލޫމާތުތަކާއި ޢިބުރަތްތެރި ވާހަކަތައް އެކުލެވޭ ފޮތެކެވެ.`
       : `An engaging educational book titled "${title}" written by ${author}.`,
     category: 'General Reading',
     publicationYear: new Date().getFullYear(),
@@ -188,39 +114,6 @@ export async function generateAiQuiz(params: {
   const serverData = await safeJsonFetch('/api/ai/quiz-generator', { bookTitle, author, language });
   if (serverData && serverData.questions) {
     return serverData;
-  }
-
-  const apiKey = getClientApiKey();
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const langPrompt = isDhivehi
-        ? 'CRITICAL: Generate ALL JSON fields (summary, questions, options, explanations, discussionPrompts) ENTIRELY in fluent Dhivehi language (ދިވެހި ބަހުން) using Thaana script.'
-        : 'Generate all JSON fields in clear English.';
-
-      const prompt = `Create a 3-question reading comprehension quiz and 2 classroom discussion prompts for the book "${bookTitle}" by "${author}".
-${langPrompt}
-Return a JSON object with:
-- "summary": A brief 2-sentence theme summary.
-- "questions": Array of 3 items, each having:
-  - "question": Question text
-  - "options": Array of 4 string choices
-  - "answerIndex": Integer index 0-3 of correct answer
-  - "explanation": Short explanation why it's correct
-- "discussionPrompts": Array of 2 open-ended discussion questions.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      if (response.text) {
-        return JSON.parse(response.text);
-      }
-    } catch (e) {
-      console.warn('Client-side generateQuiz failed:', e);
-    }
   }
 
   // Fallback Quiz
