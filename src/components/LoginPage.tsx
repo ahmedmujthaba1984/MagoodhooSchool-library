@@ -149,7 +149,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-[85vh] bg-slate-50/80 -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-10 flex flex-col justify-between font-sans">
+    <div className="min-h-[85vh] bg-slate-50/80 -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-10 flex flex-col justify-between">
       
       <div>
         {/* Top Header Navigation matching the screenshot */}

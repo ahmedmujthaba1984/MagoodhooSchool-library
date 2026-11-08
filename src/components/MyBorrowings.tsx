@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
   BookOpen, CheckCircle, RotateCcw, Clock, AlertTriangle,
-  Bookmark, ShieldAlert, Sparkles, UserCheck, DollarSign,
-  ArrowRight, Users, Check, AlertCircle, School, Calendar, XCircle
+  Bookmark, UserCheck, XCircle
 } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { BorrowingHistoryTableSkeleton } from './Skeletons';
 
 interface MyBorrowingsProps {
   currentUser: UserProfile;
@@ -14,6 +14,7 @@ interface MyBorrowingsProps {
   books: Book[];
   onRenewLoan: (loan: Loan) => void;
   onCancelReservation?: (reservationId: string) => void;
+  isLoading?: boolean;
 }
 
 export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
@@ -22,7 +23,8 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
   reservations,
   books,
   onRenewLoan,
-  onCancelReservation
+  onCancelReservation,
+  isLoading = false
 }) => {
   const { t, language } = useLanguage();
   // Filter loans for current user
@@ -50,24 +52,24 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             <UserCheck className="w-3.5 h-3.5 text-amber-300" /> {t.myLoans}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-xs">
-            {language === 'dv' ? `${currentUser.name} ގެ ލައިބްރަރީ ރެކޯޑް` : `${currentUser.name}'s Personnel Records`}
+            {language === 'dv' ? `${currentUser.name} ގެ ލައިބްރަރީ ރެކޯޑް` : `${currentUser.name}'s Library Records`}
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100 font-medium leading-relaxed">
-            {language === 'dv' ? 'މެންބަރު އައިޑީ' : 'Member ID'}: <span className="font-mono font-bold text-white bg-white/20 px-2 py-0.5 rounded">{currentUser.studentIdCode || currentUser.email}</span> • {language === 'dv' ? 'ކްލާސް' : 'Class'}: <span className="font-bold text-amber-300">{currentUser.grade || (language === 'dv' ? 'މެންބަރު' : 'Standard Member')}</span>
+            {t.studentId}: <span className="font-mono font-bold text-white bg-white/20 px-2 py-0.5 rounded"><bdi>{currentUser.studentIdCode || currentUser.email}</bdi></span> • {language === 'dv' ? 'ގްރޭޑް' : 'Class'}: <span className="font-bold text-amber-300"><bdi>{currentUser.grade || (language === 'dv' ? 'މެންބަރު' : 'Standard Member')}</bdi></span>
           </p>
         </div>
 
         {/* Quick Summary Pill Box */}
-        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center sm:text-right shrink-0 space-y-1">
-          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">{language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'Active Circulation'}</div>
-          <div className="text-2xl font-black text-amber-300">{activeLoans.length} {language === 'dv' ? 'ފޮތް' : 'Book'}{activeLoans.length !== 1 && language !== 'dv' ? 's' : ''}</div>
+        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-start sm:text-end shrink-0 space-y-1">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">{t.activeLoansCount}</div>
+          <div className="text-2xl font-black text-amber-300"><bdi className="font-mono">{activeLoans.length}</bdi> {t.entries}</div>
           <div className="text-[11px] text-white/90 font-bold">
             {overdueLoans.length > 0 ? (
-              <span className="text-rose-300 font-extrabold flex items-center justify-end gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> {overdueLoans.length} {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Overdue'}
+              <span className="text-rose-300 font-extrabold flex items-center justify-start sm:justify-end gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" /> <bdi>{overdueLoans.length}</bdi> {t.statusOverdue}
               </span>
             ) : (
-              <span className="text-emerald-300 font-bold">✓ {language === 'dv' ? 'ހުރިހާ ފޮތެއްގެ މުއްދަތު ހަމަނުވޭ' : 'All Loans in Good Standing'}</span>
+              <span className="text-emerald-300 font-bold">✓ {t.goodStanding}</span>
             )}
           </div>
         </div>
@@ -75,17 +77,17 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
 
       {/* OVERDUE CRITICAL ALERT BANNER */}
       {overdueLoans.length > 0 && (
-        <div className="p-5 bg-rose-50 border-2 border-rose-300 rounded-3xl text-xs text-rose-950 font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md animate-bounce-short">
+        <div className="p-5 bg-rose-50 border-2 border-rose-300 rounded-3xl text-xs text-rose-950 font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
               <div className="text-sm font-black text-rose-900">
-                Action Required: {overdueLoans.length} Overdue Book{overdueLoans.length > 1 ? 's' : ''} Detected!
+                {t.fineWarningTitle} (<bdi>{overdueLoans.length}</bdi> {t.entries})
               </div>
               <p className="text-xs text-rose-700 font-medium mt-0.5">
-                Total late fine accumulated: <span className="font-black text-rose-900 underline">${totalLateFees.toFixed(2)}</span>. Please return these books to the library desk or contact the librarian.
+                {t.fineWarningDesc} <span className="font-black text-rose-900 underline"><bdi>${totalLateFees.toFixed(2)}</bdi></span>. {t.fineWarningAction}
               </p>
             </div>
           </div>
@@ -93,7 +95,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             onClick={() => setFilter('overdue')}
             className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition shrink-0 cursor-pointer shadow-xs"
           >
-            View Overdue Books ({overdueLoans.length})
+            {t.overdueCountLabel} (<bdi>{overdueLoans.length}</bdi>)
           </button>
         </div>
       )}
@@ -103,13 +105,13 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
         {/* Active Loans */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Active Loans</span>
+            <span className="text-xs font-bold text-slate-500 uppercase">{t.activeLoansCount}</span>
             <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{activeLoans.length}</div>
-          <p className="text-[11px] text-slate-400 font-medium">Books currently borrowed</p>
+          <div className="text-2xl font-black text-slate-900"><bdi className="font-mono">{activeLoans.length}</bdi></div>
+          <p className="text-[11px] text-slate-400 font-medium">{language === 'dv' ? 'މިވަގުތު ނަގާފައިވާ ފޮތްތައް' : 'Books currently borrowed'}</p>
         </div>
 
         {/* Overdue */}
@@ -118,7 +120,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
         }`}>
           <div className="flex items-center justify-between">
             <span className={`text-xs font-bold uppercase ${overdueLoans.length > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
-              Overdue Books
+              {t.overdueCountLabel}
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
               overdueLoans.length > 0 ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-400'
@@ -127,33 +129,33 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             </div>
           </div>
           <div className={`text-2xl font-black ${overdueLoans.length > 0 ? 'text-rose-900' : 'text-slate-900'}`}>
-            {overdueLoans.length}
+            <bdi className="font-mono">{overdueLoans.length}</bdi>
           </div>
-          <p className="text-[11px] text-slate-400 font-medium">Past maximum return date</p>
+          <p className="text-[11px] text-slate-400 font-medium">{language === 'dv' ? 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް' : 'Past maximum return date'}</p>
         </div>
 
         {/* Late Fines */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Accumulated Fines</span>
+            <span className="text-xs font-bold text-slate-500 uppercase">{t.unpaidFines}</span>
             <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+              <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">${totalLateFees.toFixed(2)}</div>
-          <p className="text-[11px] text-slate-400 font-medium">Late fee balance</p>
+          <div className="text-2xl font-black text-amber-700"><bdi className="font-mono">${totalLateFees.toFixed(2)}</bdi></div>
+          <p className="text-[11px] text-slate-400 font-medium">{t.fineRate}</p>
         </div>
 
         {/* Online Reservations */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Reservations</span>
+            <span className="text-xs font-bold text-slate-500 uppercase">{t.statusReserved}</span>
             <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <Bookmark className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{userReservations.length}</div>
-          <p className="text-[11px] text-slate-400 font-medium">Queue requests</p>
+          <div className="text-2xl font-black text-slate-900"><bdi className="font-mono">{userReservations.length}</bdi></div>
+          <p className="text-[11px] text-slate-400 font-medium">{language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައިވާ ފޮތްތައް' : 'Queue requests'}</p>
         </div>
       </div>
 
@@ -165,7 +167,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             filter === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          All Active Circulation ({activeLoans.length})
+          {t.activeLoansCount} (<bdi className="font-mono">{activeLoans.length}</bdi>)
         </button>
         <button
           onClick={() => setFilter('overdue')}
@@ -173,7 +175,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             filter === 'overdue' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-rose-50 hover:text-rose-700'
           }`}
         >
-          Overdue Items ({overdueLoans.length})
+          {t.overdueCountLabel} (<bdi className="font-mono">{overdueLoans.length}</bdi>)
         </button>
         <button
           onClick={() => setFilter('reservations')}
@@ -181,7 +183,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             filter === 'reservations' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:bg-purple-50 hover:text-purple-700'
           }`}
         >
-          Reservations ({userReservations.length})
+          {t.statusReserved} (<bdi className="font-mono">{userReservations.length}</bdi>)
         </button>
         <button
           onClick={() => setFilter('history')}
@@ -189,33 +191,33 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             filter === 'history' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Borrowing History ({returnedLoans.length})
+          {t.borrowingHistory} (<bdi className="font-mono">{returnedLoans.length}</bdi>)
         </button>
       </div>
 
       {/* ACTIVE CIRCULATION / OVERDUE SECTION */}
       {(filter === 'all' || filter === 'overdue') && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                 <BookOpen className="w-4 h-4" />
               </span>
-              {filter === 'overdue' ? `Overdue Circulation Books (${overdueLoans.length})` : `Active Book Circulation (${activeLoans.length})`}
+              {filter === 'overdue' ? `${t.overdueCountLabel} (${overdueLoans.length})` : `${t.activeLoansCount} (${activeLoans.length})`}
             </h3>
-            <span className="text-xs text-slate-500 font-medium">Standard 14-day Loan Policy</span>
+            <span className="text-xs text-slate-500 font-medium">{language === 'dv' ? 'ޢާންމު 14 ދުވަހުގެ މުއްދަތު' : 'Standard 14-day Loan Policy'}</span>
           </div>
 
           {(filter === 'overdue' ? overdueLoans : activeLoans).length === 0 ? (
             <div className="p-8 text-center bg-slate-50/80 rounded-2xl border border-dashed border-slate-300 space-y-2">
               <BookOpen className="w-8 h-8 text-emerald-500 mx-auto" />
               <div className="text-sm font-bold text-slate-800">
-                {filter === 'overdue' ? 'No Overdue Books!' : 'No Active Loans Right Now'}
+                {filter === 'overdue' ? t.noOverdueLoans : t.noActiveLoans}
               </div>
               <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
                 {filter === 'overdue' 
-                  ? 'Great job! All your borrowed books are returned or within their due dates.' 
-                  : 'You currently have no checked-out books. Search the online catalog to discover your next read!'}
+                  ? (language === 'dv' ? 'ހުރިހާ ފޮތެއް ވަނީ ޙަވާލުކުރެވިފައި ނުވަތަ މުއްދަތު ހަމަނުވެއެވެ.' : 'Great job! All your borrowed books are returned or within their due dates.')
+                  : (language === 'dv' ? 'މިވަގުތު ނަގާފައިވާ ފޮތެއް ނެތް. ކެޓަލޮގުން އާ ފޮތެއް ހޯއްދަވާ!' : 'You currently have no checked-out books. Search the online catalog to discover your next read!')}
               </p>
             </div>
           ) : (
@@ -243,31 +245,31 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
                     <div className="flex-1 flex flex-col justify-between">
                       <div>
                         <div className="flex justify-between items-start gap-2">
-                          <h4 className="font-bold text-slate-900 text-sm line-clamp-1">{loan.bookTitle}</h4>
+                          <h4 className="font-bold text-slate-900 text-sm line-clamp-1"><bdi>{loan.bookTitle}</bdi></h4>
                           {isOverdue ? (
                             <span className="bg-rose-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xs shrink-0">
-                              OVERDUE
+                              {t.statusOverdue}
                             </span>
                           ) : (
                             <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xs shrink-0">
-                              ON LOAN
+                              {t.statusActive}
                             </span>
                           )}
                         </div>
 
                         <div className="mt-2 space-y-1 text-xs text-slate-600 font-medium">
-                          <div>Borrowed On: <span className="font-bold text-slate-800">{loan.issueDate}</span></div>
-                          <div>Due Date: <span className={`font-extrabold ${isOverdue ? 'text-rose-700 underline' : 'text-emerald-700'}`}>{loan.dueDate}</span></div>
+                          <div>{t.borrowedDate}: <span className="font-bold text-slate-800"><bdi>{loan.issueDate}</bdi></span></div>
+                          <div>{t.dueDate}: <span className={`font-extrabold ${isOverdue ? 'text-rose-700 underline' : 'text-emerald-700'}`}><bdi>{loan.dueDate}</bdi></span></div>
                           {isOverdue && (
                             <div className="text-rose-700 font-extrabold mt-1 text-[11px] bg-rose-100/90 px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1">
-                              <AlertTriangle className="w-3.5 h-3.5" /> Late fee accumulating: ${loan.lateFee.toFixed(2)}
+                              <AlertTriangle className="w-3.5 h-3.5" /> {t.lateFeeAccumulating} <bdi>${loan.lateFee.toFixed(2)}</bdi>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60">
-                        <span className="text-[11px] text-slate-500 font-bold">Renewals used: {loan.renewalCount}/2</span>
+                      <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60 flex-wrap gap-2">
+                        <span className="text-[11px] text-slate-500 font-bold">{t.renewalsUsed}: <bdi>{loan.renewalCount}/2</bdi></span>
                         <button
                           onClick={() => onRenewLoan(loan)}
                           disabled={isOverdue || loan.renewalCount >= 2}
@@ -278,8 +280,8 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
                           }`}
                           id={`renew-btn-${loan.id}`}
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          {loan.renewalCount >= 2 ? 'Max Renewed' : 'Extend Loan (+14 Days)'}
+                          <RotateCcw className="w-3.5 h-3.5 rtl-mirror" />
+                          {loan.renewalCount >= 2 ? t.maxRenewed : t.extendLoan}
                         </button>
                       </div>
                     </div>
@@ -298,7 +300,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
               <Bookmark className="w-4 h-4" />
             </span>
-            Online Reserved Books Queue ({userReservations.length})
+            {t.statusReserved} ({userReservations.length})
           </h3>
 
           <div className="space-y-2">
@@ -308,23 +310,23 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
                 className="p-4 bg-purple-50/80 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs text-purple-950 shadow-2xs"
               >
                 <div>
-                  <span className="font-bold text-sm text-slate-900 block">{res.bookTitle}</span>
+                  <span className="font-bold text-sm text-slate-900 block"><bdi>{res.bookTitle}</bdi></span>
                   <p className="text-[11px] text-purple-800 font-medium mt-0.5">
-                    {language === 'dv' ? 'ރިޒަވޭޝަން ހުށަހެޅި ތާރީޚް:' : 'Reservation submitted on:'} {res.requestDate}
+                    {language === 'dv' ? 'ރިޒަވޭޝަން ހުށަހެޅި ތާރީޚް:' : 'Reservation submitted on:'} <bdi>{res.requestDate}</bdi>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="bg-purple-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
-                    {res.status}
+                    {res.status === 'pending' ? t.statusPending : res.status}
                   </span>
                   {onCancelReservation && (
                     <button
                       onClick={() => onCancelReservation(res.id)}
                       className="bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
-                      title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Reservation'}
+                      title={t.cancelReservation}
                     >
                       <XCircle className="w-3.5 h-3.5" />
-                      <span>{language === 'dv' ? 'ކެންސަލް' : 'Cancel'}</span>
+                      <span>{t.cancel}</span>
                     </button>
                   )}
                 </div>
@@ -341,33 +343,35 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
             <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
               <CheckCircle className="w-4 h-4" />
             </span>
-            Previously Returned Borrowing History ({returnedLoans.length})
+            {t.borrowingHistory} ({returnedLoans.length})
           </h3>
 
-          {returnedLoans.length === 0 ? (
+          {isLoading ? (
+            <BorrowingHistoryTableSkeleton rows={4} />
+          ) : returnedLoans.length === 0 ? (
             <div className="p-6 text-center bg-slate-50/80 rounded-2xl border border-slate-200 text-xs text-slate-500 font-medium">
-              No previous borrowing history recorded yet.
+              {language === 'dv' ? 'އަދި ކުރީގެ ރެކޯޑެއް ނެތް.' : 'No previous borrowing history recorded yet.'}
             </div>
           ) : (
             <div className="overflow-x-auto border border-slate-200/80 rounded-2xl bg-white shadow-2xs">
-              <table className="w-full text-left text-xs text-slate-700">
+              <table className="w-full text-start text-xs text-slate-700">
                 <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
                   <tr>
-                    <th className="p-3.5">Book Title</th>
-                    <th className="p-3.5">Borrowed On</th>
-                    <th className="p-3.5">Returned On</th>
-                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 border-e border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                    <th className="p-3.5 border-e border-slate-200">{t.borrowedDate}</th>
+                    <th className="p-3.5 border-e border-slate-200">{t.returnedDate}</th>
+                    <th className="p-3.5">{t.status}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {returnedLoans.map(loan => (
                     <tr key={loan.id} className="hover:bg-slate-50 transition">
-                      <td className="p-3.5 font-bold text-slate-900">{loan.bookTitle}</td>
-                      <td className="p-3.5 font-mono text-slate-600 font-semibold">{loan.issueDate}</td>
-                      <td className="p-3.5 font-mono text-emerald-700 font-semibold">{loan.returnDate || 'Returned'}</td>
+                      <td className="p-3.5 font-bold text-slate-900 border-e border-slate-100"><bdi>{loan.bookTitle}</bdi></td>
+                      <td className="p-3.5 font-mono text-slate-600 font-semibold border-e border-slate-100"><bdi>{loan.issueDate}</bdi></td>
+                      <td className="p-3.5 font-mono text-emerald-700 font-semibold border-e border-slate-100"><bdi>{loan.returnDate || t.statusReturned}</bdi></td>
                       <td className="p-3.5">
                         <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                          Returned & Inspected
+                          {t.statusReturned}
                         </span>
                       </td>
                     </tr>

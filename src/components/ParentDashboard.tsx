@@ -39,6 +39,13 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   const [newChildGrade, setNewChildGrade] = useState('Grade 5');
   const [newChildIdCode, setNewChildIdCode] = useState('');
 
+  // Keep active child tab selected when children load
+  React.useEffect(() => {
+    if ((!activeChildId || !children.some(c => c.id === activeChildId)) && children.length > 0) {
+      setActiveChildId(children[0].id);
+    }
+  }, [children, activeChildId]);
+
   const selectedChild = children.find(c => c.id === activeChildId) || children[0];
 
   // Aggregate stats across all children
@@ -265,11 +272,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                               </div>
 
                               <div className="mt-2 space-y-1 text-xs text-slate-600 font-medium">
-                                <div>Issued: <span className="font-bold text-slate-800">{loan.issueDate}</span></div>
-                                <div>Due Date: <span className={`font-extrabold ${isOverdue ? 'text-rose-700' : 'text-slate-900'}`}>{loan.dueDate}</span></div>
+                                <div>Issued: <span className="font-bold text-slate-800"><bdi>{loan.issueDate}</bdi></span></div>
+                                <div>Due Date: <span className={`font-extrabold ${isOverdue ? 'text-rose-700' : 'text-slate-900'}`}><bdi>{loan.dueDate}</bdi></span></div>
                                 {isOverdue && loan.lateFee > 0 && (
                                   <div className="text-rose-700 font-bold mt-1 text-[11px]">
-                                    Late Fee: ${loan.lateFee.toFixed(2)}
+                                    Late Fee: <bdi>${loan.lateFee.toFixed(2)}</bdi>
                                   </div>
                                 )}
                               </div>
@@ -327,24 +334,24 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
                     {/* Tablet / Laptop / PC Table View */}
                     <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
-                      <table className="w-full text-left text-xs text-slate-700">
+                      <table className="w-full text-start text-xs text-slate-700">
                         <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                           <tr>
-                            <th className="p-3">Book Title</th>
-                            <th className="p-3">Issue Date</th>
-                            <th className="p-3">Returned On</th>
-                            <th className="p-3">Status</th>
+                            <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
+                            <th className="p-3 border-e border-slate-200">{t.borrowedDate}</th>
+                            <th className="p-3 border-e border-slate-200">{t.returnedDate}</th>
+                            <th className="p-3">{t.status}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {childReturnedLoans.map(loan => (
                             <tr key={loan.id} className="hover:bg-slate-50 transition">
-                              <td className="p-3 font-bold text-slate-900">{loan.bookTitle}</td>
-                              <td className="p-3 font-mono text-slate-600">{loan.issueDate}</td>
-                              <td className="p-3 font-mono text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</td>
+                              <td className="p-3 font-bold text-slate-900 border-e border-slate-100"><bdi>{loan.bookTitle}</bdi></td>
+                              <td className="p-3 font-mono text-slate-600 border-e border-slate-100"><bdi>{loan.issueDate}</bdi></td>
+                              <td className="p-3 font-mono text-emerald-700 font-bold border-e border-slate-100"><bdi>{loan.returnDate || t.statusReturned}</bdi></td>
                               <td className="p-3">
                                 <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                                  Returned OK
+                                  {t.statusReturned}
                                 </span>
                               </td>
                             </tr>

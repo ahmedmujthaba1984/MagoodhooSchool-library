@@ -26,6 +26,9 @@ export interface Book {
   barcode: string;
   barcodeImageUrl?: string; // Custom uploaded barcode image Data URL or link
   category: string;
+  ddcCallNumber?: string; // Dewey Decimal Classification e.g. "DDC 823.91", "DDC 500"
+  targetGrade?: string; // e.g. "Primary (Grades 1-5)", "Middle (Grades 6-8)", "Secondary (Grades 9-12)", "All Ages"
+  bookLanguage?: 'English' | 'Dhivehi' | 'Arabic' | 'Other';
   isReferenceOnly: boolean;
   totalCopies: number;
   availableCopies: number;

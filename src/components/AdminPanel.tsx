@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet, Mail, Send, Smartphone, BellRing, Zap, Radio } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users, BookOpen, CheckCircle, AlertTriangle, QrCode, FileSpreadsheet, Mail, Send, Smartphone, BellRing, Zap, Radio, Database, Activity, RefreshCw } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { testFirestoreConnection, resetQuotaStatus } from '../lib/firebase';
 
 interface AdminPanelProps {
   books: Book[];
   users: UserProfile[];
   loans: Loan[];
   settings: LibrarySettings;
+  isQuotaExhausted?: boolean;
   onAddBook: (book: Omit<Book, 'id'>) => void;
   onUpdateBook: (id: string, data: Partial<Book>) => void;
   onDeleteBook: (id: string) => void;
   onDeleteUser?: (userId: string) => void;
   onUpdateSettings: (newSettings: Partial<LibrarySettings>) => void;
   onMarkFeePaid: (loanId: string) => void;
+  onWaiveFee?: (loanId: string, reason: string) => void;
   onOpenAddParentModal?: () => void;
   onOpenImportModal?: (type?: 'books' | 'parents') => void;
   onOpenReportCardSyncModal?: () => void;
@@ -24,18 +27,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   users,
   loans,
   settings,
+  isQuotaExhausted = false,
   onAddBook,
   onUpdateBook,
   onDeleteBook,
   onDeleteUser,
   onUpdateSettings,
   onMarkFeePaid,
+  onWaiveFee,
   onOpenAddParentModal,
   onOpenImportModal,
   onOpenReportCardSyncModal
 }) => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'inventory' | 'late-fees' | 'barcode-labels' | 'users' | 'settings'>('inventory');
+
+  // Fine Waive Modal State
+  const [waivingLoan, setWaivingLoan] = useState<Loan | null>(null);
+  const [waiveReason, setWaiveReason] = useState('Medical absence / Authorized discretion');
+  const [isWaiving, setIsWaiving] = useState(false);
+
+  // Quota Status Diagnostics State
+  const [isTestingQuota, setIsTestingQuota] = useState(false);
+  const [quotaTestResult, setQuotaTestResult] = useState<{
+    healthy: boolean;
+    writeQuotaAvailable: boolean;
+    latencyMs: number;
+    message: string;
+    details?: string;
+  } | null>(null);
+
+  const handleRunQuotaTest = async () => {
+    setIsTestingQuota(true);
+    try {
+      const res = await testFirestoreConnection();
+      setQuotaTestResult(res);
+    } catch (e: any) {
+      setQuotaTestResult({
+        healthy: false,
+        writeQuotaAvailable: false,
+        latencyMs: 0,
+        message: 'Error executing quota diagnostics: ' + (e?.message || String(e))
+      });
+    } finally {
+      setIsTestingQuota(false);
+    }
+  };
 
   // New Book Modal State
   const [showBookModal, setShowBookModal] = useState(false);
@@ -84,6 +121,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [policyNotifyParentOnOverdue, setPolicyNotifyParentOnOverdue] = useState(settings.notifyParentOnOverdue ?? true);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState(false);
 
+  // Sync settings when loaded or updated from Firestore
+  React.useEffect(() => {
+    if (settings) {
+      if (settings.maxBorrowDays !== undefined) setPolicyMaxBorrowDays(settings.maxBorrowDays);
+      if (settings.lateFeePerDay !== undefined) setPolicyLateFeeRate(settings.lateFeePerDay);
+      if (settings.maxRenewals !== undefined) setPolicyMaxRenewals(settings.maxRenewals);
+      if (settings.maxBooksPerStudent !== undefined) setPolicyMaxBooksStudent(settings.maxBooksPerStudent);
+      if (settings.gracePeriodDays !== undefined) setPolicyGracePeriodDays(settings.gracePeriodDays);
+      if (settings.maxBooksPerStaff !== undefined) setPolicyMaxBooksStaff(settings.maxBooksPerStaff);
+      if (settings.staffBorrowDays !== undefined) setPolicyStaffBorrowDays(settings.staffBorrowDays);
+      if (settings.maxActiveReservations !== undefined) setPolicyMaxActiveReservations(settings.maxActiveReservations);
+      if (settings.holdExpiryDays !== undefined) setPolicyHoldExpiryDays(settings.holdExpiryDays);
+      if (settings.lostBookReplacementFee !== undefined) setPolicyLostBookReplacementFee(settings.lostBookReplacementFee);
+      if (settings.allowReferenceCheckoutForStaff !== undefined) setPolicyAllowRefCheckoutStaff(settings.allowReferenceCheckoutForStaff);
+      if (settings.maxOverdueFineCap !== undefined) setPolicyMaxOverdueFineCap(settings.maxOverdueFineCap);
+      if (settings.blockBorrowingFineThreshold !== undefined) setPolicyBlockBorrowingFineThreshold(settings.blockBorrowingFineThreshold);
+      if (settings.allowRecallRequests !== undefined) setPolicyAllowRecallRequests(settings.allowRecallRequests);
+      if (settings.holidayGraceDays !== undefined) setPolicyHolidayGraceDays(settings.holidayGraceDays);
+      if (settings.summerVacationCheckout !== undefined) setPolicySummerVacationCheckout(settings.summerVacationCheckout);
+      if (settings.autoEmailRemindersDaysBefore !== undefined) setPolicyAutoEmailRemindersDaysBefore(settings.autoEmailRemindersDaysBefore);
+      if (settings.damagedBookMinorFee !== undefined) setPolicyDamagedBookMinorFee(settings.damagedBookMinorFee);
+      if (settings.policyNote) setPolicyNoteText(settings.policyNote);
+      if (settings.alertEmail) setPolicyAlertEmail(settings.alertEmail);
+      if (settings.alertSmsNumber) setPolicyAlertSmsNumber(settings.alertSmsNumber);
+      if (settings.enableAutoDueDateAlerts !== undefined) setPolicyEnableAutoDueDateAlerts(settings.enableAutoDueDateAlerts);
+      if (settings.notifyParentOnOverdue !== undefined) setPolicyNotifyParentOnOverdue(settings.notifyParentOnOverdue);
+    }
+  }, [settings]);
+
   // Overdue Dispatch State
   const [dispatchStatusMessage, setDispatchStatusMessage] = useState<string | null>(null);
   const [isDispatching, setIsDispatching] = useState<string | null>(null);
@@ -99,9 +165,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const recipientPhone = borrowerUser?.phone || settings.alertSmsNumber || '+9607771111';
 
     // Calculate days overdue
-    const dueDate = new Date(loan.dueDate);
-    const today = new Date();
-    const daysOverdue = Math.max(1, Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24)));
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayDate = new Date(todayStr + 'T00:00:00Z').getTime();
+    const dueDate = new Date(loan.dueDate + 'T00:00:00Z').getTime();
+    const daysOverdue = Math.max(1, Math.round((todayDate - dueDate) / (1000 * 3600 * 24)));
 
     try {
       const res = await fetch('/api/notifications/send-overdue-alert', {
@@ -341,60 +408,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
-            <table className="w-full text-left text-xs text-slate-700">
+            <table className="w-full text-start text-xs text-slate-700">
               <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                 <tr>
-                  <th className="p-3">Book Title / Author</th>
-                  <th className="p-3">Category</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">ISBN / Barcode</th>
-                  <th className="p-3">Shelf Location</th>
-                  <th className="p-3">Copies</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން / މުސަންނިފު' : 'Book Title / Author'}</th>
+                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބައި' : 'Category'}</th>
+                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބާވަތް' : 'Type'}</th>
+                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'އައި.އެސް.ބީ.އެން / ބާކޯޑު' : 'ISBN / Barcode'}</th>
+                  <th className="p-3 border-e border-slate-200">{t.shelfLocation}</th>
+                  <th className="p-3 border-e border-slate-200">{t.copiesLabel}</th>
+                  <th className="p-3 text-end">{language === 'dv' ? 'ޢަމަލުތައް' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {books.map(book => (
                   <tr key={book.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3">
+                    <td className="p-3 border-e border-slate-100">
                       <div className="flex items-center gap-3">
-                        <img src={book.coverUrl} alt="" className="w-8 h-12 object-cover rounded-xl shadow border border-slate-200" />
+                        <img src={book.coverUrl} alt="" className="w-8 h-12 object-cover rounded-xl shadow border border-slate-200 shrink-0" />
                         <div>
-                          <div className="font-extrabold text-slate-900">{book.title}</div>
-                          <div className="text-[11px] text-slate-500 font-medium">by {book.author}</div>
+                          <div className="font-extrabold text-slate-900"><bdi>{book.title}</bdi></div>
+                          <div className="text-[11px] text-slate-500 font-medium">{t.byAuthor} <bdi>{book.author}</bdi></div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3 font-bold text-slate-700">{book.category}</td>
-                    <td className="p-3">
+                    <td className="p-3 border-e border-slate-100 font-bold text-slate-700">{book.category}</td>
+                    <td className="p-3 border-e border-slate-100">
                       {book.isReferenceOnly ? (
                         <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-amber-300">
-                          Ref Only
+                          {t.statusReferenceOnly}
                         </span>
                       ) : (
                         <span className="bg-emerald-100 text-emerald-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-emerald-300">
-                          Circulating
+                          {t.circulating}
                         </span>
                       )}
                     </td>
-                    <td className="p-3 font-mono text-[11px] text-slate-600 font-bold">{book.barcode}</td>
-                    <td className="p-3 font-bold text-slate-700">{book.shelfLocation}</td>
-                    <td className="p-3 font-extrabold text-slate-900">{book.availableCopies} / {book.totalCopies}</td>
-                    <td className="p-3 text-right space-x-2">
-                      <button
-                        onClick={() => openEditBookModal(book)}
-                        className="p-1.5 text-indigo-600 hover:bg-slate-100 rounded-xl transition font-bold"
-                        title="Edit Book"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteBook(book.id)}
-                        className="p-1.5 text-rose-600 hover:bg-slate-100 rounded-xl transition font-bold"
-                        title="Delete Book"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="p-3 border-e border-slate-100 font-mono text-[11px] text-slate-600 font-bold"><bdi>{book.barcode}</bdi></td>
+                    <td className="p-3 border-e border-slate-100 font-bold text-slate-700"><bdi>{book.shelfLocation}</bdi></td>
+                    <td className="p-3 border-e border-slate-100 font-extrabold text-slate-900"><bdi>{book.availableCopies} / {book.totalCopies}</bdi></td>
+                    <td className="p-3 text-end">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openEditBookModal(book)}
+                          className="p-1.5 text-indigo-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
+                          title={t.editBook}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteBook(book.id)}
+                          className="p-1.5 text-rose-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
+                          title={t.deleteBook}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -473,8 +542,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <div className="text-[10px] text-slate-500">{borrower?.email || loan.userGrade}</div>
                         </td>
                         <td className="p-3 font-bold text-slate-800">{loan.bookTitle}</td>
-                        <td className="p-3 font-mono text-rose-700 font-extrabold">{loan.dueDate}</td>
-                        <td className="p-3 font-mono text-base font-black text-rose-600">${loan.lateFee.toFixed(2)}</td>
+                        <td className="p-3 font-mono text-rose-700 font-extrabold"><bdi>{loan.dueDate}</bdi></td>
+                        <td className="p-3 font-mono text-base font-black text-rose-600"><bdi>${loan.lateFee.toFixed(2)}</bdi></td>
                         <td className="p-3">
                           {loan.feePaid ? (
                             <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
@@ -522,13 +591,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </td>
 
                         <td className="p-3 text-right">
-                          {!loan.feePaid && (
-                            <button
-                              onClick={() => onMarkFeePaid(loan.id)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl transition shadow cursor-pointer shrink-0"
-                            >
-                              Collect Fee (${loan.lateFee.toFixed(2)})
-                            </button>
+                          {!loan.feePaid ? (
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => onMarkFeePaid(loan.id)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl transition shadow cursor-pointer shrink-0"
+                              >
+                                Collect (${loan.lateFee.toFixed(2)})
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setWaivingLoan(loan);
+                                  setWaiveReason('Medical absence / Authorized discretion');
+                                }}
+                                className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0"
+                                title="Librarian Fine Waiver Override"
+                              >
+                                Waive (Override)
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                              Resolved
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -1155,7 +1240,134 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </p>
             </div>
 
-            {/* Section 7: Notice Note */}
+            {/* Section 7: Google Cloud Firestore Health & Quota Status Awareness */}
+            <div className="bg-slate-900 text-slate-100 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-sm" id="quota-status-awareness-section">
+              <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl border ${isQuotaExhausted ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'}`}>
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                      <span>{language === 'dv' ? 'ގޫގުލް ކްލައުޑް ފަޔަރސްޓޯރ ޑޭޓާބޭސް އަދި ކޯޓާ ހާލަތު' : 'Google Cloud Firestore & Quota Status Awareness'}</span>
+                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                        isQuotaExhausted
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      }`}>
+                        {isQuotaExhausted
+                          ? (language === 'dv' ? '⚠️ އޮފްލައިން ކޭޝް މޯޑް' : '⚠️ Offline Resilient Mode')
+                          : (language === 'dv' ? '🟢 ޑޭޓާބޭސް ހެލްތީ' : '🟢 Active & Healthy')}
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      DB ID: <span className="font-mono text-indigo-300">ai-studio-schoollibraryman-56cc5374-98f7-4bc3-b143-5a1e1844fbde</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRunQuotaTest}
+                    disabled={isTestingQuota}
+                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 shadow-sm"
+                  >
+                    <Activity className={`w-3.5 h-3.5 ${isTestingQuota ? 'animate-spin' : ''}`} />
+                    <span>{isTestingQuota ? (language === 'dv' ? 'ޓެސްޓްކުރަނީ...' : 'Testing...') : (language === 'dv' ? 'ޑައިގްނޯސްޓިކް ހައްދަވާ' : 'Run Diagnostics')}</span>
+                  </button>
+
+                  {isQuotaExhausted && (
+                    <button
+                      type="button"
+                      onClick={() => resetQuotaStatus()}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border border-slate-700"
+                      title="Clear local quota flag after daily UTC rollover"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{language === 'dv' ? 'ރީސެޓް' : 'Reset Flag'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quota Limits & Specs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {language === 'dv' ? 'ދުވާލަކު ލިޔެވޭނެ މިންވަރު' : 'Daily Write Limit'}
+                  </div>
+                  <div className="text-sm font-black text-white mt-1">20,000 writes / day</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Google Cloud Free Tier</div>
+                </div>
+
+                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {language === 'dv' ? 'ދުވާލަކު ކިޔޭނެ މިންވަރު' : 'Daily Read Limit'}
+                  </div>
+                  <div className="text-sm font-black text-white mt-1">50,000 reads / day</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Google Cloud Free Tier</div>
+                </div>
+
+                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {language === 'dv' ? 'އޮޓޯ ރީސެޓް ވަގުތު' : 'Daily Quota Reset'}
+                  </div>
+                  <div className="text-sm font-black text-amber-400 mt-1">00:00 UTC (Midnight)</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Automated 24h cycle</div>
+                </div>
+
+                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {language === 'dv' ? 'އޮފްލައިން ރެޒިލިއަންސް' : 'Offline Resilience'}
+                  </div>
+                  <div className="text-sm font-black text-emerald-400 mt-1">Enabled (Active)</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Zero operational crashes</div>
+                </div>
+              </div>
+
+              {/* Diagnostic Result Box */}
+              {quotaTestResult && (
+                <div className={`p-3.5 rounded-xl border text-xs font-semibold space-y-1.5 transition-all ${
+                  quotaTestResult.healthy && quotaTestResult.writeQuotaAvailable
+                    ? 'bg-emerald-950/60 border-emerald-600/60 text-emerald-200'
+                    : 'bg-amber-950/60 border-amber-600/60 text-amber-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4" />
+                      {quotaTestResult.healthy ? 'Diagnostic Complete' : 'Diagnostic Notice'}
+                    </span>
+                    <span className="font-mono text-[11px] opacity-80">
+                      Response: {quotaTestResult.latencyMs}ms
+                    </span>
+                  </div>
+                  <p className="text-[11px] opacity-90 leading-relaxed">
+                    {quotaTestResult.message}
+                  </p>
+                  {quotaTestResult.details && (
+                    <p className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-700/60">
+                      Details: {quotaTestResult.details}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Explanatory Guide */}
+              <div className="bg-slate-800/50 p-3.5 rounded-xl border border-slate-700/50 text-[11px] text-slate-300 leading-relaxed space-y-1.5">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{language === 'dv' ? 'ކޯޓާ ހަމަވުމުން ސިސްޓަމް މަސައްކަތްކުރާ ގޮތް:' : 'How Quota Awareness & Offline Resilience Protect Your Work:'}</span>
+                </p>
+                <p>
+                  {language === 'dv'
+                    ? 'ފަޔަރސްޓޯރ ފްރީ ޓިއަރގެ 20,000 ލިޔުންތައް ހަމަވިނަމަވެސް، ލައިބްރަރީ ސިސްޓަމް ހުއްޓުމެއްނެތި ކުރިއަށްދާނެއެވެ. ފޮތް ދޫކުރުމާއި، އަނބުރާ ބަލައިގަތުމާއި، ބުކިންގް އަދި ކެޓަލޮގް އޮޕަރޭޝަންތައް ލޯކަލް ކޭޝްގައި ރައްކާކުރެވި، ޔޫސަރ އެކްސްޕީރިއަންސް އޮމާންކޮށް ހިފެހެއްޓެއެވެ.'
+                    : 'If the Google Cloud free tier 20,000 daily writes are reached, the system will not crash. All checkouts, returns, cataloging, and reservations continue locally with optimistic updates and browser caching, while existing documents remain readable via snapshot streams.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Section 8: Notice Note */}
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
               <label className="block font-bold text-slate-800 text-xs">
                 {language === 'dv' ? 'މެންބަރުންނަށް ފެންނާނެ އުޞޫލުގެ އިޢުލާން' : 'Public Policy Notice / Member Instructions'}
@@ -1351,6 +1563,114 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* WAIVE FINE OVERRIDE MODAL */}
+      {waivingLoan && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Waive Overdue Fine (Override)</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Librarian Discretionary Authorization</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setWaivingLoan(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1.5 text-xs text-slate-700">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">Borrower:</span>
+                <span className="font-extrabold text-slate-900">{waivingLoan.userName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">Book Title:</span>
+                <span className="font-extrabold text-slate-900 truncate max-w-[200px]">{waivingLoan.bookTitle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">Due Date:</span>
+                <span className="font-mono text-rose-600 font-bold"><bdi>{waivingLoan.dueDate}</bdi></span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-700 font-extrabold">Fee to Waive:</span>
+                <span className="font-mono font-black text-rose-600 text-sm"><bdi>${waivingLoan.lateFee.toFixed(2)}</bdi></span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Official Exemption / Waiver Reason:
+              </label>
+              <select
+                value={waiveReason}
+                onChange={(e) => setWaiveReason(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="Medical absence / Authorized sick leave">Medical absence / Authorized sick leave</option>
+                <option value="Inter-school competition / School event representation">Inter-school competition / School event</option>
+                <option value="First-offense grace period exemption">First-offense grace period exemption</option>
+                <option value="Administrative review error resolution">Administrative review error resolution</option>
+                <option value="Head of School / Principal Discretion">Head of School / Principal Discretion</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setWaivingLoan(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isWaiving}
+                onClick={async () => {
+                  setIsWaiving(true);
+                  try {
+                    // Call backend RBAC waive endpoint
+                    await fetch('/api/circulation/waive-fine', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-role': 'admin'
+                      },
+                      body: JSON.stringify({
+                        loanId: waivingLoan.id,
+                        reason: waiveReason,
+                        waivedBy: 'Ms. Eleanor Davis (Head Librarian)'
+                      })
+                    });
+                    if (onWaiveFee) {
+                      onWaiveFee(waivingLoan.id, waiveReason);
+                    } else {
+                      onMarkFeePaid(waivingLoan.id);
+                    }
+                    setWaivingLoan(null);
+                  } catch (err) {
+                    console.error('Failed to waive fee:', err);
+                    if (onWaiveFee) onWaiveFee(waivingLoan.id, waiveReason);
+                    setWaivingLoan(null);
+                  } finally {
+                    setIsWaiving(false);
+                  }
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold rounded-xl shadow transition disabled:opacity-50"
+              >
+                {isWaiving ? 'Processing...' : 'Confirm Waiver ($0.00)'}
+              </button>
+            </div>
           </div>
         </div>
       )}

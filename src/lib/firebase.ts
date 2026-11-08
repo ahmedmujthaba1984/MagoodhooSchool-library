@@ -1,17 +1,20 @@
 import { initializeApp, getApps } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  Firestore
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -28,13 +31,164 @@ import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSetti
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Initialize Firestore (handling custom database ID if present)
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Initialize Firestore with force long polling to prevent WebChannel stream disconnection in iframes/proxies
+export const db: Firestore = (() => {
+  const dbId = firebaseConfig.firestoreDatabaseId || undefined;
+  try {
+    return initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    }, dbId);
+  } catch {
+    return dbId ? getFirestore(app, dbId) : getFirestore(app);
+  }
+})();
 
 // Initialize Auth
 export const auth = getAuth(app);
+
+// Error Handling Definition
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+// Quota exhaustion tracking
+let isQuotaExhaustedState = false;
+const quotaListeners: ((exhausted: boolean, message?: string) => void)[] = [];
+
+export function isQuotaExhaustedError(error: unknown): boolean {
+  if (!error) return false;
+  const err = error as any;
+  return (
+    err.code === 'resource-exhausted' ||
+    (typeof err.message === 'string' && (
+      err.message.includes('Quota limit exceeded') ||
+      err.message.includes('resource-exhausted') ||
+      err.message.includes('Free daily write units')
+    ))
+  );
+}
+
+export function subscribeQuotaStatus(cb: (exhausted: boolean, message?: string) => void) {
+  quotaListeners.push(cb);
+  cb(isQuotaExhaustedState);
+  return () => {
+    const idx = quotaListeners.indexOf(cb);
+    if (idx !== -1) quotaListeners.splice(idx, 1);
+  };
+}
+
+export function getQuotaStatus(): { isExhausted: boolean } {
+  return { isExhausted: isQuotaExhaustedState };
+}
+
+export function resetQuotaStatus() {
+  isQuotaExhaustedState = false;
+  quotaListeners.forEach(cb => cb(false));
+}
+
+export function triggerQuotaExhausted(message?: string) {
+  isQuotaExhaustedState = true;
+  quotaListeners.forEach(cb => cb(true, message));
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  if (isQuotaExhaustedError(error)) {
+    triggerQuotaExhausted('Google Cloud Firestore free tier daily write limit reached (20,000 writes/day). Read access and local caching remain active.');
+  }
+
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+  return errInfo;
+}
+
+// Interactive diagnostic function for admin health & quota inspection
+export async function testFirestoreConnection(): Promise<{
+  healthy: boolean;
+  writeQuotaAvailable: boolean;
+  latencyMs: number;
+  message: string;
+  details?: string;
+}> {
+  const startTime = Date.now();
+  try {
+    // 1. Test Read capability
+    const testDocRef = doc(db, SETTINGS_COL, 'main');
+    await getDoc(testDocRef);
+
+    // 2. Test Write probe
+    const probeDocRef = doc(db, '_quota_probe', 'health_check');
+    await setDoc(probeDocRef, { checkedAt: new Date().toISOString() });
+    await deleteDoc(probeDocRef);
+
+    isQuotaExhaustedState = false;
+    quotaListeners.forEach(cb => cb(false));
+
+    const latency = Date.now() - startTime;
+    return {
+      healthy: true,
+      writeQuotaAvailable: true,
+      latencyMs: latency,
+      message: 'Cloud Firestore database connection is active and write quota is within normal limits (20,000 free writes/day).'
+    };
+  } catch (error: any) {
+    const latency = Date.now() - startTime;
+    if (isQuotaExhaustedError(error)) {
+      triggerQuotaExhausted();
+      return {
+        healthy: true,
+        writeQuotaAvailable: false,
+        latencyMs: latency,
+        message: 'Google Cloud Firestore daily write quota limit reached (20,000 writes/day). The library is operating in offline-first cache mode.',
+        details: error?.message || String(error)
+      };
+    }
+    return {
+      healthy: false,
+      writeQuotaAvailable: false,
+      latencyMs: latency,
+      message: `Database ping returned notice: ${error?.message || String(error)}`,
+      details: error?.message || String(error)
+    };
+  }
+}
+testFirestoreConnection().catch(() => {});
 
 // Collection References
 const BOOKS_COL = 'books';
@@ -44,9 +198,13 @@ const RESERVATIONS_COL = 'reservations';
 const SETTINGS_COL = 'settings';
 
 /**
- * Initialize / Seed Firestore if empty
+ * Initialize / Seed Firestore if empty (guarded against repeated queries and quota checks)
  */
 export async function initializeDatabaseIfEmpty() {
+  if (typeof window !== 'undefined' && localStorage.getItem('library_db_initialized_v2')) {
+    return;
+  }
+
   try {
     const booksSnap = await getDocs(collection(db, BOOKS_COL));
     if (booksSnap.empty) {
@@ -97,8 +255,15 @@ export async function initializeDatabaseIfEmpty() {
     if (!settingsDoc.exists()) {
       await setDoc(doc(db, SETTINGS_COL, 'main'), initialSettings);
     }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('library_db_initialized_v2', 'true');
+    }
   } catch (error) {
-    console.error('Error during database initialization/seeding:', error);
+    if (isQuotaExhaustedError(error)) {
+      triggerQuotaExhausted('Google Cloud Firestore free tier daily write limit reached (20,000 writes/day). The library is running in offline cache mode.');
+    }
+    console.warn('Database initialization note:', error);
   }
 }
 
@@ -125,16 +290,31 @@ export function subscribeBooks(callback: (books: Book[]) => void, onError?: (err
 }
 
 export async function addBook(book: Omit<Book, 'id'>) {
-  const docRef = await addDoc(collection(db, BOOKS_COL), book);
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, BOOKS_COL), book);
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, BOOKS_COL);
+    throw err;
+  }
 }
 
 export async function updateBook(id: string, data: Partial<Book>) {
-  await updateDoc(doc(db, BOOKS_COL, id), data);
+  try {
+    await updateDoc(doc(db, BOOKS_COL, id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${BOOKS_COL}/${id}`);
+    throw err;
+  }
 }
 
 export async function deleteBook(id: string) {
-  await deleteDoc(doc(db, BOOKS_COL, id));
+  try {
+    await deleteDoc(doc(db, BOOKS_COL, id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${BOOKS_COL}/${id}`);
+    throw err;
+  }
 }
 
 // 2. USERS / MEMBERS
@@ -156,20 +336,42 @@ export function subscribeUsers(callback: (users: UserProfile[]) => void, onError
 }
 
 export async function saveUserProfile(user: UserProfile) {
-  await setDoc(doc(db, USERS_COL, user.id), user, { merge: true });
+  try {
+    await setDoc(doc(db, USERS_COL, user.id), user, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${USERS_COL}/${user.id}`);
+    if (!isQuotaExhaustedError(err)) {
+      throw err;
+    }
+  }
 }
 
 export async function createUserProfile(user: Omit<UserProfile, 'id'>) {
-  const docRef = await addDoc(collection(db, USERS_COL), user);
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, USERS_COL), user);
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, USERS_COL);
+    throw err;
+  }
 }
 
 export async function updateUserProfile(id: string, data: Partial<UserProfile>) {
-  await updateDoc(doc(db, USERS_COL, id), data);
+  try {
+    await updateDoc(doc(db, USERS_COL, id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${USERS_COL}/${id}`);
+    throw err;
+  }
 }
 
 export async function deleteUserProfile(id: string) {
-  await deleteDoc(doc(db, USERS_COL, id));
+  try {
+    await deleteDoc(doc(db, USERS_COL, id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${USERS_COL}/${id}`);
+    throw err;
+  }
 }
 
 // 3. LOANS
@@ -191,12 +393,22 @@ export function subscribeLoans(callback: (loans: Loan[]) => void, onError?: (err
 }
 
 export async function createLoan(loan: Omit<Loan, 'id'>) {
-  const docRef = await addDoc(collection(db, LOANS_COL), loan);
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, LOANS_COL), loan);
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, LOANS_COL);
+    throw err;
+  }
 }
 
 export async function updateLoan(id: string, data: Partial<Loan>) {
-  await updateDoc(doc(db, LOANS_COL, id), data);
+  try {
+    await updateDoc(doc(db, LOANS_COL, id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${LOANS_COL}/${id}`);
+    throw err;
+  }
 }
 
 // 4. RESERVATIONS
@@ -218,16 +430,31 @@ export function subscribeReservations(callback: (reservations: Reservation[]) =>
 }
 
 export async function createReservation(res: Omit<Reservation, 'id'>) {
-  const docRef = await addDoc(collection(db, RESERVATIONS_COL), res);
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, RESERVATIONS_COL), res);
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, RESERVATIONS_COL);
+    throw err;
+  }
 }
 
 export async function updateReservation(id: string, data: Partial<Reservation>) {
-  await updateDoc(doc(db, RESERVATIONS_COL, id), data);
+  try {
+    await updateDoc(doc(db, RESERVATIONS_COL, id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${RESERVATIONS_COL}/${id}`);
+    throw err;
+  }
 }
 
 export async function cancelReservation(id: string) {
-  await deleteDoc(doc(db, RESERVATIONS_COL, id));
+  try {
+    await deleteDoc(doc(db, RESERVATIONS_COL, id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${RESERVATIONS_COL}/${id}`);
+    throw err;
+  }
 }
 
 // 5. SETTINGS
@@ -249,5 +476,10 @@ export function subscribeSettings(callback: (settings: LibrarySettings) => void,
 }
 
 export async function updateSettings(settings: Partial<LibrarySettings>) {
-  await setDoc(doc(db, SETTINGS_COL, 'main'), settings, { merge: true });
+  try {
+    await setDoc(doc(db, SETTINGS_COL, 'main'), settings, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${SETTINGS_COL}/main`);
+    throw err;
+  }
 }

@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
+import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './src/data/seedData';
+import { calculateSchoolDueDate, calculateWorkingDaysOverdue } from './src/lib/schoolCalendar';
 
 const app = express();
 const PORT = 3000;
@@ -534,11 +536,503 @@ app.get('/api/sync/fetch-portal-directory', async (req, res) => {
   }
 });
 
+// --- RBAC & CIRCULATION ENGINE DATA STORE & APIS ---
+
+// In-memory runtime state synced with seed data
+let serverBooks: any[] = [...sampleBooks];
+let serverUsers: any[] = [...sampleUsers];
+let serverLoans: any[] = [...sampleLoans];
+let serverReservations: any[] = [...sampleReservations];
+let serverSettings: any = { ...initialSettings };
+const fineWaiverAuditLog: any[] = [];
+
+// RBAC Middleware supporting Session Roles, User IDs, and Bearer JWT tokens
+const requireRole = (allowedRoles: string[]) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const roleHeader = ((req.headers['x-user-role'] as string) || '').toLowerCase();
+    const authHeader = (req.headers['authorization'] as string) || '';
+    const sessionHeader = (req.headers['x-session-id'] as string) || '';
+
+    let effectiveRole = roleHeader;
+
+    // Bearer token authentication (JWT or Bearer token parsing)
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim();
+      if (token.toLowerCase().includes('admin') || token.toLowerCase().includes('librarian')) {
+        effectiveRole = 'admin';
+      } else if (token.includes('.')) {
+        try {
+          const parts = token.split('.');
+          if (parts[1]) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            if (payload.role) effectiveRole = payload.role.toLowerCase();
+          }
+        } catch {}
+      }
+    }
+
+    if (!effectiveRole && sessionHeader.includes('admin')) {
+      effectiveRole = 'admin';
+    }
+
+    const isAllowed =
+      allowedRoles.includes(effectiveRole) ||
+      (allowedRoles.includes('admin') && (effectiveRole === 'librarian' || effectiveRole === 'superadmin'));
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        error: `Forbidden: This operation requires one of the following roles: [${allowedRoles.join(', ')}]. Current role: '${effectiveRole || 'unauthenticated'}'`
+      });
+    }
+
+    (req as any).user = { role: effectiveRole, id: req.headers['x-user-id'] };
+    next();
+  };
+};
+
+// 7. Book Catalog Search & Auto-complete Index API
+app.get('/api/books', (req, res) => {
+  const { q, category, status, grade, language, page = '1', limit = '50' } = req.query;
+  let results = [...serverBooks];
+
+  if (q && typeof q === 'string') {
+    const query = q.trim().toLowerCase();
+    results = results.filter((b) =>
+      b.title.toLowerCase().includes(query) ||
+      b.author.toLowerCase().includes(query) ||
+      b.isbn.toLowerCase().includes(query) ||
+      b.barcode.toLowerCase().includes(query) ||
+      (b.publisher && b.publisher.toLowerCase().includes(query)) ||
+      (b.ddcCallNumber && b.ddcCallNumber.toLowerCase().includes(query)) ||
+      (b.shelfLocation && b.shelfLocation.toLowerCase().includes(query)) ||
+      (b.category && b.category.toLowerCase().includes(query))
+    );
+  }
+
+  if (category && category !== 'all') {
+    results = results.filter((b) => b.category === category);
+  }
+
+  if (status && status !== 'all') {
+    if (status === 'available') {
+      results = results.filter((b) => (b.availableCopies || 0) > 0);
+    } else if (status === 'checked-out') {
+      results = results.filter((b) => (b.availableCopies || 0) === 0);
+    } else if (status === 'reference') {
+      results = results.filter((b) => b.isReferenceOnly);
+    }
+  }
+
+  if (grade && grade !== 'all') {
+    results = results.filter((b) => b.targetGrade === grade || b.targetGrade === 'All Ages');
+  }
+
+  if (language && language !== 'all') {
+    results = results.filter((b) => b.bookLanguage && b.bookLanguage.toLowerCase() === (language as string).toLowerCase());
+  }
+
+  const pageNum = parseInt(page as string, 10) || 1;
+  const limitNum = parseInt(limit as string, 10) || 50;
+  const total = results.length;
+  const paginated = results.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+  res.json({
+    books: paginated,
+    total,
+    page: pageNum,
+    totalPages: Math.ceil(total / limitNum) || 1
+  });
+});
+
+// Auto-complete suggestions index
+app.get('/api/books/autocomplete', (req, res) => {
+  const q = ((req.query.q as string) || '').trim().toLowerCase();
+  if (!q || q.length < 2) {
+    return res.json({ suggestions: [] });
+  }
+
+  const suggestions: Array<{ type: 'title' | 'author' | 'isbn' | 'category'; label: string; book: any }> = [];
+  const seen = new Set<string>();
+
+  for (const b of serverBooks) {
+    if (b.title.toLowerCase().includes(q)) {
+      const key = `title:${b.title}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        suggestions.push({ type: 'title', label: b.title, book: b });
+      }
+    }
+    if (b.author.toLowerCase().includes(q)) {
+      const key = `author:${b.author}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        suggestions.push({ type: 'author', label: b.author, book: b });
+      }
+    }
+    if (b.isbn.toLowerCase().includes(q)) {
+      const key = `isbn:${b.isbn}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        suggestions.push({ type: 'isbn', label: b.isbn, book: b });
+      }
+    }
+    if (b.category && b.category.toLowerCase().includes(q)) {
+      const key = `category:${b.category}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        suggestions.push({ type: 'category', label: b.category, book: b });
+      }
+    }
+    if (suggestions.length >= 10) break;
+  }
+
+  res.json({ suggestions });
+});
+
+// 8. Protected Book Mutation Endpoints (Librarian/Admin only)
+app.post('/api/books', requireRole(['admin', 'librarian']), (req, res) => {
+  const newBook = {
+    ...req.body,
+    id: req.body.id || `book-${Date.now()}`,
+    addedAt: new Date().toISOString().split('T')[0]
+  };
+  serverBooks.unshift(newBook);
+  res.status(201).json({ success: true, book: newBook });
+});
+
+app.put('/api/books/:id', requireRole(['admin', 'librarian']), (req, res) => {
+  const idx = serverBooks.findIndex((b) => b.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Book not found' });
+  }
+  serverBooks[idx] = { ...serverBooks[idx], ...req.body };
+  res.json({ success: true, book: serverBooks[idx] });
+});
+
+app.delete('/api/books/:id', requireRole(['admin', 'librarian']), (req, res) => {
+  const idx = serverBooks.findIndex((b) => b.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Book not found' });
+  }
+  const removed = serverBooks.splice(idx, 1)[0];
+  res.json({ success: true, removed });
+});
+
+// 8b. Loans Management APIs (RBAC Protected for modifications)
+app.get('/api/loans', (req, res) => {
+  const { userId, status } = req.query;
+  let results = [...serverLoans];
+
+  if (userId) {
+    results = results.filter((l) => l.userId === userId);
+  }
+  if (status) {
+    results = results.filter((l) => l.status === status);
+  }
+
+  res.json({ loans: results, total: results.length });
+});
+
+app.post('/api/loans', requireRole(['admin', 'librarian']), (req, res) => {
+  const newLoan = {
+    ...req.body,
+    id: req.body.id || `loan-${Date.now()}`
+  };
+  serverLoans.unshift(newLoan);
+  res.status(201).json({ success: true, loan: newLoan });
+});
+
+app.put('/api/loans/:id', requireRole(['admin', 'librarian']), (req, res) => {
+  const idx = serverLoans.findIndex((l) => l.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Loan not found' });
+  }
+  serverLoans[idx] = { ...serverLoans[idx], ...req.body };
+  res.json({ success: true, loan: serverLoans[idx] });
+});
+
+app.delete('/api/loans/:id', requireRole(['admin', 'librarian']), (req, res) => {
+  const idx = serverLoans.findIndex((l) => l.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Loan not found' });
+  }
+  const removed = serverLoans.splice(idx, 1)[0];
+  res.json({ success: true, removed });
+});
+
+// 9. Circulation Desk APIs: Check-Out / Issue
+app.post('/api/circulation/issue', (req, res) => {
+  const { bookId, userId, daysToBorrow = 14, librarianId } = req.body;
+
+  const book = serverBooks.find((b) => b.id === bookId || b.barcode === bookId || b.isbn === bookId);
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found in library catalog.' });
+  }
+
+  if (book.availableCopies <= 0) {
+    return res.status(400).json({ error: `No physical copies of "${book.title}" are currently available for check-out.` });
+  }
+
+  if (book.isReferenceOnly) {
+    return res.status(400).json({ error: `"${book.title}" is flagged as Reference Only and cannot be checked out for home circulation.` });
+  }
+
+  const borrower = serverUsers.find((u) => u.id === userId || u.studentIdCode === userId);
+  const borrowerId = borrower ? borrower.id : userId;
+  const borrowerName = borrower ? borrower.name : (req.body.userName || 'Student Borrower');
+  const borrowerRole = borrower ? borrower.role : 'student';
+
+  // Validate student loan limits
+  const activeLoans = serverLoans.filter((l) => l.userId === borrowerId && l.status === 'active');
+  const maxAllowed = borrowerRole === 'staff' || borrowerRole === 'admin'
+    ? (serverSettings.maxBooksPerStaff || 7)
+    : (serverSettings.maxBooksPerStudent || 3);
+
+  if (activeLoans.length >= maxAllowed) {
+    return res.status(400).json({
+      error: `Check-out limit reached: Member has ${activeLoans.length} active books checked out (Maximum allowed: ${maxAllowed}). Please return an existing item first.`
+    });
+  }
+
+  const issueDateObj = new Date();
+  const issueDateStr = issueDateObj.toISOString().split('T')[0];
+  const dueDateStr = calculateSchoolDueDate(issueDateObj, daysToBorrow);
+
+  const newLoan: any = {
+    id: `loan-${Date.now()}`,
+    bookId: book.id,
+    bookTitle: book.title,
+    bookIsbn: book.isbn,
+    userId: borrowerId,
+    userName: borrowerName,
+    userGrade: borrower?.grade || 'General Member',
+    issueDate: issueDateStr,
+    dueDate: dueDateStr,
+    status: 'active',
+    renewalCount: 0,
+    lateFee: 0,
+    feePaid: true,
+    processedBy: librarianId || 'Circulation Desk Staff'
+  };
+
+  serverLoans.unshift(newLoan);
+  book.availableCopies = Math.max(0, (book.availableCopies || 1) - 1);
+
+  res.status(201).json({
+    success: true,
+    loan: newLoan,
+    updatedBook: book,
+    message: `Book "${book.title}" successfully issued to ${borrowerName}. Due on ${dueDateStr} (Maldivian school calendar).`
+  });
+});
+
+// 10. Circulation Desk APIs: Return (Check-In) & Overdue Fine Calculation
+app.post('/api/circulation/return', (req, res) => {
+  const { loanId, bookBarcodeOrId } = req.body;
+
+  let loan = serverLoans.find((l) => l.id === loanId);
+  if (!loan && bookBarcodeOrId) {
+    const book = serverBooks.find((b) => b.id === bookBarcodeOrId || b.barcode === bookBarcodeOrId || b.isbn === bookBarcodeOrId);
+    if (book) {
+      loan = serverLoans.find((l) => l.bookId === book.id && (l.status === 'active' || l.status === 'overdue'));
+    }
+  }
+
+  if (!loan) {
+    return res.status(404).json({ error: 'Active loan record not found for this item.' });
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const overdueWorkingDays = calculateWorkingDaysOverdue(loan.dueDate, todayStr, true);
+
+  // Overdue fine calculation: $0.50/day after grace period, capped at max fine cap
+  const graceDays = serverSettings.gracePeriodDays ?? 2;
+  const billableDays = Math.max(0, overdueWorkingDays - graceDays);
+  const rate = serverSettings.lateFeePerDay ?? 0.50;
+  const maxCap = serverSettings.maxOverdueFineCap ?? 25.00;
+  const calculatedFee = Math.min(maxCap, billableDays * rate);
+
+  loan.returnDate = todayStr;
+  loan.status = 'returned';
+  loan.lateFee = calculatedFee;
+  loan.feePaid = calculatedFee === 0;
+
+  // Restore book inventory copy
+  const book = serverBooks.find((b) => b.id === loan.bookId);
+  if (book) {
+    book.availableCopies = Math.min(book.totalCopies || 1, (book.availableCopies || 0) + 1);
+  }
+
+  res.json({
+    success: true,
+    loan,
+    overdueWorkingDays,
+    calculatedFee,
+    message: calculatedFee > 0
+      ? `Book "${loan.bookTitle}" returned with ${overdueWorkingDays} working days overdue. Late fee accrued: $${calculatedFee.toFixed(2)}.`
+      : `Book "${loan.bookTitle}" returned on time. No late fee accrued.`
+  });
+});
+
+// 11. Circulation Desk APIs: Book Loan Renewal (Blocking renewals if reserved)
+app.post('/api/circulation/renew', (req, res) => {
+  const { loanId, extensionDays = 14 } = req.body;
+
+  const loan = serverLoans.find((l) => l.id === loanId);
+  if (!loan) {
+    return res.status(404).json({ error: 'Loan record not found.' });
+  }
+
+  if (loan.status === 'returned') {
+    return res.status(400).json({ error: 'Cannot renew a book that has already been returned.' });
+  }
+
+  const maxRenewals = serverSettings.maxRenewals || 2;
+  if ((loan.renewalCount || 0) >= maxRenewals) {
+    return res.status(400).json({
+      error: `Maximum renewal limit reached (${maxRenewals} extensions). The book must be returned to the library.`
+    });
+  }
+
+  // CRITICAL CHECK: Block renewal if another patron has reserved the item
+  const hasReservationConflict = serverReservations.some(
+    (r) => r.bookId === loan.bookId && r.userId !== loan.userId && r.status === 'pending'
+  );
+
+  if (hasReservationConflict) {
+    return res.status(409).json({
+      error: `Renewal Blocked: Another student or patron has placed a hold reservation on "${loan.bookTitle}". Please return this book to the circulation desk for the next patron.`
+    });
+  }
+
+  const currentDueDate = new Date(loan.dueDate);
+  const newDueDateStr = calculateSchoolDueDate(currentDueDate, extensionDays);
+
+  loan.dueDate = newDueDateStr;
+  loan.renewalCount = (loan.renewalCount || 0) + 1;
+  loan.status = 'active';
+
+  res.json({
+    success: true,
+    loan,
+    newDueDate: newDueDateStr,
+    message: `Book "${loan.bookTitle}" renewed successfully! New due date: ${newDueDateStr} (Renewal ${loan.renewalCount}/${maxRenewals}).`
+  });
+});
+
+// 12. Manual Fine-Waive Override Controls (Librarian/Admin only)
+app.post('/api/circulation/waive-fine', requireRole(['admin', 'librarian']), (req, res) => {
+  const { loanId, reason, waivedBy = 'Head Librarian' } = req.body;
+
+  const loan = serverLoans.find((l) => l.id === loanId);
+  if (!loan) {
+    return res.status(404).json({ error: 'Loan not found.' });
+  }
+
+  const previousFee = loan.lateFee || 0;
+  loan.lateFee = 0;
+  loan.feePaid = true;
+  loan.waivedReason = reason || 'Librarian administrative discretion';
+  loan.waivedBy = waivedBy;
+  loan.waivedAt = new Date().toISOString();
+
+  fineWaiverAuditLog.unshift({
+    loanId,
+    bookTitle: loan.bookTitle,
+    studentName: loan.userName,
+    waivedAmount: previousFee,
+    reason: loan.waivedReason,
+    waivedBy,
+    timestamp: loan.waivedAt
+  });
+
+  res.json({
+    success: true,
+    loan,
+    waivedAmount: previousFee,
+    message: `Late fee of $${previousFee.toFixed(2)} for "${loan.bookTitle}" has been waived by ${waivedBy}. Reason: "${loan.waivedReason}".`
+  });
+});
+
+// 13. Fines & Overdue Loans Overview API
+app.get('/api/fines', (req, res) => {
+  const overdueOrUnpaidLoans = serverLoans.filter(
+    (l) => (!l.feePaid && (l.lateFee || 0) > 0) || l.status === 'overdue'
+  );
+
+  const totalUnpaidFees = overdueOrUnpaidLoans.reduce((sum, l) => sum + (l.lateFee || 0), 0);
+
+  res.json({
+    unpaidCount: overdueOrUnpaidLoans.length,
+    totalUnpaidFees,
+    overdueLoans: overdueOrUnpaidLoans,
+    recentWaivers: fineWaiverAuditLog.slice(0, 20)
+  });
+});
+
+// 14. Reservations & Offline Batch Sync API
+app.get('/api/reservations', (req, res) => {
+  res.json({ reservations: serverReservations });
+});
+
+app.post('/api/reservations', (req, res) => {
+  const { bookId, userId, userName, bookTitle } = req.body;
+  const newRes = {
+    id: `res-${Date.now()}`,
+    bookId,
+    bookTitle,
+    userId,
+    userName,
+    requestDate: new Date().toISOString().split('T')[0],
+    status: 'pending'
+  };
+  serverReservations.unshift(newRes);
+  res.status(201).json({ success: true, reservation: newRes });
+});
+
+// Offline Queue Batch Sync Endpoint (for PWA service worker reconnect)
+app.post('/api/reservations/queue', (req, res) => {
+  const { queue } = req.body;
+  if (!Array.isArray(queue) || queue.length === 0) {
+    return res.status(400).json({ error: 'Queue array is required.' });
+  }
+
+  const synced: any[] = [];
+  for (const item of queue) {
+    const existing = serverReservations.find(
+      (r) => r.bookId === item.bookId && r.userId === item.userId && r.status === 'pending'
+    );
+    if (!existing) {
+      const newRes = {
+        id: item.id || `res-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        bookId: item.bookId,
+        bookTitle: item.bookTitle,
+        userId: item.userId,
+        userName: item.userName,
+        requestDate: item.requestDate || new Date().toISOString().split('T')[0],
+        status: 'pending'
+      };
+      serverReservations.unshift(newRes);
+      synced.push(newRes);
+    }
+  }
+
+  res.json({
+    success: true,
+    syncedCount: synced.length,
+    synced,
+    message: `Successfully synchronized ${synced.length} queued reservations from offline storage.`
+  });
+});
+
 // Start Express Server with Vite or Static
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

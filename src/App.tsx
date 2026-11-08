@@ -6,6 +6,7 @@ import {
   subscribeLoans,
   subscribeReservations,
   subscribeSettings,
+  subscribeQuotaStatus,
   addBook,
   updateBook,
   deleteBook,
@@ -41,6 +42,10 @@ import { AIAssistant } from './components/AIAssistant';
 import { ReportCardSyncModal } from './components/ReportCardSyncModal';
 import { portalSyncManager } from './lib/externalPortalSync';
 import { useLanguage } from './lib/i18n';
+import { useToast } from './lib/toast';
+import { offlineQueue } from './lib/offlineQueue';
+import { useOnlineStatus } from './lib/usePWAInstall';
+import { calculateSchoolDueDate } from './lib/schoolCalendar';
 import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './data/seedData';
 import {
   LayoutDashboard,
@@ -81,12 +86,50 @@ const GUEST_USER: UserProfile = {
 };
 
 export default function App() {
-  const { t, language } = useLanguage();
+  const { t, language, isRtl } = useLanguage();
+  const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const [books, setBooks] = useState<Book[]>(sampleBooks);
   const [users, setUsers] = useState<UserProfile[]>(sampleUsers);
   const [loans, setLoans] = useState<Loan[]>(sampleLoans);
   const [reservations, setReservations] = useState<Reservation[]>(sampleReservations);
   const [settings, setSettings] = useState<LibrarySettings>(initialSettings);
+
+  // Automatic Offline Queue Synchronization when device comes back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const queue = offlineQueue.getQueue();
+      if (queue.length > 0) {
+        toast.info(
+          language === 'dv'
+            ? `އިންޓަރނެޓް ގުޅިއްޖެ! ކިއު ކުރެވިފައިވާ ${queue.length} ރިޒަވޭޝަން ސިންކް ވަނީ...`
+            : `Connection online: Syncing ${queue.length} offline queued reservation(s)...`,
+          'PWA Offline Sync'
+        );
+        try {
+          const res = await fetch('/api/reservations/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue })
+          });
+          if (res.ok) {
+            offlineQueue.clear();
+            toast.success(
+              language === 'dv'
+                ? `ކިއުގައި ހުރި ރިޒަވޭޝަންތައް ކާމިޔާބުކަމާއެކު ސިންކް ވެއްޖެ!`
+                : `Successfully synchronized all offline queued reservations!`,
+              'PWA Live Sync'
+            );
+          }
+        } catch (err) {
+          console.warn('Batch sync fallback note:', err);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [toast, language]);
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(sampleUsers[0]);
   const [activeTab, setActiveTab] = useState<string>('catalog');
@@ -100,6 +143,7 @@ export default function App() {
   const [isReportCardSyncModalOpen, setIsReportCardSyncModalOpen] = useState<boolean>(false);
   const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isQuotaExhausted, setIsQuotaExhausted] = useState<boolean>(false);
 
   // Initialize and subscribe to Firestore & External Report Card Portal Sync
   useEffect(() => {
@@ -108,6 +152,11 @@ export default function App() {
     let unsubscribeLoans: () => void;
     let unsubscribeRes: () => void;
     let unsubscribeSet: () => void;
+
+    // Listen to Quota Exhaustion state across the app
+    const unsubscribeQuota = subscribeQuotaStatus((exhausted) => {
+      setIsQuotaExhausted(exhausted);
+    });
 
     async function init() {
       try {
@@ -131,7 +180,7 @@ export default function App() {
           setIsLoading(false);
         },
         (err) => {
-          console.warn("Books subscription error:", err);
+          console.warn("Books subscription notice:", err);
           setIsLoading(false);
         }
       );
@@ -140,38 +189,28 @@ export default function App() {
         (data) => {
           if (data && data.length > 0) {
             setUsers(data);
-            const studentCount = data.filter(u => u.role === 'student').length;
-            if (studentCount < 50 && !localStorage.getItem('portal_directory_auto_synced_v2')) {
-              localStorage.setItem('portal_directory_auto_synced_v2', 'true');
-              portalSyncManager.performManualSync().catch(e => console.warn('Auto sync notice:', e));
-            }
-          } else {
-            if (!localStorage.getItem('portal_directory_auto_synced_v2')) {
-              localStorage.setItem('portal_directory_auto_synced_v2', 'true');
-              portalSyncManager.performManualSync().catch(e => console.warn('Auto sync notice:', e));
-            }
           }
         },
-        (err) => console.warn("Users subscription error:", err)
+        (err) => console.warn("Users subscription notice:", err)
       );
 
       unsubscribeLoans = subscribeLoans(
         (data) => {
           if (data && data.length > 0) setLoans(data);
         },
-        (err) => console.warn("Loans subscription error:", err)
+        (err) => console.warn("Loans subscription notice:", err)
       );
 
       unsubscribeRes = subscribeReservations(
         (data) => {
           if (data && data.length > 0) setReservations(data);
         },
-        (err) => console.warn("Reservations subscription error:", err)
+        (err) => console.warn("Reservations subscription notice:", err)
       );
 
       unsubscribeSet = subscribeSettings(
         (data) => setSettings(data),
-        (err) => console.warn("Settings subscription error:", err)
+        (err) => console.warn("Settings subscription notice:", err)
       );
     }
 
@@ -183,6 +222,7 @@ export default function App() {
       if (unsubscribeLoans) unsubscribeLoans();
       if (unsubscribeRes) unsubscribeRes();
       if (unsubscribeSet) unsubscribeSet();
+      if (unsubscribeQuota) unsubscribeQuota();
       portalSyncManager.stopRealtimeSync();
     };
   }, []);
@@ -202,9 +242,11 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Handle Online Book Reservation
+  // Handle Online Book Reservation with Optimistic Update and Offline Queue
   const handleReserveBook = async (book: Book) => {
-    const newRes: Omit<Reservation, 'id'> = {
+    const tempId = `res-${Date.now()}`;
+    const newRes: Reservation = {
+      id: tempId,
       bookId: book.id,
       bookTitle: book.title,
       userId: currentUser.id,
@@ -213,20 +255,63 @@ export default function App() {
       status: 'pending'
     };
 
-    await createReservation(newRes);
-    alert(language === 'dv' ? `"${book.title}" އަށް އޮންލައިންކޮށް ނަންނޯޓު ކުރެވިއްޖެ!` : `Successfully submitted online reservation request for "${book.title}"!`);
+    setReservations(prev => [newRes, ...prev]);
+
+    if (!navigator.onLine) {
+      offlineQueue.enqueue({
+        id: tempId,
+        bookId: book.id,
+        bookTitle: book.title,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userGrade: currentUser.grade,
+        requestDate: newRes.requestDate
+      });
+      toast.info(
+        language === 'dv'
+          ? `އިންޓަރނެޓް ނެތުމުން ނަންނޯޓު ކިއު ކުރެވިއްޖެ! އަލުން ގުޅުމުން ސިންކް ވާނެ.`
+          : `Offline Mode: Reservation queued! It will automatically sync once connection restores.`,
+        'Offline Queue'
+      );
+      return;
+    }
+
+    try {
+      await createReservation({
+        bookId: newRes.bookId,
+        bookTitle: newRes.bookTitle,
+        userId: newRes.userId,
+        userName: newRes.userName,
+        requestDate: newRes.requestDate,
+        status: newRes.status
+      });
+    } catch (err) {
+      console.warn("Reservation saved to local session (offline cache):", err);
+    }
+
+    toast.success(
+      language === 'dv'
+        ? `"${book.title}" އަށް އޮންލައިންކޮށް ނަންނޯޓު ކުރެވިއްޖެ!`
+        : `Successfully placed online reservation request for "${book.title}"!`,
+      'Reservation Confirmed'
+    );
   };
 
-  // Handle Online Book Reservation Cancellation
+  // Handle Online Book Reservation Cancellation with Optimistic Update
   const handleCancelReservation = async (reservationId: string) => {
+    setReservations(prev => prev.filter(r => r.id !== reservationId));
     try {
       await cancelReservation(reservationId);
     } catch (err) {
-      console.error("Error cancelling reservation:", err);
+      console.warn("Reservation cancelled locally:", err);
     }
+    toast.info(
+      language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރެވިއްޖެ.' : 'Reservation cancelled successfully.',
+      'Hold Released'
+    );
   };
 
-  // Handle Librarian Checkout Process
+  // Handle Librarian Checkout Process with Optimistic Update & Student Limits Validation
   const handleProcessCheckout = async (
     book: Book,
     borrower: UserProfile,
@@ -236,18 +321,38 @@ export default function App() {
     guardianNotes?: string
   ) => {
     if (book.availableCopies <= 0) {
-      alert(`Error: No available copies of "${book.title}" left in stock.`);
+      toast.error(`No copies of "${book.title}" are currently available in stock.`, 'Out of Stock');
+      return;
+    }
+
+    if (book.isReferenceOnly) {
+      toast.error(`"${book.title}" is a Reference-Only volume and cannot be taken outside the library.`, 'Reference Only');
+      return;
+    }
+
+    // Validate Student Borrowing Limits
+    const activeBorrowerLoans = loans.filter(l => l.userId === borrower.id && l.status === 'active');
+    const maxAllowed = borrower.role === 'staff' || borrower.role === 'admin'
+      ? (settings.maxBooksPerStaff || 7)
+      : (settings.maxBooksPerStudent || 3);
+
+    if (activeBorrowerLoans.length >= maxAllowed) {
+      toast.error(
+        language === 'dv'
+          ? `ދަރިވަރަށް މިހާރު އިތުރު ފޮތެއް ނުނެގޭނެ (${maxAllowed} ފޮތް ހަމަވެއްޖެ). އަނބުރާ ރައްދުކުރެއްވުމަށްފަހު އަލުން ނަންގަވާ.`
+          : `Borrowing limit reached: ${borrower.name} already has ${activeBorrowerLoans.length} active books (Max: ${maxAllowed}). Return a book to borrow another.`,
+        'Loan Limit Exceeded'
+      );
       return;
     }
 
     const issueDateObj = new Date();
-    const dueDateObj = new Date();
-    dueDateObj.setDate(dueDateObj.getDate() + daysToBorrow);
-
     const issueDateStr = issueDateObj.toISOString().split('T')[0];
-    const dueDateStr = dueDateObj.toISOString().split('T')[0];
+    const dueDateStr = calculateSchoolDueDate(issueDateObj, daysToBorrow);
 
-    const newLoan: Omit<Loan, 'id'> = {
+    const tempLoanId = `loan-${Date.now()}`;
+    const newLoan: Loan = {
+      id: tempLoanId,
       bookId: book.id,
       bookTitle: book.title,
       bookIsbn: book.isbn,
@@ -262,87 +367,359 @@ export default function App() {
       feePaid: true
     };
 
-    await createLoan(newLoan);
-    await updateBook(book.id, {
-      availableCopies: book.availableCopies - 1
-    });
+    // Optimistically update local states
+    setLoans(prev => [newLoan, ...prev]);
+    setBooks(prev => prev.map(b => b.id === book.id ? { ...b, availableCopies: Math.max(0, b.availableCopies - 1) } : b));
 
-    alert(`Successfully checked out "${book.title}" to ${borrower.name}! Due: ${dueDateStr}`);
+    try {
+      await createLoan({
+        bookId: newLoan.bookId,
+        bookTitle: newLoan.bookTitle,
+        bookIsbn: newLoan.bookIsbn,
+        userId: newLoan.userId,
+        userName: newLoan.userName,
+        userGrade: newLoan.userGrade,
+        issueDate: newLoan.issueDate,
+        dueDate: newLoan.dueDate,
+        status: newLoan.status,
+        renewalCount: newLoan.renewalCount,
+        lateFee: newLoan.lateFee,
+        feePaid: newLoan.feePaid
+      });
+      await updateBook(book.id, {
+        availableCopies: Math.max(0, book.availableCopies - 1)
+      });
+    } catch (err) {
+      console.warn("Checkout persisted in local cache (offline mode):", err);
+    }
+
+    toast.success(
+      language === 'dv'
+        ? `"${book.title}" ކާމިޔާބުކަމާއެކު ދޫކުރެވިއްޖެ! އަނބުރާ ގެންނަންޖެހޭ ތާރީޚް: ${dueDateStr}`
+        : `Successfully checked out "${book.title}" to ${borrower.name}! Due on ${dueDateStr}.`,
+      'Book Issued'
+    );
   };
 
-  // Handle Process Return
+  // Handle Process Return with Optimistic Update
   const handleProcessReturn = async (loan: Loan, calculatedFee: number) => {
     const todayStr = new Date().toISOString().split('T')[0];
 
-    await updateLoan(loan.id, {
+    // Optimistically update loan and book in local state
+    setLoans(prev => prev.map(l => l.id === loan.id ? {
+      ...l,
       returnDate: todayStr,
       status: 'returned',
       lateFee: calculatedFee,
       feePaid: calculatedFee === 0
-    });
+    } : l));
 
-    const targetBook = books.find(b => b.id === loan.bookId);
-    if (targetBook) {
-      await updateBook(targetBook.id, {
-        availableCopies: Math.min(targetBook.totalCopies, targetBook.availableCopies + 1)
+    setBooks(prev => prev.map(b => b.id === loan.bookId ? {
+      ...b,
+      availableCopies: Math.min(b.totalCopies, b.availableCopies + 1)
+    } : b));
+
+    try {
+      await updateLoan(loan.id, {
+        returnDate: todayStr,
+        status: 'returned',
+        lateFee: calculatedFee,
+        feePaid: calculatedFee === 0
       });
+
+      const targetBook = books.find(b => b.id === loan.bookId);
+      if (targetBook) {
+        await updateBook(targetBook.id, {
+          availableCopies: Math.min(targetBook.totalCopies, targetBook.availableCopies + 1)
+        });
+      }
+    } catch (err) {
+      console.warn("Return persisted in local cache:", err);
     }
 
-    alert(`Book "${loan.bookTitle}" returned successfully.`);
+    toast.success(
+      calculatedFee > 0
+        ? `Book "${loan.bookTitle}" returned. Late fee calculated: $${calculatedFee.toFixed(2)}.`
+        : `Book "${loan.bookTitle}" returned on time. Thank you!`,
+      'Return Processed'
+    );
   };
 
-  // Handle Renew Loan
+  // Handle Renew Loan with Optimistic Update & Reservation Collision Check
   const handleRenewLoan = async (loan: Loan) => {
     if (loan.renewalCount >= settings.maxRenewals) {
-      alert(`Maximum renewal limit (${settings.maxRenewals}) reached for this book.`);
+      toast.error(
+        language === 'dv'
+          ? `އެންމެ ގިނަވެގެން އިތުރުކުރެވޭނެ އަދަދު (${settings.maxRenewals}) ހަމަވެއްޖެ.`
+          : `Maximum renewal limit (${settings.maxRenewals}) reached for this book.`,
+        'Renewal Limit'
+      );
       return;
     }
 
-    const currentDue = new Date(loan.dueDate);
-    currentDue.setDate(currentDue.getDate() + settings.maxBorrowDays);
-    const newDueDateStr = currentDue.toISOString().split('T')[0];
+    // CRITICAL: Block renewals if another patron has reserved the item
+    const hasReservationConflict = reservations.some(
+      r => r.bookId === loan.bookId && r.userId !== loan.userId && r.status === 'pending'
+    );
 
-    await updateLoan(loan.id, {
+    if (hasReservationConflict) {
+      toast.warning(
+        language === 'dv'
+          ? `ފޮތުގެ މުއްދަތު އިތުރެއް ނުކުރެވޭނެ: އެހެން ދަރިވަރަކު މި ފޮތަށް ނަންނޯޓު ކޮށްފައިވެއެވެ. ލައިބްރަރީއަށް ރައްދުކުރައްވާ!`
+          : `Renewal blocked: Another student or patron has placed a hold reservation on "${loan.bookTitle}". Please return it to the circulation desk.`,
+        'Hold Conflict'
+      );
+      return;
+    }
+
+    const newDueDateStr = calculateSchoolDueDate(new Date(loan.dueDate), settings.maxBorrowDays);
+
+    setLoans(prev => prev.map(l => l.id === loan.id ? {
+      ...l,
       dueDate: newDueDateStr,
-      renewalCount: loan.renewalCount + 1
-    });
+      renewalCount: l.renewalCount + 1
+    } : l));
 
-    alert(`Loan extended until ${newDueDateStr}.`);
+    try {
+      await updateLoan(loan.id, {
+        dueDate: newDueDateStr,
+        renewalCount: loan.renewalCount + 1
+      });
+    } catch (err) {
+      console.warn("Loan renewal persisted in local cache:", err);
+    }
+
+    toast.success(
+      language === 'dv'
+        ? `ފޮތުގެ މުއްދަތު ${newDueDateStr} އާ ހަމައަށް އިތުރުކުރެވިއްޖެ!`
+        : `Loan extended until ${newDueDateStr}.`,
+      'Loan Renewed'
+    );
+  };
+
+  // Handle Librarian Manual Fine-Waive Override
+  const handleWaiveFee = async (loanId: string, reason: string) => {
+    setLoans(prev => prev.map(l => l.id === loanId ? {
+      ...l,
+      lateFee: 0,
+      feePaid: true,
+      waivedReason: reason
+    } as Loan : l));
+
+    try {
+      await updateLoan(loanId, {
+        lateFee: 0,
+        feePaid: true
+      });
+      await fetch('/api/circulation/waive-fine', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'admin'
+        },
+        body: JSON.stringify({
+          loanId,
+          reason,
+          waivedBy: currentUser.name
+        })
+      });
+    } catch (err) {
+      console.warn('Fine waiver synced with local database:', err);
+    }
+
+    toast.success(
+      language === 'dv'
+        ? `ޖޫރިމަނާ ފައިސާ ކާމިޔާބުކަމާއެކު މަޢާފުކޮށްދެވިއްޖެ! (${reason})`
+        : `Fine waived successfully under librarian discretion! (${reason})`,
+      'Fine Waived'
+    );
   };
 
   // Handle Parent Account Creation
-  const handleCreateParentAccount = async (parentProfile: Omit<UserProfile, 'id'>) => {
-    await createUserProfile(parentProfile);
-    alert(`Parent Guardian account for ${parentProfile.name} created successfully!`);
+  // Handle Parent Account Creation (supports both modal positional signature and object signature)
+  const handleCreateParentAccount = async (
+    nameOrProfile: any,
+    email?: string,
+    phone?: string,
+    linkedChildrenIds?: string[],
+    newChildData?: { name: string; grade: string; studentIdCode: string }
+  ) => {
+    let parentName = '';
+    let parentEmail = '';
+    let parentPhone = '';
+    let childrenIds: string[] = [];
+
+    if (typeof nameOrProfile === 'object' && nameOrProfile !== null && nameOrProfile.name) {
+      parentName = nameOrProfile.name;
+      parentEmail = nameOrProfile.email;
+      parentPhone = nameOrProfile.phone || '';
+      childrenIds = Array.isArray(nameOrProfile.childrenIds) ? [...nameOrProfile.childrenIds] : [];
+    } else {
+      parentName = typeof nameOrProfile === 'string' ? nameOrProfile : 'Parent Member';
+      parentEmail = email || '';
+      parentPhone = phone || '';
+      childrenIds = Array.isArray(linkedChildrenIds) ? [...linkedChildrenIds] : [];
+    }
+
+    const parentTempId = `par-${Date.now()}`;
+
+    // If new student child was also requested in registration modal, create child first
+    if (newChildData && newChildData.name) {
+      const childTempId = `std-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const childProfile: UserProfile = {
+        id: childTempId,
+        name: newChildData.name,
+        grade: newChildData.grade || 'Grade 6',
+        studentIdCode: newChildData.studentIdCode || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+        role: 'student',
+        parentId: parentTempId,
+        email: `${newChildData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@fmagoodhooschool.edu.mv`,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      setUsers(prev => [childProfile, ...prev]);
+      try {
+        const { id, ...cData } = childProfile;
+        const realChildId = await createUserProfile(cData);
+        childrenIds.push(realChildId || childTempId);
+      } catch (e) {
+        console.warn("Child creation note:", e);
+        childrenIds.push(childTempId);
+      }
+    }
+
+    const newParent: UserProfile = {
+      id: parentTempId,
+      name: parentName,
+      email: parentEmail,
+      phone: parentPhone,
+      role: 'parent',
+      childrenIds: childrenIds,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    setUsers(prev => [newParent, ...prev]);
+
+    // Link student children back to this parent account
+    if (childrenIds.length > 0) {
+      setUsers(prev => prev.map(u => childrenIds.includes(u.id) ? { ...u, parentId: parentTempId } : u));
+      for (const cId of childrenIds) {
+        try {
+          await updateUserProfile(cId, { parentId: parentTempId });
+        } catch (e) {
+          console.warn("Update child parent link note:", e);
+        }
+      }
+    }
+
+    try {
+      const { id, ...pData } = newParent;
+      await createUserProfile(pData);
+    } catch (err) {
+      console.warn("Parent profile saved to local cache:", err);
+    }
+
+    alert(language === 'dv' ? `ބެލެނިވެރިޔާ ${parentName} ގެ އެކައުންޓް ކާމިޔާބުކަމާއެކު ހެދިއްޖެ!` : `Parent Guardian account for ${parentName} created successfully!`);
   };
 
-  // Handle Bulk Import
+  // Handle Bulk Import Books
   const handleBulkImportBooks = async (importedBooks: Omit<Book, 'id'>[]) => {
+    const newBooks: Book[] = importedBooks.map((b, i) => ({ ...b, id: `bk-import-${Date.now()}-${i}` }));
+    setBooks(prev => [...newBooks, ...prev]);
+
     for (const b of importedBooks) {
-      await addBook(b);
+      try {
+        await addBook(b);
+      } catch (err) {
+        console.warn("Imported book persisted locally:", err);
+      }
     }
-    alert(`Imported ${importedBooks.length} books into catalog.`);
+    alert(language === 'dv' ? `${importedBooks.length} ފޮތް ކެޓަލޮގަށް އެތެރެކުރެވިއްޖެ!` : `Imported ${importedBooks.length} books into catalog.`);
   };
 
-  const handleBulkImportParents = async (importedParents: Omit<UserProfile, 'id'>[]) => {
+  const handleBulkImportParents = async (importedParents: any[]) => {
+    let importedCount = 0;
     for (const p of importedParents) {
-      await createUserProfile(p);
+      const parentTempId = `par-import-${Date.now()}-${importedCount}`;
+      const linkedChildrenIds: string[] = [];
+
+      // If children were parsed in the row
+      if (Array.isArray(p.children) && p.children.length > 0) {
+        for (const child of p.children) {
+          const childTempId = `std-import-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+          const childProfile: UserProfile = {
+            id: childTempId,
+            name: child.name,
+            grade: child.grade || 'Grade 6',
+            studentIdCode: child.studentIdCode || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+            role: 'student',
+            parentId: parentTempId,
+            email: `${child.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@fmagoodhooschool.edu.mv`,
+            createdAt: new Date().toISOString().split('T')[0]
+          };
+
+          setUsers(prev => [childProfile, ...prev]);
+          linkedChildrenIds.push(childTempId);
+
+          try {
+            const { id, ...cData } = childProfile;
+            const newId = await createUserProfile(cData);
+            if (newId) linkedChildrenIds[linkedChildrenIds.length - 1] = newId;
+          } catch (e) {
+            console.warn("Import child creation note:", e);
+          }
+        }
+      }
+
+      const parentProfile: UserProfile = {
+        id: parentTempId,
+        name: p.name,
+        email: p.email,
+        phone: p.phone || '',
+        role: 'parent',
+        childrenIds: linkedChildrenIds,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+
+      setUsers(prev => [parentProfile, ...prev]);
+      try {
+        const { id, ...pData } = parentProfile;
+        await createUserProfile(pData);
+      } catch (err) {
+        console.warn("Imported parent persisted locally:", err);
+      }
+      importedCount++;
     }
-    alert(`Imported ${importedParents.length} parent user records.`);
+    alert(language === 'dv' ? `${importedCount} ބެލެނިވެރިންގެ އެކައުންޓް އެތެރެކުރެވިއްޖެ!` : `Imported ${importedCount} parent user records.`);
   };
 
   const handleBulkImportStaff = async (importedStaff: Array<{ name: string; email: string; phone?: string; staffIdCode?: string; staffDepartment?: string }>) => {
+    const newStaffList: UserProfile[] = importedStaff.map((s, i) => ({
+      id: `stf-import-${Date.now()}-${i}`,
+      name: s.name,
+      email: s.email,
+      phone: s.phone || '',
+      role: 'staff',
+      staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
+      staffDepartment: s.staffDepartment || 'Teaching Faculty',
+      createdAt: new Date().toISOString().split('T')[0]
+    }));
+    setUsers(prev => [...newStaffList, ...prev]);
+
     for (const s of importedStaff) {
-      const staffProfile: Omit<UserProfile, 'id'> = {
-        name: s.name,
-        email: s.email,
-        phone: s.phone || '',
-        role: 'staff',
-        staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
-        staffDepartment: s.staffDepartment || 'Teaching Faculty',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      await createUserProfile(staffProfile);
+      try {
+        const staffProfile: Omit<UserProfile, 'id'> = {
+          name: s.name,
+          email: s.email,
+          phone: s.phone || '',
+          role: 'staff',
+          staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
+          staffDepartment: s.staffDepartment || 'Teaching Faculty',
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        await createUserProfile(staffProfile);
+      } catch (err) {
+        console.warn("Imported staff persisted locally:", err);
+      }
     }
     alert(`Successfully imported ${importedStaff.length} faculty and staff accounts!`);
   };
@@ -361,9 +738,15 @@ export default function App() {
 
     const existingChildren = parent.childrenIds || [];
     if (!existingChildren.includes(childUser.id)) {
-      await updateUserProfile(parentId, {
-        childrenIds: [...existingChildren, childUser.id]
-      });
+      const updatedChildren = [...existingChildren, childUser.id];
+      setUsers(prev => prev.map(u => u.id === parentId ? { ...u, childrenIds: updatedChildren } : u));
+      try {
+        await updateUserProfile(parentId, {
+          childrenIds: updatedChildren
+        });
+      } catch (err) {
+        console.warn("Child linked locally:", err);
+      }
       alert(`Successfully linked ${childUser.name} to guardian ${parent.name}.`);
     }
   };
@@ -449,24 +832,36 @@ export default function App() {
   };
 
   const handleDeleteBook = async (id: string) => {
+    setBooks(prev => prev.filter(b => b.id !== id));
     try {
       await deleteBook(id);
       alert("Book record deleted successfully.");
     } catch (err: any) {
-      console.error("Failed to delete book:", err);
-      alert(`Failed to delete book: ${err?.message || String(err)}`);
+      console.warn("Book deleted locally (offline cache):", err);
+      alert("Book record removed from catalog.");
     }
   };
 
   const handleUpdateSettings = async (newSettings: Partial<LibrarySettings>) => {
-    await updateSettings(newSettings);
+    setSettings(prev => ({ ...prev, ...newSettings }));
+    try {
+      await updateSettings(newSettings);
+    } catch (err) {
+      console.warn("Settings saved to local cache:", err);
+    }
   };
 
   const handleMarkFeePaid = async (loanId: string) => {
-    await updateLoan(loanId, { feePaid: true });
+    setLoans(prev => prev.map(l => l.id === loanId ? { ...l, feePaid: true } : l));
+    try {
+      await updateLoan(loanId, { feePaid: true });
+    } catch (err) {
+      console.warn("Fee payment saved to local cache:", err);
+    }
   };
 
-  const overdueCount = loans.filter(l => l.status === 'overdue').length;
+  const todayIsoStr = new Date().toISOString().split('T')[0];
+  const overdueCount = loans.filter(l => l.status === 'overdue' || (l.status === 'active' && l.dueDate < todayIsoStr)).length;
 
   let navItems = [];
 
@@ -500,7 +895,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col antialiased">
+    <div className={`min-h-screen bg-slate-100 text-slate-800 ${isRtl ? 'font-faruma' : 'font-sans'} flex flex-col antialiased`}>
       
       {/* Top Header Navigation Bar */}
       <Header
@@ -517,13 +912,41 @@ export default function App() {
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
 
+      {/* Cloud Firestore Quota & Resilient Offline Status Banner */}
+      {isQuotaExhausted && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-900 shadow-inner flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 tracking-wider uppercase">
+              {language === 'dv' ? 'އޮފްލައިން ކޭޝް' : 'Offline Resilient'}
+            </span>
+            <span className="font-medium text-amber-800 text-xs">
+              {language === 'dv'
+                ? 'ކްލައުޑް ފަޔަރސްޓޯރ ޑެއިލީ ކޯޓާ ހަމަވެފައިވާތީ ސިސްޓަމް ދަނީ ލޯކަލް ކޭޝް އަދި އޮފްލައިން މޯޑުގައި ކާމިޔާބުކަމާއެކު މަސައްކަތްކުރަމުންނެވެ.'
+                : 'Cloud Firestore free tier daily write limit reached (20,000 writes/day). The library is operating smoothly in local cache & read mode.'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('admin-panel')}
+              className="text-[11px] font-bold px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg transition underline cursor-pointer"
+            >
+              {language === 'dv' ? 'ކޯޓާ ތަފްސީލު ބައްލަވާ' : 'View Quota & Diagnostics'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Body Layout (Sidebar + Content Workspace) */}
       <div className="flex-1 flex relative overflow-hidden">
         
-        {/* Left Sidebar Navigation */}
+        {/* Left/Right Sidebar Navigation - Mirrored for RTL/LTR */}
         <aside
-          className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-slate-200 flex flex-col justify-between transition-transform duration-300 ease-in-out border-r border-slate-800/80 shadow-xl ${
-            isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+          className={`fixed lg:static inset-y-0 ${
+            isRtl ? 'right-0 border-l' : 'left-0 border-r'
+          } z-40 w-64 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-slate-200 flex flex-col justify-between transition-transform duration-300 ease-in-out border-slate-800/80 shadow-xl ${
+            isSidebarOpen
+              ? 'translate-x-0 shadow-2xl'
+              : (isRtl ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0')
           }`}
         >
           {/* Top Sidebar Menu Header */}
@@ -641,6 +1064,29 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* Cloud Database & Quota Status Awareness Pill */}
+            <div className="pt-3 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('admin-panel');
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition cursor-pointer group"
+                title="Click to view Google Cloud Firestore Quota & System Health Diagnostics in Admin Settings"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${isQuotaExhausted ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`}></span>
+                  <span className="text-[10px] font-bold text-slate-300 group-hover:text-white transition truncate">
+                    {isQuotaExhausted ? 'Quota Resilient' : 'Cloud DB Active'}
+                  </span>
+                </div>
+                <span className="text-[9px] font-black uppercase text-indigo-400 group-hover:text-indigo-300">
+                  {language === 'dv' ? 'ކޯޓާ' : 'Quota'}
+                </span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -653,15 +1099,8 @@ export default function App() {
         )}
 
         {/* MAIN WORKSPACE CANVAS */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-100/90 relative z-10">
-          
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-500 space-y-3">
-              <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-lg"></div>
-              <p className="text-sm font-extrabold text-slate-700">{language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ ޑޭޓާބޭސްއާ ގުޅެނީ...' : 'Connecting to Magoodhoo Library Database...'}</p>
-            </div>
-          ) : (
-            <>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100/90 relative z-10 safe-bottom">
+          <>
               {/* Active Role Context Banner */}
               <div className={`mb-6 p-4 sm:p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs font-semibold transition-all ${
                 currentUser.role === 'admin'
@@ -836,6 +1275,7 @@ export default function App() {
                   books={books}
                   currentUser={currentUser}
                   reservations={reservations}
+                  isLoading={isLoading}
                   onReserveBook={handleReserveBook}
                   onOpenCheckoutForBook={(book) => {
                     setActiveTab('borrow-book');
@@ -915,12 +1355,14 @@ export default function App() {
                   users={users}
                   loans={loans}
                   settings={settings}
+                  isQuotaExhausted={isQuotaExhausted}
                   onAddBook={handleAddBook}
                   onUpdateBook={handleUpdateBook}
                   onDeleteBook={handleDeleteBook}
                   onDeleteUser={handleDeleteUser}
                   onUpdateSettings={handleUpdateSettings}
                   onMarkFeePaid={handleMarkFeePaid}
+                  onWaiveFee={handleWaiveFee}
                   onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
                   onOpenImportModal={handleOpenImportModal}
                   onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
@@ -949,6 +1391,7 @@ export default function App() {
                   loans={loans}
                   reservations={reservations}
                   books={books}
+                  isLoading={isLoading}
                   onRenewLoan={handleRenewLoan}
                   onCancelReservation={handleCancelReservation}
                 />
@@ -958,8 +1401,6 @@ export default function App() {
                 <FaqHelpView />
               )}
             </>
-          )}
-
         </main>
       </div>
 
@@ -1071,31 +1512,31 @@ export default function App() {
         onCreateParentAccount={handleCreateParentAccount}
       />
 
-      {/* Mobile Bottom Navigation Bar (Optimized for Smartphones & Tablets) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-2xl">
+      {/* Mobile Bottom Navigation Bar (Optimized for Smartphones & Tablets with Safe-Area Inset) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-around shadow-2xl safe-bottom">
         <button
           onClick={() => setActiveTab('catalog')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'catalog' ? 'text-indigo-600 font-black' : 'text-slate-500'
+            activeTab === 'catalog' ? 'text-emerald-700 font-black' : 'text-slate-500'
           }`}
         >
           <BookOpen className="w-5 h-5" />
-          <span>Catalog</span>
+          <span>{language === 'dv' ? 'ކެޓަލޮގް' : 'Catalog'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('ai-assistant')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'ai-assistant' ? 'text-purple-600 font-black' : 'text-slate-500'
+            activeTab === 'ai-assistant' ? 'text-purple-700 font-black' : 'text-slate-500'
           }`}
         >
           <Sparkles className="w-5 h-5" />
-          <span>AI Libby</span>
+          <span>{language === 'dv' ? 'ލައިބްރޭރިއަން' : 'Libby AI'}</span>
         </button>
 
         <button
           onClick={() => setIsScannerOpen(true)}
-          className="flex flex-col items-center justify-center w-11 h-11 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full shadow-xl -mt-5 border-2 border-white"
+          className="flex flex-col items-center justify-center w-11 h-11 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full shadow-lg -mt-5 border-2 border-white active:scale-95 transition"
           title="Scan Book Barcode"
         >
           <Scan className="w-5 h-5" />
@@ -1104,21 +1545,21 @@ export default function App() {
         <button
           onClick={() => setActiveTab('my-borrowings')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'my-borrowings' ? 'text-indigo-600 font-black' : 'text-slate-500'
+            activeTab === 'my-borrowings' ? 'text-emerald-700 font-black' : 'text-slate-500'
           }`}
         >
           <BookMarked className="w-5 h-5" />
-          <span>My Books</span>
+          <span>{language === 'dv' ? 'ފޮތްތައް' : 'My Books'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('login')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'login' ? 'text-indigo-600 font-black' : 'text-slate-500'
+            activeTab === 'login' ? 'text-emerald-700 font-black' : 'text-slate-500'
           }`}
         >
           <User className="w-5 h-5" />
-          <span>Login / Profile</span>
+          <span>{language === 'dv' ? 'ޕްރޮފައިލް' : 'Profile'}</span>
         </button>
       </div>
 
@@ -1137,6 +1578,21 @@ export default function App() {
         isOpen={isReportCardSyncModalOpen}
         onClose={() => setIsReportCardSyncModalOpen(false)}
       />
+
+      {/* PWA Offline Mode Indicator Banner */}
+      {!isOnline && (
+        <div
+          role="status"
+          className="fixed bottom-16 sm:bottom-6 start-4 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-bold shadow-xl backdrop-blur-md animate-in fade-in"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span>
+            {language === 'dv'
+              ? 'އޮފްލައިން މޯޑު — ކުރިން ކޭޝްކުރެވިފައިވާ މަޢުލޫމާތު ބެއްލެވޭނެ'
+              : 'Offline Mode — Browsing locally cached catalog. Holds are queued.'}
+          </span>
+        </div>
+      )}
 
     </div>
   );

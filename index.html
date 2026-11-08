@@ -2,18 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Magoodhoo School Library Management System</title>
-    <meta name="description" content="Comprehensive school library management system for book cataloging, barcode scanning, student borrowing, parent account monitoring, reference sections, and reservations." />
-    <meta property="og:title" content="Magoodhoo School Library Management System" />
-    <meta property="og:description" content="Comprehensive school library management system for book cataloging, barcode scanning, student borrowing, parent account monitoring, reference sections, and reservations." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <title>Magoodhoo School Library Portal — Digital Catalog & Circulation</title>
+    <meta name="description" content="Magoodhoo School Digital Library Management System — Real-time book catalog, barcode scanner, circulation desk, student & parent directory, and study guides." />
+    <meta property="og:title" content="Magoodhoo School Library Portal" />
+    <meta property="og:description" content="Digital school library management system for book cataloging, barcode scanning, student borrowing, and parent account monitoring." />
+    <meta property="og:type" content="website" />
+
+    <!-- PWA & Mobile Web Capabilities -->
+    <meta name="theme-color" content="#047857" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LibraryMS" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+
+    <!-- Font Preloads for Thaana & English Typography -->
+    <link
+      rel="preload"
+      href="/fonts/Faruma.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
   </head>
-  <body>
+  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

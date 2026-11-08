@@ -175,32 +175,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
+            <table className="w-full text-start text-xs text-slate-700">
               <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] border-y border-slate-200">
                 <tr>
                   <th className="py-3 px-3">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
                   <th className="py-3 px-3">{language === 'dv' ? 'ނެގި ފަރާތް' : 'Borrower'}</th>
-                  <th className="py-3 px-3">{language === 'dv' ? 'ދޫކުރި ތާރީޚް' : 'Issue Date'}</th>
-                  <th className="py-3 px-3">{language === 'dv' ? 'އަނބުރާ ދައްކަންޖެހޭ ތާރީޚް' : 'Due Date'}</th>
-                  <th className="py-3 px-3 text-right">{language === 'dv' ? 'ޙާލަތު' : 'Status'}</th>
+                  <th className="py-3 px-3">{t.borrowedDate}</th>
+                  <th className="py-3 px-3">{t.dueDate}</th>
+                  <th className="py-3 px-3 text-end">{t.status}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loans.slice(0, 5).map((loan) => (
                   <tr key={loan.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-3 font-bold text-slate-900">{loan.bookTitle}</td>
-                    <td className="py-3 px-3 font-medium text-slate-700">{loan.userName} ({loan.userGrade})</td>
-                    <td className="py-3 px-3 font-mono text-slate-600">{loan.issueDate}</td>
-                    <td className="py-3 px-3 font-mono text-slate-600">{loan.dueDate}</td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-3 font-bold text-slate-900"><bdi>{loan.bookTitle}</bdi></td>
+                    <td className="py-3 px-3 font-medium text-slate-700"><bdi>{loan.userName}</bdi> (<bdi>{loan.userGrade}</bdi>)</td>
+                    <td className="py-3 px-3 font-mono text-slate-600"><bdi>{loan.issueDate}</bdi></td>
+                    <td className="py-3 px-3 font-mono text-slate-600"><bdi>{loan.dueDate}</bdi></td>
+                    <td className="py-3 px-3 text-end">
                       {loan.status === 'active' && (
-                        <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">{language === 'dv' ? 'އެކްޓިވް' : 'Active'}</span>
+                        <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">{t.statusActive}</span>
                       )}
                       {loan.status === 'overdue' && (
-                        <span className="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full text-[10px]">{language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'Overdue'}</span>
+                        <span className="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full text-[10px]">{t.statusOverdue}</span>
                       )}
                       {loan.status === 'returned' && (
-                        <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-full text-[10px]">{language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރެވިފައި' : 'Returned'}</span>
+                        <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-full text-[10px]">{t.statusReturned}</span>
                       )}
                     </td>
                   </tr>
@@ -227,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="space-y-2.5">
             <button
               onClick={() => onNavigateTab('catalog')}
-              className="w-full p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-left transition flex items-center justify-between group cursor-pointer"
+              className="w-full p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-start transition flex items-center justify-between group cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 text-blue-700 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition">
@@ -238,12 +238,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="text-[11px] text-slate-500">{language === 'dv' ? 'ފޮތްތައް ހޯދައި ބެލެހެއްޓުން' : 'Search and manage catalog'}</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
+              <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 rtl-mirror" />
             </button>
 
             <button
               onClick={() => onNavigateTab('borrow-book')}
-              className="w-full p-3 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl text-left transition flex items-center justify-between group cursor-pointer"
+              className="w-full p-3 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl text-start transition flex items-center justify-between group cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition">
@@ -254,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="text-[11px] text-slate-500">{language === 'dv' ? 'ދަރިވަރުންނަށް ފޮތް ދޫކުރުން' : 'Process student checkout'}</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600" />
+              <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 rtl-mirror" />
             </button>
 
             <button

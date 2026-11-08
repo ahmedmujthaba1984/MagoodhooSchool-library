@@ -1,55 +1,139 @@
 {
   "entities": {
-    "books": {
-      "title": "string",
-      "author": "string",
-      "isbn": "string",
-      "barcode": "string",
-      "category": "string",
-      "isReferenceOnly": "boolean",
-      "totalCopies": "number",
-      "availableCopies": "number",
-      "shelfLocation": "string",
-      "coverUrl": "string",
-      "description": "string",
-      "publisher": "string",
-      "publicationYear": "number",
-      "addedAt": "string"
+    "Book": {
+      "title": "Book",
+      "description": "Library catalog volume record",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "isbn": { "type": "string" },
+        "barcode": { "type": "string" },
+        "barcodeImageUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "isReferenceOnly": { "type": "boolean" },
+        "totalCopies": { "type": "number" },
+        "availableCopies": { "type": "number" },
+        "shelfLocation": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "publisher": { "type": "string" },
+        "publicationYear": { "type": "number" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["title", "author", "isbn", "barcode", "category", "totalCopies", "availableCopies"]
     },
-    "users": {
-      "uid": "string",
-      "email": "string",
-      "name": "string",
-      "role": "string",
-      "parentId": "string",
-      "childrenIds": "array",
-      "grade": "string",
-      "studentIdCode": "string",
-      "phone": "string"
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Member, parent, staff, or librarian account profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "dhivehiName": { "type": "string" },
+        "gender": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "student", "parent", "staff"] },
+        "parentId": { "type": "string" },
+        "childrenIds": { "type": "array" },
+        "grade": { "type": "string" },
+        "studentIdCode": { "type": "string" },
+        "staffIdCode": { "type": "string" },
+        "staffDepartment": { "type": "string" },
+        "phone": { "type": "string" },
+        "memberBarcodeUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "role", "email"]
     },
-    "loans": {
-      "bookId": "string",
-      "bookTitle": "string",
-      "bookIsbn": "string",
-      "userId": "string",
-      "userName": "string",
-      "userRole": "string",
-      "issueDate": "string",
-      "dueDate": "string",
-      "returnDate": "string",
-      "status": "string",
-      "renewalCount": "number",
-      "lateFee": "number",
-      "feePaid": "boolean",
-      "processedBy": "string"
+    "Loan": {
+      "title": "Loan",
+      "description": "Circulation loan checkout and check-in item record",
+      "type": "object",
+      "properties": {
+        "bookId": { "type": "string" },
+        "bookTitle": { "type": "string" },
+        "bookIsbn": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userGrade": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "returnDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "returned", "overdue"] },
+        "renewalCount": { "type": "number" },
+        "lateFee": { "type": "number" },
+        "feePaid": { "type": "boolean" },
+        "processedBy": { "type": "string" }
+      },
+      "required": ["bookId", "bookTitle", "userId", "userName", "issueDate", "dueDate", "status"]
     },
-    "reservations": {
-      "bookId": "string",
-      "bookTitle": "string",
-      "userId": "string",
-      "userName": "string",
-      "requestDate": "string",
-      "status": "string"
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Online book hold request record",
+      "type": "object",
+      "properties": {
+        "bookId": { "type": "string" },
+        "bookTitle": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "requestDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "fulfilled", "cancelled"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["bookId", "bookTitle", "userId", "userName", "requestDate", "status"]
+    },
+    "LibrarySettings": {
+      "title": "LibrarySettings",
+      "description": "School library administrative policies and circulation rules",
+      "type": "object",
+      "properties": {
+        "libraryName": { "type": "string" },
+        "maxBorrowDays": { "type": "number" },
+        "lateFeePerDay": { "type": "number" },
+        "maxRenewals": { "type": "number" },
+        "maxBooksPerStudent": { "type": "number" },
+        "gracePeriodDays": { "type": "number" },
+        "maxBooksPerStaff": { "type": "number" },
+        "staffBorrowDays": { "type": "number" },
+        "maxActiveReservations": { "type": "number" },
+        "holdExpiryDays": { "type": "number" },
+        "lostBookReplacementFee": { "type": "number" },
+        "allowReferenceCheckoutForStaff": { "type": "boolean" },
+        "maxOverdueFineCap": { "type": "number" },
+        "blockBorrowingFineThreshold": { "type": "number" },
+        "allowRecallRequests": { "type": "boolean" },
+        "holidayGraceDays": { "type": "boolean" },
+        "summerVacationCheckout": { "type": "boolean" },
+        "autoEmailRemindersDaysBefore": { "type": "number" },
+        "damagedBookMinorFee": { "type": "number" },
+        "policyNote": { "type": "string" },
+        "alertEmail": { "type": "string" },
+        "alertSmsNumber": { "type": "string" },
+        "enableAutoDueDateAlerts": { "type": "boolean" },
+        "notifyParentOnOverdue": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "/books/{bookId}": {
+      "schema": "Book",
+      "description": "Catalog of all school library books"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Directory of registered students, parents, teachers, and admins"
+    },
+    "/loans/{loanId}": {
+      "schema": "Loan",
+      "description": "Circulation desk book borrowing and check-in records"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Book reservations and hold requests"
+    },
+    "/settings/{settingId}": {
+      "schema": "LibrarySettings",
+      "description": "System circulation configurations and fine rules"
     }
   }
 }

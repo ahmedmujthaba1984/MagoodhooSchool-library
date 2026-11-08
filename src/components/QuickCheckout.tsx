@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { QrCode, BookOpen, User, Calendar, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, ShieldAlert, Sparkles, DollarSign, Search, Check, Layers } from 'lucide-react';
+import { QrCode, BookOpen, User, Calendar, CheckCircle2, AlertTriangle, RotateCcw, ShieldAlert, Sparkles, Layers } from 'lucide-react';
 import { Book, UserProfile, Loan, LibrarySettings } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { calculateSchoolDueDate, calculateWorkingDaysOverdue } from '../lib/schoolCalendar';
 
 interface QuickCheckoutProps {
   books: Book[];
@@ -22,7 +23,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
   onProcessReturn,
   onOpenScanner
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, isRtl } = useLanguage();
   const [activeTab, setActiveTab] = useState<'checkout' | 'return'>('checkout');
 
   // Checkout Form State
@@ -89,27 +90,57 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
     setCheckoutErrorMessage(null);
 
     if (!matchedBook) {
-      setCheckoutErrorMessage('Please select or scan a valid book in the inventory.');
+      setCheckoutErrorMessage(language === 'dv' ? 'ދޫކުރާނެ ރަނގަޅު ފޮތެއް ޚިޔާރުކުރައްވާ ނުވަތަ ސްކޭންކުރައްވާ.' : 'Please select or scan a valid book in the inventory.');
       return;
     }
 
     if (matchedBook.isReferenceOnly) {
-      setCheckoutErrorMessage('Cannot checkout! This book is marked as REFERENCE ONLY (Non-circulating).');
+      setCheckoutErrorMessage(language === 'dv' ? 'މި ފޮތަކީ ރެފަރެންސް ފޮތެއް ކަމުން ބޭރަށް ދޫނުކުރެވޭނެއެވެ!' : 'Cannot checkout! This book is marked as REFERENCE ONLY (Non-circulating).');
       return;
     }
 
     if (matchedBook.availableCopies <= 0) {
-      setCheckoutErrorMessage('Cannot checkout! All physical copies are currently checked out.');
+      setCheckoutErrorMessage(language === 'dv' ? 'މި ފޮތުގެ ހުރިހާ ކޮޕީއެއް ވަނީ ދޫކުރެވިފައެވެ!' : 'Cannot checkout! All physical copies are currently checked out.');
       return;
     }
 
     if (!matchedStudent) {
-      setCheckoutErrorMessage('Please select or scan a valid student member.');
+      setCheckoutErrorMessage(language === 'dv' ? 'ފޮތް ނަގާ ދަރިވަރު ނުވަތަ މެންބަރު ޚިޔާރުކުރައްވާ.' : 'Please select or scan a valid student member.');
+      return;
+    }
+
+    // Check borrower loan limit per library policy
+    const borrowerActiveLoans = loans.filter(l => l.userId === matchedStudent.id && (l.status === 'active' || l.status === 'overdue'));
+    const maxAllowed = matchedStudent.role === 'staff' ? (settings.maxBooksPerStaff ?? 7) : (settings.maxBooksPerStudent ?? 3);
+    if (borrowerActiveLoans.length >= maxAllowed) {
+      setCheckoutErrorMessage(
+        language === 'dv'
+          ? `މެންބަރުގެ ފޮތް ނެގުމުގެ ލިމިޓް (${maxAllowed} ފޮތް) ވަނީ ހަމަވެފައެވެ!`
+          : `Member has reached maximum borrowing limit (${maxAllowed} books)! Return existing books first.`
+      );
+      return;
+    }
+
+    // Check unpaid fines against blocking threshold
+    const unpaidFine = loans
+      .filter(l => l.userId === matchedStudent.id && !l.feePaid)
+      .reduce((sum, l) => sum + (l.lateFee || 0), 0);
+    const fineThreshold = settings.blockBorrowingFineThreshold ?? 10.0;
+    if (unpaidFine >= fineThreshold) {
+      setCheckoutErrorMessage(
+        language === 'dv'
+          ? `މެންބަރުގެ ނުދައްކާ ޖޫރިމަނާ ($${unpaidFine.toFixed(2)}) ލިމިޓަށްވުރެ އިތުރުވާތީ ފޮތް ދޫނުކުރެވޭނެ!`
+          : `Borrowing suspended! Member has $${unpaidFine.toFixed(2)} in unpaid fines (Threshold: $${fineThreshold.toFixed(2)}). Please clear balance at circulation desk.`
+      );
       return;
     }
 
     onProcessCheckout(matchedBook, matchedStudent, borrowDays);
-    setCheckoutSuccessMessage(`Successfully checked out "${matchedBook.title}" to ${matchedStudent.name}!`);
+    setCheckoutSuccessMessage(
+      language === 'dv'
+        ? `"${matchedBook.title}" ކާމިޔާބުކަމާއެކު ${matchedStudent.name} އަށް ދޫކުރެވިއްޖެ!`
+        : `Successfully checked out "${matchedBook.title}" to ${matchedStudent.name}!`
+    );
     setSelectedBookBarcode('');
     setSelectedStudentCode('');
   };
@@ -139,14 +170,15 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
       return;
     }
 
-    // Calculate late fee if overdue
+    // Calculate late fee if overdue (strictly after due date, factoring Maldivian Sunday–Thursday school calendar, grace period and max fine cap)
     let lateFee = 0;
-    const dueDate = new Date(returnActiveLoan.dueDate);
-    const today = new Date();
-    if (today > dueDate) {
-      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      lateFee = diffDays * (settings.dailyLateFee || 0.5);
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (todayStr > returnActiveLoan.dueDate) {
+      const workingDaysOverdue = calculateWorkingDaysOverdue(returnActiveLoan.dueDate, todayStr, true);
+      const gracePeriod = settings.gracePeriodDays ?? 0;
+      const chargeableDays = Math.max(0, workingDaysOverdue - gracePeriod);
+      const feePerDay = settings.lateFeePerDay ?? 0.5;
+      lateFee = Math.min(settings.maxOverdueFineCap ?? 25, chargeableDays * feePerDay);
     }
 
     // Execute return
@@ -154,7 +186,6 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
     const borrowerName = returnBorrowerUser?.name || returnActiveLoan.userName;
     const studentCode = returnBorrowerUser?.studentIdCode || returnBorrowerUser?.id || returnActiveLoan.userId;
-    const todayStr = new Date().toISOString().split('T')[0];
 
     setLastReturnedReceipt({
       bookTitle: returnTargetBook.title,
@@ -222,7 +253,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
           }`}
           id="checkout-tab-btn"
         >
-          <BookOpen className="w-4 h-4" /> {language === 'dv' ? 'ފޮތް ދޫކުރުން (Checkout)' : 'Issue Book (Checkout)'}
+          <BookOpen className="w-4 h-4" /> {t.quickCheckout}
         </button>
         <button
           onClick={() => setActiveTab('return')}
@@ -233,7 +264,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
           }`}
           id="return-tab-btn"
         >
-          <RotateCcw className="w-4 h-4" /> {language === 'dv' ? 'ފޮތް އަނބުރާ ބަލައިގަތުން (Return)' : 'Receive Book (Check-in Return)'}
+          <RotateCcw className="w-4 h-4" /> {t.returnBook}
         </button>
       </div>
 
@@ -247,30 +278,30 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               <label className="block text-xs font-black uppercase tracking-wider text-blue-900 flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-sm">1</span>
-                  Step 1: Scan or Select Book
+                  {t.step1SelectBook}
                 </span>
                 <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  Catalog Search
+                  {t.barcodeReader}
                 </span>
               </label>
-              
+
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <QrCode className={`w-4 h-4 text-slate-400 absolute ${isRtl ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2`} />
                   <input
                     type="text"
                     value={selectedBookBarcode}
                     onChange={(e) => setSelectedBookBarcode(e.target.value)}
-                    placeholder="Scan barcode, ISBN (e.g. 9780061120084), or type title..."
-                    className="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    id="checkout-book-barcode-input"
+                    placeholder={language === 'dv' ? 'ފޮތުގެ ބާކޯޑު ސްކޭން ނުވަތަ އައި.އެސް.ބީ.އެން ޖައްސަވާ...' : 'Scan barcode or type book ISBN (e.g. 9780061120084)...'}
+                    className={`w-full ${isRtl ? 'pr-10 pl-3.5' : 'pl-10 pr-3.5'} py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm`}
+                    id="checkout-barcode-input"
                   />
                 </div>
                 <select
                   onChange={(e) => setSelectedBookBarcode(e.target.value)}
-                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer"
                 >
-                  <option value="">Quick Select From List...</option>
+                  <option value="">{t.quickSelectBook}</option>
                   {books.map(b => (
                     <option key={b.id} value={b.barcode}>
                       {b.title} {b.isReferenceOnly ? '(Ref Only)' : ''}
@@ -289,18 +320,18 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 }`}>
                   <img src={matchedBook.coverUrl} alt={matchedBook.title} className="w-12 h-16 object-cover rounded-xl shadow border border-slate-200 shrink-0" />
                   <div className="space-y-1 flex-1">
-                    <div className="font-extrabold text-sm text-slate-900">{matchedBook.title}</div>
-                    <div className="text-[11px] text-slate-600 font-medium">By {matchedBook.author} | Category: <span className="font-bold text-indigo-700">{matchedBook.category}</span></div>
-                    <div className="text-[11px] text-slate-500 font-mono">Location: <strong className="text-slate-800">{matchedBook.shelfLocation}</strong> | ISBN: <strong>{matchedBook.isbn}</strong></div>
+                    <div className="font-extrabold text-sm text-slate-900"><bdi>{matchedBook.title}</bdi></div>
+                    <div className="text-[11px] text-slate-600 font-medium">{t.byAuthor} <bdi>{matchedBook.author}</bdi> | {language === 'dv' ? 'ބައި:' : 'Category:'} <span className="font-bold text-indigo-700">{matchedBook.category}</span></div>
+                    <div className="text-[11px] text-slate-500 font-mono">{t.shelfLocation}: <strong className="text-slate-800"><bdi>{matchedBook.shelfLocation}</bdi></strong> | {t.isbnLabel}: <strong><bdi>{matchedBook.isbn}</bdi></strong></div>
                     {matchedBook.isReferenceOnly ? (
                       <span className="font-extrabold text-amber-800 flex items-center gap-1.5 mt-1 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 w-fit">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> REFERENCE ONLY - NON-CIRCULATING!
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> {language === 'dv' ? 'ރެފަރެންސް އެކަނި - ދޫނުކުރެވޭ ފޮތެއް!' : 'REFERENCE ONLY - NON-CIRCULATING!'}
                       </span>
                     ) : (
                       <span className={`font-extrabold text-[11px] inline-block px-2.5 py-0.5 rounded-full border mt-1 ${
                         matchedBook.availableCopies > 0 ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-rose-100 text-rose-900 border-rose-300'
                       }`}>
-                        Available Stock: {matchedBook.availableCopies} of {matchedBook.totalCopies} copies
+                        {t.availableStock} <bdi>{matchedBook.availableCopies}</bdi> / <bdi>{matchedBook.totalCopies}</bdi> {t.copiesLabel}
                       </span>
                     )}
                   </div>
@@ -308,7 +339,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               ) : (
                 <div className="text-[11px] text-blue-700 font-medium italic bg-white/60 p-2.5 rounded-xl border border-blue-100 flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  Type or scan book barcode to preview title and real-time inventory count.
+                  {language === 'dv' ? 'ފޮތުގެ ބާކޯޑު ނުވަތަ އައި.އެސް.ބީ.އެން ޖައްސަވައިގެން ސްޓޮކް ބައްލަވާ.' : 'Type or scan book barcode to preview title and real-time inventory count.'}
                 </div>
               )}
             </div>
@@ -318,30 +349,30 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               <label className="block text-xs font-black uppercase tracking-wider text-purple-900 flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-black shadow-sm">2</span>
-                  Step 2: Scan or Select Student Member
+                  {t.step2SelectStudent}
                 </span>
                 <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
-                  Student Verification
+                  {language === 'dv' ? 'މެންބަރު ކަށަވަރުކުރުން' : 'Student Verification'}
                 </span>
               </label>
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <User className={`w-4 h-4 text-slate-400 absolute ${isRtl ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2`} />
                   <input
                     type="text"
                     value={selectedStudentCode}
                     onChange={(e) => setSelectedStudentCode(e.target.value)}
-                    placeholder="Scan Student ID card barcode (e.g. STU-2041) or type student name..."
-                    className="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                    placeholder={language === 'dv' ? 'ދަރިވަރުގެ އައިޑީ ކާޑު ސްކޭން ނުވަތަ ނަން ޖައްސަވާ...' : 'Scan Student ID card barcode (e.g. STU-2041) or type student name...'}
+                    className={`w-full ${isRtl ? 'pr-10 pl-3.5' : 'pl-10 pr-3.5'} py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm`}
                     id="checkout-student-code-input"
                   />
                 </div>
                 <select
                   onChange={(e) => setSelectedStudentCode(e.target.value)}
-                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                  className="px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm cursor-pointer"
                 >
-                  <option value="">Select Student...</option>
+                  <option value="">{t.quickSelectStudent}</option>
                   {users.filter(u => u.role === 'student').map(u => (
                     <option key={u.id} value={u.studentIdCode || u.id}>
                       {u.name} ({u.grade})
@@ -357,20 +388,20 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                       {matchedStudent.name.charAt(0)}
                     </div>
                     <div>
-                      <div className="font-extrabold text-sm text-slate-900">{matchedStudent.name}</div>
+                      <div className="font-extrabold text-sm text-slate-900"><bdi>{matchedStudent.name}</bdi></div>
                       <div className="text-[11px] text-purple-900 font-semibold">
-                        Student ID: <span className="font-mono font-bold text-purple-700">{matchedStudent.studentIdCode || matchedStudent.id}</span>
+                        {t.studentId}: <span className="font-mono font-bold text-purple-700"><bdi>{matchedStudent.studentIdCode || matchedStudent.id}</bdi></span>
                       </div>
                     </div>
                   </div>
                   <span className="bg-purple-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full shadow-xs">
-                    {matchedStudent.grade}
+                    <bdi>{matchedStudent.grade}</bdi>
                   </span>
                 </div>
               ) : (
                 <div className="text-[11px] text-purple-700 font-medium italic bg-white/60 p-2.5 rounded-xl border border-purple-100 flex items-center gap-2">
                   <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                  Select or scan student barcode to attach borrower record.
+                  {language === 'dv' ? 'ދަރިވަރުގެ އައިޑީ ކާޑު ބާކޯޑުން ސްކޭންކުރައްވާ.' : 'Select or scan student barcode to attach borrower record.'}
                 </div>
               )}
             </div>
@@ -380,29 +411,33 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black shadow-sm">3</span>
-                  Step 3: Loan Duration & Due Date
+                  {t.step3LoanDuration}
                 </span>
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Circulation Policy
+                  {language === 'dv' ? 'ލައިބްރަރީ އުޞޫލު' : 'Circulation Policy'}
                 </span>
               </label>
               
               <div className="flex flex-wrap items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-slate-700">Days:</label>
+                  <label className="text-xs font-bold text-slate-700">{t.borrowDurationDays}</label>
                   <input
                     type="number"
                     min={1}
                     max={60}
                     value={borrowDays}
                     onChange={(e) => setBorrowDays(parseInt(e.target.value) || 14)}
-                    className="w-20 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-extrabold text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-20 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-extrabold text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                   />
                 </div>
-                <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
+                <div className="text-xs text-slate-600 font-medium flex items-center flex-wrap gap-2">
                   <Calendar className="w-4 h-4 text-emerald-600" />
-                  Calculated Due Date: <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                    {new Date(Date.now() + borrowDays * 86400000).toISOString().split('T')[0]}
+                  <span>{t.calculatedDueDate}</span>
+                  <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    <bdi>{calculateSchoolDueDate(new Date(), borrowDays)}</bdi>
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                    {t.schoolWeekNote}
                   </span>
                 </div>
               </div>
@@ -428,7 +463,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
               id="confirm-checkout-btn"
             >
-              <CheckCircle2 className="w-5 h-5" /> Confirm & Issue Book Loan
+              <CheckCircle2 className="w-5 h-5" /> {t.confirmCheckout}
             </button>
           </form>
         </div>
@@ -442,7 +477,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-2xl border border-emerald-100 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <label className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-emerald-600" /> Scan Returned Book Barcode or ISBN
+                  <QrCode className="w-4 h-4 text-emerald-600" /> {t.scanOrEnterBarcode}
                 </label>
                 <label className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 cursor-pointer">
                   <input
@@ -451,7 +486,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     onChange={(e) => setAutoReturnOnScan(e.target.checked)}
                     className="accent-emerald-600 rounded cursor-pointer"
                   />
-                  <span>⚡ Auto Member Check & Return</span>
+                  <span>⚡ {language === 'dv' ? 'އޮޓޯ ޗެކްއިން' : 'Auto Member Check & Return'}</span>
                 </label>
               </div>
 
@@ -460,7 +495,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                   type="text"
                   value={returnBarcode}
                   onChange={(e) => setReturnBarcode(e.target.value)}
-                  placeholder="Scan book barcode or type ISBN (e.g. 9780061120084)..."
+                  placeholder={language === 'dv' ? 'ފޮތުގެ ބާކޯޑު ސްކޭން ނުވަތަ އައި.އެސް.ބީ.އެން ޖައްސަވާ...' : 'Scan book barcode or type ISBN (e.g. 9780061120084)...'}
                   className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
                   autoFocus
                   id="return-barcode-input"
@@ -469,7 +504,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                   type="submit"
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer shrink-0"
                 >
-                  <RotateCcw className="w-4 h-4" /> Check Member & Process Return
+                  <RotateCcw className="w-4 h-4" /> {t.processReturn}
                 </button>
               </div>
 
@@ -478,10 +513,10 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 <div className="p-4 bg-emerald-100/60 border-2 border-emerald-500/40 rounded-2xl space-y-3 animate-in fade-in zoom-in-95 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 bg-emerald-200/80 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-emerald-700" /> Borrower Member Identified
+                      <User className="w-3.5 h-3.5 text-emerald-700" /> {language === 'dv' ? 'ފޮތް ނެގި މެންބަރު ފެނިއްޖެ' : 'Borrower Member Identified'}
                     </span>
                     <span className="text-[11px] font-mono text-slate-600">
-                      ISBN: {returnTargetBook.isbn}
+                      ISBN: <bdi>{returnTargetBook.isbn}</bdi>
                     </span>
                   </div>
 
@@ -495,9 +530,9 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                         </div>
                       )}
                       <div className="space-y-0.5">
-                        <h4 className="font-black text-sm text-slate-900">{returnTargetBook.title}</h4>
-                        <p className="text-xs font-semibold text-indigo-700">Author: {returnTargetBook.author}</p>
-                        <p className="text-[11px] text-slate-500">Location: {returnTargetBook.shelfLocation}</p>
+                        <h4 className="font-black text-sm text-slate-900"><bdi>{returnTargetBook.title}</bdi></h4>
+                        <p className="text-xs font-semibold text-indigo-700">{t.byAuthor} <bdi>{returnTargetBook.author}</bdi></p>
+                        <p className="text-[11px] text-slate-500">{t.shelfLocation}: <bdi>{returnTargetBook.shelfLocation}</bdi></p>
                       </div>
                     </div>
 
@@ -507,9 +542,9 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                           {returnBorrowerUser.name.charAt(0)}
                         </div>
                         <div>
-                          <div className="text-xs font-extrabold text-purple-950">{returnBorrowerUser.name}</div>
+                          <div className="text-xs font-extrabold text-purple-950"><bdi>{returnBorrowerUser.name}</bdi></div>
                           <div className="text-[10px] text-purple-700 font-medium">
-                            ID: <span className="font-mono font-bold text-purple-900">{returnBorrowerUser.studentIdCode || returnBorrowerUser.id}</span> ({returnBorrowerUser.grade || 'Member'})
+                            {t.studentId}: <span className="font-mono font-bold text-purple-900"><bdi>{returnBorrowerUser.studentIdCode || returnBorrowerUser.id}</bdi></span> (<bdi>{returnBorrowerUser.grade || 'Member'}</bdi>)
                           </div>
                         </div>
                       </div>
@@ -517,10 +552,10 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs font-medium text-slate-700 px-1">
-                    <div>Issued: <strong className="text-slate-900">{returnActiveLoan.issueDate}</strong> | Due: <strong className="text-slate-900">{returnActiveLoan.dueDate}</strong></div>
+                    <div>{t.borrowedDate}: <strong className="text-slate-900"><bdi>{returnActiveLoan.issueDate}</bdi></strong> | {t.dueDate}: <strong className="text-slate-900"><bdi>{returnActiveLoan.dueDate}</bdi></strong></div>
                     {returnActiveLoan.status === 'overdue' && (
                       <span className="text-[11px] font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded-full">
-                        Overdue Notice
+                        {t.statusOverdue}
                       </span>
                     )}
                   </div>
@@ -535,11 +570,11 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-300" />
                     <span className="font-extrabold text-sm uppercase tracking-wider text-emerald-100">
-                      Return Verified & Stock Restored
+                      {language === 'dv' ? 'ފޮތް ބަލައިގަނެ ސްޓޮކް އާކުރެވިއްޖެ' : 'Return Verified & Stock Restored'}
                     </span>
                   </div>
                   <span className="text-[11px] font-mono bg-white/20 px-2.5 py-0.5 rounded-full text-emerald-100">
-                    {lastReturnedReceipt.returnDate}
+                    <bdi>{lastReturnedReceipt.returnDate}</bdi>
                   </span>
                 </div>
 
@@ -549,30 +584,30 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                       <img src={lastReturnedReceipt.bookCover} alt="" className="w-12 h-16 object-cover rounded-xl shadow border border-white/30 shrink-0" />
                     )}
                     <div>
-                      <div className="font-extrabold text-base text-white">{lastReturnedReceipt.bookTitle}</div>
+                      <div className="font-extrabold text-base text-white"><bdi>{lastReturnedReceipt.bookTitle}</bdi></div>
                       <div className="text-xs text-emerald-100 font-medium">
-                        Book copy returned and catalog inventory updated.
+                        {language === 'dv' ? 'ފޮތް ލައިބްރަރީއަށް ބަލައިގަނެވި، ސްޓޮކަށް އިތުރުކުރެވިއްޖެ.' : 'Book copy returned and catalog inventory updated.'}
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 space-y-1 text-xs shrink-0">
-                    <div className="text-[10px] uppercase font-extrabold text-emerald-200">Borrower Member</div>
-                    <div className="font-black text-sm text-white">{lastReturnedReceipt.userName}</div>
+                    <div className="text-[10px] uppercase font-extrabold text-emerald-200">{t.returnedBy}</div>
+                    <div className="font-black text-sm text-white"><bdi>{lastReturnedReceipt.userName}</bdi></div>
                     <div className="text-[11px] text-emerald-100 font-mono">
-                      ID: {lastReturnedReceipt.studentIdCode} ({lastReturnedReceipt.userGrade})
+                      {t.studentId}: <bdi>{lastReturnedReceipt.studentIdCode}</bdi> (<bdi>{lastReturnedReceipt.userGrade}</bdi>)
                     </div>
                   </div>
                 </div>
 
                 {lastReturnedReceipt.lateFee > 0 ? (
                   <div className="p-2.5 bg-amber-500/20 border border-amber-300/40 rounded-xl text-xs font-bold text-amber-200 flex items-center justify-between">
-                    <span>Overdue Late Fee:</span>
-                    <span className="font-mono text-sm font-black text-amber-300">${lastReturnedReceipt.lateFee.toFixed(2)}</span>
+                    <span>{t.lateFeeAssessed}</span>
+                    <span className="font-mono text-sm font-black text-amber-300"><bdi>${lastReturnedReceipt.lateFee.toFixed(2)}</bdi></span>
                   </div>
                 ) : (
                   <div className="text-[11px] text-emerald-200 font-semibold italic">
-                    ✓ Returned on time — No overdue fees. Member account cleared.
+                    ✓ {t.noFine}
                   </div>
                 )}
               </div>
@@ -582,7 +617,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-emerald-600" /> Active Loans Pending Return ({loans.filter(l => l.status === 'active' || l.status === 'overdue').length})
+                  <Layers className="w-4 h-4 text-emerald-600" /> {language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރަންޖެހޭ ފޮތްތައް' : 'Active Loans Pending Return'} (<bdi className="font-mono">{loans.filter(l => l.status === 'active' || l.status === 'overdue').length}</bdi>)
                 </h4>
               </div>
 
@@ -608,28 +643,32 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                         returnDate: new Date().toISOString().split('T')[0],
                         lateFee
                       });
-                      setReturnSuccessMessage(`Checked in "${loan.bookTitle}" returned by member ${loan.userName}!`);
+                      setReturnSuccessMessage(
+                        language === 'dv'
+                          ? `"${loan.bookTitle}" ކާމިޔާބުކަމާއެކު ބަލައިގަނެވިއްޖެ!`
+                          : `Checked in "${loan.bookTitle}" returned by member ${loan.userName}!`
+                      );
                     }}
-                    className={`p-4 rounded-2xl border text-left transition flex items-start justify-between group shadow-sm hover:shadow-md cursor-pointer ${
+                    className={`p-4 rounded-2xl border text-start transition flex items-start justify-between group shadow-sm hover:shadow-md cursor-pointer ${
                       loan.status === 'overdue' 
                         ? 'bg-rose-50/80 border-rose-200 hover:bg-rose-100' 
                         : 'bg-slate-50 hover:bg-emerald-50/80 border-slate-200 hover:border-emerald-300'
                     }`}
                   >
                     <div className="space-y-1">
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-950">{loan.bookTitle}</div>
-                      <div className="text-[11px] text-slate-600 font-medium">Borrower: <span className="font-bold text-slate-800">{loan.userName}</span></div>
-                      <div className="text-[10px] text-slate-500 font-mono">Due Date: {loan.dueDate}</div>
+                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-950"><bdi>{loan.bookTitle}</bdi></div>
+                      <div className="text-[11px] text-slate-600 font-medium">{t.returnedBy}: <span className="font-bold text-slate-800"><bdi>{loan.userName}</bdi></span></div>
+                      <div className="text-[10px] text-slate-500 font-mono">{t.dueDate}: <bdi>{loan.dueDate}</bdi></div>
                     </div>
                     
-                    <div className="text-right shrink-0">
+                    <div className="text-end shrink-0">
                       {loan.status === 'overdue' ? (
                         <span className="text-[10px] font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-xs">
-                          Overdue (${loan.lateFee.toFixed(2)})
+                          {t.statusOverdue} (<bdi>${loan.lateFee.toFixed(2)}</bdi>)
                         </span>
                       ) : (
                         <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                          Click to Check-in
+                          {language === 'dv' ? 'ބަލައިގަންނަވާ' : 'Click to Check-in'}
                         </span>
                       )}
                     </div>

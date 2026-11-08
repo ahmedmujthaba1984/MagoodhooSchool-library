@@ -1,42 +1,163 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
-    background-color: #0f172a;
-    color: #0f172a;
-    font-family: 'Faruma', 'MV Boli', 'Aethala', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Thaana Faruma Font Faces with Comprehensive Format Fallbacks */
+  @font-face {
+    font-family: 'Faruma';
+    src: url('/fonts/Faruma.woff2') format('woff2'),
+         url('/fonts/Faruma.woff') format('woff'),
+         url('/fonts/Faruma.ttf') format('truetype'),
+         local('Faruma');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* Alias any legacy MV Waheed font-family declarations directly to Faruma */
+  @font-face {
+    font-family: 'MV Waheed';
+    src: url('/fonts/Faruma.woff2') format('woff2'),
+         url('/fonts/Faruma.woff') format('woff'),
+         url('/fonts/Faruma.ttf') format('truetype'),
+         local('Faruma');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-thaana: 'Faruma', sans-serif;
+    --font-faruma: 'Faruma', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  html {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  [dir="rtl"] {
-    font-family: 'Faruma', 'MV Boli', 'Aethala', sans-serif;
+  body {
+    background-color: #0b0f19;
+    color: #0f172a;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Enforce Faruma across the entire portal in RTL / Dhivehi mode */
+  [dir="rtl"],
+  html[dir="rtl"],
+  body[dir="rtl"],
+  html.rtl-mode,
+  .rtl-mode {
+    font-family: 'Faruma', sans-serif !important;
+    font-feature-settings: "kern" 1;
     letter-spacing: 0;
+    line-height: 1.8;
+    text-align: right;
+  }
+
+  [dir="rtl"] p,
+  [dir="rtl"] span:not(.font-mono):not(bdi),
+  [dir="rtl"] label,
+  [dir="rtl"] td:not(.font-mono):not(bdi),
+  [dir="rtl"] th,
+  [dir="rtl"] button:not(.font-mono),
+  [dir="rtl"] input:not(.font-mono):not(bdi),
+  [dir="rtl"] textarea,
+  [dir="rtl"] select,
+  [dir="rtl"] a,
+  [dir="rtl"] strong,
+  [dir="rtl"] b,
+  .font-faruma,
+  .thaana-text,
+  .thaana-body {
+    font-family: 'Faruma', sans-serif !important;
+    font-feature-settings: "kern" 1;
     line-height: 1.8;
   }
 
-  /* Dhivehi Thaana text formatting for legibility */
-  [dir="rtl"] p, [dir="rtl"] span, [dir="rtl"] button, [dir="rtl"] input, [dir="rtl"] td, [dir="rtl"] label, [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4 {
-    font-family: 'Faruma', 'MV Boli', 'Aethala', sans-serif;
+  [dir="rtl"] h1,
+  [dir="rtl"] h2,
+  [dir="rtl"] h3,
+  [dir="rtl"] h4,
+  [dir="rtl"] h5,
+  [dir="rtl"] h6,
+  .thaana-heading {
+    font-family: 'Faruma', sans-serif !important;
+    font-feature-settings: "kern" 1;
+    line-height: 1.6;
   }
+
+  /* Mixed-language codes, call numbers, barcodes, dates, and numbers stay isolated */
+  bdi,
+  .bdi-isolated,
+  [dir="rtl"] .font-mono,
+  [dir="rtl"] code,
+  [dir="rtl"] bdi,
+  [dir="rtl"] .bdi-code {
+    unicode-bidi: isolate;
+    direction: ltr;
+    display: inline-block;
+    text-align: left;
+    font-family: var(--font-mono) !important;
+  }
+
+  /* Automatically mirror navigation arrows, back buttons, and chevrons in RTL mode */
+  [dir="rtl"] .rtl-mirror,
+  [dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+    display: inline-block;
+  }
+}
+
+/* Shimmer Skeleton Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.dark .shimmer-skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Mobile Safe-Area Bottom Padding for sheets & bottom bars */
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.4);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(148, 163, 184, 0.6);
 }
-

@@ -1,8 +1,9 @@
-import { db } from './firebase';
+import { db, isQuotaExhaustedError, triggerQuotaExhausted } from './firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 
 const CATEGORIES_COL = 'categories';
 const LOCAL_STORAGE_KEY = 'library_categories_v1';
+const CATEGORIES_SEEDED_KEY = 'library_categories_seeded_flag_v2';
 
 export const DEFAULT_CATEGORIES = [
   'Fiction / Literature',
@@ -36,20 +37,33 @@ export function subscribeCategories(callback: (categories: string[]) => void) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
         callback(list);
       } else {
-        // Seed default categories into Firestore
-        DEFAULT_CATEGORIES.forEach(async (catName) => {
-          const docId = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-          await setDoc(doc(db, CATEGORIES_COL, docId), { name: catName, createdAt: new Date().toISOString() });
-        });
-        callback(DEFAULT_CATEGORIES);
+        // Seed default categories into Firestore at most once
+        if (typeof window !== 'undefined' && !localStorage.getItem(CATEGORIES_SEEDED_KEY)) {
+          localStorage.setItem(CATEGORIES_SEEDED_KEY, 'true');
+          DEFAULT_CATEGORIES.forEach(async (catName) => {
+            try {
+              const docId = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+              await setDoc(doc(db, CATEGORIES_COL, docId), { name: catName, createdAt: new Date().toISOString() });
+            } catch (err) {
+              if (isQuotaExhaustedError(err)) {
+                triggerQuotaExhausted('Google Cloud Firestore free tier daily write limit reached. Categories are saved locally.');
+              }
+              console.warn('Could not seed category:', err);
+            }
+          });
+        }
+        callback(getStoredCategories());
       }
     }, (err) => {
-      console.warn('Firestore categories subscription error, fallback to local:', err);
+      if (isQuotaExhaustedError(err)) {
+        triggerQuotaExhausted('Google Cloud Firestore write limit reached. Reading categories from offline cache.');
+      }
+      console.warn('Firestore categories subscription notice, using cache:', err);
       callback(getStoredCategories());
     });
     return unsubscribe;
   } catch (err) {
-    console.warn('Firestore subscription failed:', err);
+    console.warn('Firestore subscription fallback:', err);
     callback(getStoredCategories());
     return () => {};
   }
@@ -60,11 +74,14 @@ export async function addCategoryToStore(name: string) {
   if (!trimmed) return;
   const docId = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-  // Save to Firestore
+  // Save to Firestore with error resilience
   try {
     await setDoc(doc(db, CATEGORIES_COL, docId), { name: trimmed, createdAt: new Date().toISOString() });
   } catch (e) {
-    console.error('Error saving category to firestore:', e);
+    if (isQuotaExhaustedError(e)) {
+      triggerQuotaExhausted('Category saved to local cache; Cloud Firestore daily write quota limit reached.');
+    }
+    console.warn('Notice saving category to firestore (persisted locally):', e);
   }
 
   // Save to localStorage
@@ -86,7 +103,10 @@ export async function updateCategoryInStore(oldName: string, newName: string) {
     await deleteDoc(doc(db, CATEGORIES_COL, oldDocId));
     await setDoc(doc(db, CATEGORIES_COL, newDocId), { name: trimmedNew, createdAt: new Date().toISOString() });
   } catch (e) {
-    console.error('Error updating category in firestore:', e);
+    if (isQuotaExhaustedError(e)) {
+      triggerQuotaExhausted('Category updated in local cache; Cloud Firestore daily write quota limit reached.');
+    }
+    console.warn('Notice updating category in firestore (persisted locally):', e);
   }
 
   const current = getStoredCategories();
@@ -99,7 +119,10 @@ export async function deleteCategoryFromStore(name: string) {
   try {
     await deleteDoc(doc(db, CATEGORIES_COL, docId));
   } catch (e) {
-    console.error('Error deleting category from firestore:', e);
+    if (isQuotaExhaustedError(e)) {
+      triggerQuotaExhausted('Category deleted from local cache; Cloud Firestore daily write quota limit reached.');
+    }
+    console.warn('Notice deleting category from firestore (persisted locally):', e);
   }
 
   const current = getStoredCategories();

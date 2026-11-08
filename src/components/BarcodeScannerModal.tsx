@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QrCode, X, Camera, Keyboard, CheckCircle2, AlertCircle, BookOpen, RotateCcw, User } from 'lucide-react';
 import { Book, UserProfile, Loan } from '../types';
+import { calculateWorkingDaysOverdue } from '../lib/schoolCalendar';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -212,7 +213,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 )}
                 <div className="flex-1 space-y-2">
                   <p className="font-bold text-white">
-                    Scanned Barcode: <span className="font-mono text-xs bg-black/40 px-2 py-0.5 rounded border border-white/10 text-indigo-300">{lastScanned.code}</span>
+                    Scanned Barcode: <span className="font-mono text-xs bg-black/40 px-2 py-0.5 rounded border border-white/10 text-indigo-300"><bdi>{lastScanned.code}</bdi></span>
                   </p>
                   
                   {lastScanned.book ? (
@@ -226,7 +227,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         <div className="font-bold text-white text-xs">{lastScanned.book.title}</div>
                         <div className="text-[11px] text-slate-400">by {lastScanned.book.author}</div>
                         <div className="text-[10px] text-slate-300 mt-0.5">
-                          Location: <span className="font-medium text-slate-200">{lastScanned.book.shelfLocation}</span> | Available: <span className="font-semibold text-emerald-300">{lastScanned.book.availableCopies}/{lastScanned.book.totalCopies}</span>
+                          Location: <span className="font-medium text-slate-200">{lastScanned.book.shelfLocation}</span> | Available: <span className="font-semibold text-emerald-300"><bdi>{lastScanned.book.availableCopies}/{lastScanned.book.totalCopies}</bdi></span>
                         </div>
                       </div>
                     </div>
@@ -243,14 +244,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         <span className="font-bold uppercase text-[10px] tracking-wider text-purple-300 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-purple-400" /> Borrower Member Verified
                         </span>
-                        <span className="text-[10px] font-mono text-purple-300">Due: {lastScanned.activeLoan.dueDate}</span>
+                        <span className="text-[10px] font-mono text-purple-300">Due: <bdi>{lastScanned.activeLoan.dueDate}</bdi></span>
                       </div>
 
                       <div className="flex items-center justify-between bg-black/30 p-2 rounded-lg">
                         <div>
                           <div className="font-extrabold text-white">{lastScanned.borrower?.name || lastScanned.activeLoan.userName}</div>
                           <div className="text-[10px] text-purple-200 font-mono">
-                            ID: {lastScanned.borrower?.studentIdCode || lastScanned.borrower?.id || lastScanned.activeLoan.userId} ({lastScanned.borrower?.grade || 'Member'})
+                            ID: <bdi>{lastScanned.borrower?.studentIdCode || lastScanned.borrower?.id || lastScanned.activeLoan.userId}</bdi> ({lastScanned.borrower?.grade || 'Member'})
                           </div>
                         </div>
 
@@ -264,14 +265,17 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                             onClick={() => {
                               let lateFee = 0;
                               if (lastScanned.activeLoan) {
-                                const dueDate = new Date(lastScanned.activeLoan.dueDate);
-                                const today = new Date();
-                                if (today > dueDate) {
-                                  const diffDays = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
-                                  lateFee = diffDays * 0.5;
+                                const todayStr = new Date().toISOString().split('T')[0];
+                                if (todayStr > lastScanned.activeLoan.dueDate) {
+                                  const overdueWorkingDays = calculateWorkingDaysOverdue(lastScanned.activeLoan.dueDate, todayStr, true);
+                                  lateFee = overdueWorkingDays * 0.50;
                                 }
                                 onProcessReturn(lastScanned.activeLoan, lateFee);
-                                setLastScanned(prev => prev ? { ...prev, returnedSuccess: true } : null);
+                                setLastScanned(prev => prev ? {
+                                  ...prev,
+                                  returnedSuccess: true,
+                                  activeLoan: { ...prev.activeLoan!, status: 'returned', returnDate: todayStr, lateFee }
+                                } : null);
                               }
                             }}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer"

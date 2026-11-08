@@ -1,5 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
@@ -78,10 +79,30 @@ class ExternalPortalSyncManager {
   private isListening = false;
   private logs: SyncLogEntry[] = [];
   private subscribers: ((status: SyncStatusState) => void)[] = [];
+  private knownDocHashes: Map<string, string> = new Map();
+  private knownUserSignatures: Map<string, string> = new Map();
 
   constructor() {
     this.loadConfig();
     this.loadLogs();
+  }
+
+  private getDocHash(data: any): string {
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return String(data);
+    }
+  }
+
+  private hasDocChanged(docId: string, data: any): boolean {
+    const newHash = this.getDocHash(data);
+    const existing = this.knownDocHashes.get(docId);
+    return existing !== newHash;
+  }
+
+  private recordDocHash(docId: string, data: any) {
+    this.knownDocHashes.set(docId, this.getDocHash(data));
   }
 
   private loadConfig() {
@@ -213,7 +234,13 @@ class ExternalPortalSyncManager {
         authDomain: this.config.authDomain || 'industrial-heaven-2j4jh.firebaseapp.com'
       }, appName);
 
-      this.externalDb = getFirestore(this.externalApp, dbId);
+      try {
+        this.externalDb = initializeFirestore(this.externalApp, {
+          experimentalForceLongPolling: true,
+        }, dbId);
+      } catch {
+        this.externalDb = getFirestore(this.externalApp, dbId);
+      }
     }
 
     return this.externalDb;
@@ -234,19 +261,35 @@ class ExternalPortalSyncManager {
       const colName = this.config.studentsCollection || 'grade_students';
       this.addLog('info', 'Connecting to Cloud Firestore real-time stream...', `Database: ${this.config.databaseId || 'ai-studio-magoodhooschoole'} | Collection: ${colName}`);
 
+      let isInitialSnapshot = true;
+
       const unsubStudents = onSnapshot(
         collection(targetDb, colName),
         async (snapshot) => {
           this.isListening = true;
+
+          // On initial snapshot, catalog existing grade documents without triggering hundreds of redundant Firestore writes
+          if (isInitialSnapshot) {
+            isInitialSnapshot = false;
+            for (const d of snapshot.docs) {
+              this.recordDocHash(d.id, d.data());
+            }
+            this.addLog('info', `🟢 Real-time stream active: Monitoring ${snapshot.docs.length} grade directories. Standing by for live changes.`);
+            this.notifySubscribers();
+            return;
+          }
+
           let count = 0;
-          
           for (const change of snapshot.docChanges()) {
             const data = change.doc.data();
             const docId = change.doc.id;
             
             if (change.type === 'added' || change.type === 'modified') {
-              const res = await this.processStudentDoc(docId, data);
-              count += res.studentCount;
+              if (this.hasDocChanged(docId, data)) {
+                const res = await this.processStudentDoc(docId, data);
+                count += res.studentCount;
+                this.recordDocHash(docId, data);
+              }
             }
           }
 
@@ -306,7 +349,7 @@ class ExternalPortalSyncManager {
         if (portalData.success && Array.isArray(portalData.students)) {
           this.addLog('info', `Retrieved verified roster: ${portalData.totalStudents} students, ${portalData.totalStaff} staff`);
           
-          // Ingest students & parents into library database
+          // Ingest students & parents into library database with deduplication check
           for (const s of portalData.students) {
             const syncRes = await this.saveSingleStudentRecord(s.grade, s);
             if (syncRes.studentSynced) {
@@ -319,18 +362,30 @@ class ExternalPortalSyncManager {
           // Ingest staff into library database
           if (Array.isArray(portalData.staff)) {
             for (const stf of portalData.staff) {
-              const staffProfile: UserProfile = {
-                id: stf.id || `stf-${stf.staffIdCode?.toLowerCase() || Math.random().toString(36).substring(2, 7)}`,
+              const staffId = stf.id || `stf-${stf.staffIdCode?.toLowerCase() || Math.random().toString(36).substring(2, 7)}`;
+              const staffSig = JSON.stringify({
                 name: stf.name,
                 dhivehiName: stf.dhivehiName,
                 email: stf.email,
                 role: stf.role === 'admin' ? 'admin' : 'staff',
                 staffIdCode: stf.staffIdCode,
-                staffDepartment: stf.department,
-                createdAt: new Date().toISOString().split('T')[0]
-              };
-              await saveUserProfile(staffProfile);
-              syncedStaff++;
+                staffDepartment: stf.department
+              });
+              if (this.knownUserSignatures.get(staffId) !== staffSig) {
+                const staffProfile: UserProfile = {
+                  id: staffId,
+                  name: stf.name,
+                  dhivehiName: stf.dhivehiName,
+                  email: stf.email,
+                  role: stf.role === 'admin' ? 'admin' : 'staff',
+                  staffIdCode: stf.staffIdCode,
+                  staffDepartment: stf.department,
+                  createdAt: new Date().toISOString().split('T')[0]
+                };
+                await saveUserProfile(staffProfile);
+                this.knownUserSignatures.set(staffId, staffSig);
+                syncedStaff++;
+              }
             }
           }
         }
@@ -341,10 +396,11 @@ class ExternalPortalSyncManager {
         const targetDb = this.getTargetFirestore();
         const snap = await getDocs(collection(targetDb, this.config.studentsCollection || 'grade_students'));
         for (const d of snap.docs) {
-          const docRes = await this.processStudentDoc(d.id, d.data());
-          if (syncedStudents === 0) {
+          if (this.hasDocChanged(d.id, d.data())) {
+            const docRes = await this.processStudentDoc(d.id, d.data());
             syncedStudents += docRes.studentCount;
             syncedParents += docRes.parentCount;
+            this.recordDocHash(d.id, d.data());
           }
         }
       } catch (fsErr) {
@@ -358,7 +414,7 @@ class ExternalPortalSyncManager {
       this.config.gradeBreakdown = gradeCounts;
       this.saveConfig();
 
-      const msg = `Successfully synchronized ${syncedStudents} students, ${syncedParents} parents, and ${syncedStaff} staff members from Magoodhoo School Report Card Portal!`;
+      const msg = `Successfully verified synchronization from Magoodhoo School Report Card Portal (${syncedStudents} new/updated students, ${syncedParents} parents, ${syncedStaff} staff)!`;
       this.addLog('success', msg, `Grades synced: ${Object.keys(gradeCounts).join(', ')}`);
       this.notifySubscribers();
 
@@ -403,7 +459,7 @@ class ExternalPortalSyncManager {
   }
 
   /**
-   * Saves a single student and their associated parent into the library database
+   * Saves a single student and their associated parent into the library database with signature caching
    */
   private async saveSingleStudentRecord(gradeDocName: string, data: any): Promise<{ studentSynced: boolean; parentSynced: boolean }> {
     try {
@@ -424,36 +480,62 @@ class ExternalPortalSyncManager {
 
       let parentSynced = false;
       if (this.config.autoLinkParentChildren && parentName) {
-        const parentProfile: UserProfile = {
-          id: parentUid,
+        const parentSignature = JSON.stringify({
           name: parentName,
           email: parentEmail,
-          role: 'parent',
           phone: parentPhone,
-          childrenIds: [studentUid],
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        await saveUserProfile(parentProfile);
-        parentSynced = true;
+          childId: studentUid
+        });
+
+        if (this.knownUserSignatures.get(parentUid) !== parentSignature) {
+          const parentProfile: UserProfile = {
+            id: parentUid,
+            name: parentName,
+            email: parentEmail,
+            role: 'parent',
+            phone: parentPhone,
+            childrenIds: [studentUid],
+            createdAt: new Date().toISOString().split('T')[0]
+          };
+          await saveUserProfile(parentProfile);
+          this.knownUserSignatures.set(parentUid, parentSignature);
+          parentSynced = true;
+        }
       }
 
-      // Save Student Profile
-      const studentProfile: UserProfile = {
-        id: studentUid,
+      // Save Student Profile if changed
+      let studentSynced = false;
+      const studentSignature = JSON.stringify({
         name,
         dhivehiName,
         gender,
         email: studentEmail,
-        role: 'student',
-        grade: grade,
-        studentIdCode: studentIdCode,
+        grade,
+        studentIdCode,
         parentId: parentUid,
-        phone: parentPhone,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      await saveUserProfile(studentProfile);
+        phone: parentPhone
+      });
 
-      return { studentSynced: true, parentSynced };
+      if (this.knownUserSignatures.get(studentUid) !== studentSignature) {
+        const studentProfile: UserProfile = {
+          id: studentUid,
+          name,
+          dhivehiName,
+          gender,
+          email: studentEmail,
+          role: 'student',
+          grade: grade,
+          studentIdCode: studentIdCode,
+          parentId: parentUid,
+          phone: parentPhone,
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        await saveUserProfile(studentProfile);
+        this.knownUserSignatures.set(studentUid, studentSignature);
+        studentSynced = true;
+      }
+
+      return { studentSynced, parentSynced };
     } catch (e) {
       console.warn('Error saving student/parent record:', e);
       return { studentSynced: false, parentSynced: false };

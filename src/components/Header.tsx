@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { BookOpen, UserCheck, Shield, Users, QrCode, Search, LogOut, ChevronDown, Bell, Sparkles, BookMarked, Home, UserPlus, Key, Share2, ExternalLink, Copy, Check, Smartphone, X, Menu, Globe } from 'lucide-react';
+import { BookOpen, UserCheck, Shield, Users, QrCode, Search, LogOut, ChevronDown, Bell, Sparkles, BookMarked, Home, UserPlus, Key, Share2, ExternalLink, Copy, Check, Smartphone, X, Menu, Globe, WifiOff } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { PWAInstallButton } from './PWAInstallButton';
+import { useOnlineStatus } from '../lib/usePWAInstall';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -31,7 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, t, isRtl } = useLanguage();
+  const isOnline = useOnlineStatus();
 
   const directWebUrl = typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null'
     ? window.location.origin
@@ -95,7 +98,18 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center justify-between md:justify-end gap-1.5 sm:gap-3 flex-wrap">
+        <div className="flex items-center justify-between md:justify-end gap-1.5 sm:gap-2.5 flex-wrap">
+          {/* Offline indicator if disconnected */}
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 bg-amber-500 text-white text-[11px] font-black px-2.5 py-1 rounded-xl shadow-xs animate-pulse">
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>{language === 'dv' ? 'އޮފްލައިން މޯޑު' : 'Offline Mode'}</span>
+            </div>
+          )}
+
+          {/* Install Web App PWA Button */}
+          <PWAInstallButton compact={true} />
+
           {/* Language Switcher Button (English / Dhivehi) */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'dv' : 'en')}
@@ -152,8 +166,8 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow">
                 {currentUser.name.charAt(0)}
               </div>
-              <div className="text-left hidden md:block">
-                <div className="text-xs font-bold truncate max-w-[140px] text-slate-900">{currentUser.name}</div>
+              <div className="text-start hidden md:block">
+                <div className="text-xs font-bold truncate max-w-[140px] text-slate-900"><bdi>{currentUser.name}</bdi></div>
                 <div className="text-[10px] text-slate-500 uppercase font-semibold">{currentUser.role}</div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
@@ -161,10 +175,10 @@ export const Header: React.FC<HeaderProps> = ({
 
 
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className={`absolute ${isRtl ? 'left-0' : 'right-0'} mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150`}>
                 <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
                   <p className="text-[11px] text-slate-500 font-semibold uppercase">{t.activeProfile}</p>
-                  <p className="text-sm font-bold text-slate-900 truncate">{currentUser.name}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate"><bdi>{currentUser.name}</bdi></p>
                   <div className="mt-1">{getRoleBadge(currentUser.role)}</div>
                 </div>
 
@@ -198,14 +212,14 @@ export const Header: React.FC<HeaderProps> = ({
                           else if (user.role === 'student') setActiveTab('my-loans');
                           else if (user.role === 'admin') setActiveTab('admin-panel');
                         }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition ${
+                        className={`w-full text-start px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition ${
                           user.id === currentUser.id ? 'bg-indigo-50 text-indigo-900 font-bold border border-indigo-200' : 'hover:bg-slate-100 text-slate-700'
                         }`}
                       >
                         <div className="truncate">
-                          <div className="font-bold truncate">{user.name}</div>
+                          <div className="font-bold truncate"><bdi>{user.name}</bdi></div>
                           <div className="text-[10px] text-slate-500">
-                            {user.role === 'student' ? user.grade : user.email}
+                            {user.role === 'student' ? <bdi>{user.grade}</bdi> : <bdi>{user.email}</bdi>}
                           </div>
                         </div>
                         <span className="text-[10px] uppercase font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md ml-2">
@@ -224,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Main Navigation Tabs - Simplified Easy Template Bar */}
       <div className="bg-slate-50/90 px-3 sm:px-6 lg:px-8 border-t border-slate-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto py-2 scrollbar-none">
-          <div className="flex items-center space-x-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Dashboard for Admin */}
             {currentUser.role === 'admin' && (
               <button
@@ -318,7 +332,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {language === 'dv' ? 'އެޑްމިން ޕެނަލް' : 'Admin & Reports'}
                 {overdueCount > 0 && (
                   <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-                    {overdueCount}
+                    <bdi>{overdueCount}</bdi>
                   </span>
                 )}
               </button>

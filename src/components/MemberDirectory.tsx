@@ -359,12 +359,12 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                     {user.role === 'student' && (
                       <>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-                          <span className="text-slate-400 font-semibold block text-[10px]">Grade:</span>
-                          <span className="font-extrabold text-slate-800">{user.grade || 'Not Assigned'}</span>
+                          <span className="text-slate-400 font-semibold block text-[10px]">{language === 'dv' ? 'ގްރޭޑް:' : 'Grade:'}</span>
+                          <span className="font-extrabold text-slate-800"><bdi>{user.grade || (language === 'dv' ? 'ހަމަނުޖެހޭ' : 'Not Assigned')}</bdi></span>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-                          <span className="text-slate-400 font-semibold block text-[10px]">Student ID:</span>
-                          <span className="font-mono font-extrabold text-indigo-700">{user.studentIdCode || `STU-${user.id.slice(-4)}`}</span>
+                          <span className="text-slate-400 font-semibold block text-[10px]">{t.studentId}:</span>
+                          <span className="font-mono font-extrabold text-indigo-700"><bdi>{user.studentIdCode || `STU-${user.id.slice(-4)}`}</bdi></span>
                         </div>
                       </>
                     )}
@@ -372,9 +372,9 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                     {user.role === 'parent' && (
                       <>
                         <div className="bg-purple-50 p-2 rounded-xl border border-purple-100 col-span-2">
-                          <span className="text-purple-600 font-semibold block text-[10px]">Linked Student Children:</span>
+                          <span className="text-purple-600 font-semibold block text-[10px]">{t.linkedChildren}:</span>
                           <span className="font-extrabold text-purple-900">
-                            {children.length > 0 ? children.map(c => c.name).join(', ') : 'No linked students'}
+                            {children.length > 0 ? children.map(c => c.name).join(', ') : (language === 'dv' ? 'ގުޅިފައިވާ ދަރިވަރަކު ނެތް' : 'No linked students')}
                           </span>
                         </div>
                       </>
@@ -383,12 +383,12 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                     {user.role === 'staff' && (
                       <>
                         <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-100">
-                          <span className="text-emerald-700 font-semibold block text-[10px]">Staff ID Code:</span>
-                          <span className="font-mono font-extrabold text-emerald-900">{user.staffIdCode || `STF-${user.id.slice(-4)}`}</span>
+                          <span className="text-emerald-700 font-semibold block text-[10px]">{t.staffId}:</span>
+                          <span className="font-mono font-extrabold text-emerald-900"><bdi>{user.staffIdCode || `STF-${user.id.slice(-4)}`}</bdi></span>
                         </div>
                         <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-100">
-                          <span className="text-emerald-700 font-semibold block text-[10px]">Department / Role:</span>
-                          <span className="font-extrabold text-emerald-900">{user.staffDepartment || 'Faculty Staff'}</span>
+                          <span className="text-emerald-700 font-semibold block text-[10px]">{t.department}:</span>
+                          <span className="font-extrabold text-emerald-900"><bdi>{user.staffDepartment || 'Faculty Staff'}</bdi></span>
                         </div>
                       </>
                     )}
@@ -447,15 +447,15 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
       {viewMode === 'table' && (
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
+            <table className="w-full text-start text-xs text-slate-700">
               <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                 <tr>
-                  <th className="p-4">Member Name</th>
-                  <th className="p-4">Role</th>
-                  <th className="p-4">Grade / ID / Dept</th>
-                  <th className="p-4">Email & Phone</th>
-                  <th className="p-4">Active Loans</th>
-                  <th className="p-4 text-right">Actions</th>
+                  <th className="p-4 border-e border-slate-200">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
+                  <th className="p-4 border-e border-slate-200">{language === 'dv' ? 'ރޯލް' : 'Role'}</th>
+                  <th className="p-4 border-e border-slate-200">{language === 'dv' ? 'ގްރޭޑް / އައިޑީ' : 'Grade / ID / Dept'}</th>
+                  <th className="p-4 border-e border-slate-200">{language === 'dv' ? 'އީމެއިލް އަދި ފޯނު' : 'Email & Phone'}</th>
+                  <th className="p-4 border-e border-slate-200">{t.activeLoans}</th>
+                  <th className="p-4 text-end">{language === 'dv' ? 'ޢަމަލުތައް' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -464,59 +464,60 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
 
                   return (
                     <tr key={user.id} className="hover:bg-slate-50 transition">
-                      <td className="p-4">
+                      <td className="p-4 border-e border-slate-100">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-extrabold text-xs flex items-center justify-center">
                             {user.name.charAt(0)}
                           </div>
                           <div>
                             <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
-                              <span>{user.name}</span>
+                              <span><bdi>{user.name}</bdi></span>
                               {user.dhivehiName && (
                                 <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">{user.dhivehiName}</span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 font-medium">{user.studentIdCode ? `ID: ${user.studentIdCode}` : user.id}</div>
+                            <div className="text-[11px] text-slate-500 font-medium">{user.studentIdCode ? <span>ID: <bdi>{user.studentIdCode}</bdi></span> : <bdi>{user.id}</bdi>}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4">{getRoleBadge(user.role)}</td>
-                      <td className="p-4 font-medium">
+                      <td className="p-4 border-e border-slate-100">{getRoleBadge(user.role)}</td>
+                      <td className="p-4 border-e border-slate-100 font-medium">
                         {user.role === 'student' ? (
                           <div>
-                            <div className="font-extrabold text-slate-900">{user.grade || 'Grade N/A'}</div>
-                            <div className="font-mono text-[11px] text-indigo-700 font-bold">{user.studentIdCode || 'N/A'}</div>
+                            <div className="font-extrabold text-slate-900"><bdi>{user.grade || 'Grade N/A'}</bdi></div>
+                            <div className="font-mono text-[11px] text-indigo-700 font-bold"><bdi>{user.studentIdCode || 'N/A'}</bdi></div>
                           </div>
                         ) : user.role === 'staff' ? (
                           <div>
-                            <div className="font-extrabold text-emerald-900">{user.staffDepartment || 'Faculty Staff'}</div>
-                            <div className="font-mono text-[11px] text-emerald-700 font-bold">{user.staffIdCode || `STF-${user.id.slice(-4)}`}</div>
+                            <div className="font-extrabold text-emerald-900"><bdi>{user.staffDepartment || 'Faculty Staff'}</bdi></div>
+                            <div className="font-mono text-[11px] text-emerald-700 font-bold"><bdi>{user.staffIdCode || `STF-${user.id.slice(-4)}`}</bdi></div>
                           </div>
                         ) : (
                           <div>
-                            <div className="font-semibold text-slate-500">General Member</div>
+                            <div className="font-semibold text-slate-500">{language === 'dv' ? 'ޢާންމު މެންބަރު' : 'General Member'}</div>
                             <div className="font-mono text-[11px] text-slate-400">N/A</div>
                           </div>
                         )}
                       </td>
-                      <td className="p-4">
-                        <div className="font-medium text-slate-800">{user.email}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">{user.phone || 'N/A'}</div>
+                      <td className="p-4 border-e border-slate-100">
+                        <div className="font-medium text-slate-800"><bdi>{user.email}</bdi></div>
+                        <div className="text-[11px] text-slate-500 font-mono"><bdi>{user.phone || 'N/A'}</bdi></div>
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 border-e border-slate-100">
                         <span className={`font-extrabold px-2.5 py-1 rounded-full text-[11px] ${
                           memberLoans.length > 0 ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {memberLoans.length} Loans
+                          <bdi>{memberLoans.length}</bdi> {language === 'dv' ? 'ފޮތް' : 'Loans'}
                         </span>
                       </td>
-                      <td className="p-4 text-right space-x-2">
-                        <button
-                          onClick={() => setSelectedMember(user)}
-                          className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
-                        >
-                          View File
-                        </button>
+                      <td className="p-4 text-end">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedMember(user)}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
+                          >
+                            {t.viewMemberFile}
+                          </button>
                         <button
                           onClick={() => setShowLibraryCardModal(user)}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-1.5 rounded-xl transition cursor-pointer"
@@ -524,15 +525,16 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                         >
                           <QrCode className="w-4 h-4" />
                         </button>
-                        {onDeleteUser && user.role !== 'admin' && (
-                          <button
-                            onClick={() => setUserToDelete(user)}
-                            className="bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold p-1.5 rounded-xl transition border border-rose-200 cursor-pointer"
-                            title="Remove Account"
-                          >
-                            <Trash2 className="w-4 h-4 text-rose-600" />
-                          </button>
-                        )}
+                          {onDeleteUser && user.role !== 'admin' && (
+                            <button
+                              onClick={() => setUserToDelete(user)}
+                              className="bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold p-1.5 rounded-xl transition border border-rose-200 cursor-pointer"
+                              title="Remove Account"
+                            >
+                              <Trash2 className="w-4 h-4 text-rose-600" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
