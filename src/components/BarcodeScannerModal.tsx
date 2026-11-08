@@ -105,8 +105,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/15 animate-in fade-in zoom-in-95 duration-200 text-slate-100">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4 max-sm:items-end max-sm:p-0">
+      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/15 animate-in fade-in zoom-in-95 duration-200 text-slate-100 max-sm:max-h-[92vh] flex flex-col">
+        {/* Mobile Grab Handle */}
+        <div className="sm:hidden w-12 h-1 bg-slate-600 rounded-full mx-auto my-2 shrink-0"></div>
         
         {/* Header */}
         <div className="bg-black/30 border-b border-white/10 p-4 flex items-center justify-between">

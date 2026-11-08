@@ -1413,11 +1413,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         </div>
       )}
 
-      {/* Book Detail Modal with BDI Protection */}
+      {/* Book Detail Modal with BDI Protection & Mobile Bottom Sheet Drawer */}
       {selectedBook && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-200">
-            <div className="relative h-48 bg-slate-900">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 max-sm:items-end max-sm:p-0">
+          <div className="bg-white rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-200 max-sm:max-h-[90vh] flex flex-col">
+            {/* Mobile Bottom-Sheet Grab Indicator */}
+            <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-full mx-auto my-2.5 shrink-0"></div>
+            <div className="relative h-48 bg-slate-900 shrink-0">
               <img
                 src={selectedBook.coverUrl}
                 alt={selectedBook.title}

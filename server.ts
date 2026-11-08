@@ -546,6 +546,55 @@ let serverReservations: any[] = [...sampleReservations];
 let serverSettings: any = { ...initialSettings };
 const fineWaiverAuditLog: any[] = [];
 
+// System Audit Log Interface & In-Memory Store
+export interface AuditLogEntry {
+  id: string;
+  action: 'BOOK_CREATED' | 'BOOK_UPDATED' | 'BOOK_DELETED' | 'LOAN_ISSUED' | 'LOAN_RETURNED' | 'LOAN_RENEWED' | 'FINE_WAIVED' | 'INVENTORY_IMPORT';
+  targetType: 'book' | 'loan' | 'fine' | 'inventory';
+  targetId: string;
+  details: string;
+  performedBy: string;
+  userRole: string;
+  timestamp: string;
+}
+
+const serverAuditLogs: AuditLogEntry[] = [
+  {
+    id: `audit-init-01`,
+    action: 'INVENTORY_IMPORT',
+    targetType: 'inventory',
+    targetId: 'catalog-seed',
+    details: 'System initialized with Magoodhoo School Library collection (Dhivehi Literature, Science, Islamic Studies & References).',
+    performedBy: 'Ms. Davis (Librarian)',
+    userRole: 'admin',
+    timestamp: new Date(Date.now() - 3600000 * 48).toISOString()
+  }
+];
+
+function logAuditAction(
+  action: AuditLogEntry['action'],
+  targetType: AuditLogEntry['targetType'],
+  targetId: string,
+  details: string,
+  req: express.Request
+): AuditLogEntry {
+  const role = (req.headers['x-user-role'] as string) || (req as any).user?.role || 'admin';
+  const userId = (req.headers['x-user-id'] as string) || (req as any).user?.id || 'Circulation Desk Staff';
+  const entry: AuditLogEntry = {
+    id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    action,
+    targetType,
+    targetId,
+    details,
+    performedBy: userId,
+    userRole: role,
+    timestamp: new Date().toISOString()
+  };
+  serverAuditLogs.unshift(entry);
+  if (serverAuditLogs.length > 250) serverAuditLogs.pop();
+  return entry;
+}
+
 // RBAC Middleware supporting Session Roles, User IDs, and Bearer JWT tokens
 const requireRole = (allowedRoles: string[]) => {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -689,6 +738,39 @@ app.get('/api/books/autocomplete', (req, res) => {
   res.json({ suggestions });
 });
 
+// 7b. Full-Text Search Engine API (/api/books/search)
+app.get('/api/books/search', (req, res) => {
+  const q = ((req.query.q as string) || '').trim().toLowerCase();
+  const title = ((req.query.title as string) || '').trim().toLowerCase();
+  const author = ((req.query.author as string) || '').trim().toLowerCase();
+  const isbn = ((req.query.isbn as string) || '').trim().toLowerCase();
+  const ddc = (((req.query.ddc || req.query.ddc_code) as string) || '').trim().toLowerCase();
+
+  let results = [...serverBooks];
+
+  if (q) {
+    results = results.filter((b) =>
+      b.title.toLowerCase().includes(q) ||
+      b.author.toLowerCase().includes(q) ||
+      b.isbn.toLowerCase().includes(q) ||
+      b.barcode.toLowerCase().includes(q) ||
+      (b.ddcCallNumber && b.ddcCallNumber.toLowerCase().includes(q)) ||
+      (b.publisher && b.publisher.toLowerCase().includes(q)) ||
+      (b.category && b.category.toLowerCase().includes(q))
+    );
+  }
+
+  if (title) results = results.filter((b) => b.title.toLowerCase().includes(title));
+  if (author) results = results.filter((b) => b.author.toLowerCase().includes(author));
+  if (isbn) results = results.filter((b) => b.isbn.toLowerCase().includes(isbn) || b.barcode.toLowerCase().includes(isbn));
+  if (ddc) results = results.filter((b) => b.ddcCallNumber && b.ddcCallNumber.toLowerCase().includes(ddc));
+
+  res.json({
+    results,
+    count: results.length
+  });
+});
+
 // 8. Protected Book Mutation Endpoints (Librarian/Admin only)
 app.post('/api/books', requireRole(['admin', 'librarian']), (req, res) => {
   const newBook = {
@@ -697,6 +779,7 @@ app.post('/api/books', requireRole(['admin', 'librarian']), (req, res) => {
     addedAt: new Date().toISOString().split('T')[0]
   };
   serverBooks.unshift(newBook);
+  logAuditAction('BOOK_CREATED', 'book', newBook.id, `Cataloged new book "${newBook.title}" by ${newBook.author} (ISBN: ${newBook.isbn || 'N/A'}, Copies: ${newBook.totalCopies || 1})`, req);
   res.status(201).json({ success: true, book: newBook });
 });
 
@@ -705,7 +788,9 @@ app.put('/api/books/:id', requireRole(['admin', 'librarian']), (req, res) => {
   if (idx === -1) {
     return res.status(404).json({ error: 'Book not found' });
   }
+  const oldTitle = serverBooks[idx].title;
   serverBooks[idx] = { ...serverBooks[idx], ...req.body };
+  logAuditAction('BOOK_UPDATED', 'book', req.params.id, `Updated metadata for "${oldTitle}" (Total: ${serverBooks[idx].totalCopies}, Available: ${serverBooks[idx].availableCopies})`, req);
   res.json({ success: true, book: serverBooks[idx] });
 });
 
@@ -715,6 +800,7 @@ app.delete('/api/books/:id', requireRole(['admin', 'librarian']), (req, res) => 
     return res.status(404).json({ error: 'Book not found' });
   }
   const removed = serverBooks.splice(idx, 1)[0];
+  logAuditAction('BOOK_DELETED', 'book', req.params.id, `Deleted catalog record for "${removed.title}" (ISBN: ${removed.isbn})`, req);
   res.json({ success: true, removed });
 });
 
@@ -760,8 +846,8 @@ app.delete('/api/loans/:id', requireRole(['admin', 'librarian']), (req, res) => 
   res.json({ success: true, removed });
 });
 
-// 9. Circulation Desk APIs: Check-Out / Issue
-app.post('/api/circulation/issue', (req, res) => {
+// 9. Circulation Desk APIs: Check-Out / Issue (/api/circulation/issue and /api/loans/checkout)
+const issueLoanHandler = (req: express.Request, res: express.Response) => {
   const { bookId, userId, daysToBorrow = 14, librarianId } = req.body;
 
   const book = serverBooks.find((b) => b.id === bookId || b.barcode === bookId || b.isbn === bookId);
@@ -818,16 +904,21 @@ app.post('/api/circulation/issue', (req, res) => {
   serverLoans.unshift(newLoan);
   book.availableCopies = Math.max(0, (book.availableCopies || 1) - 1);
 
+  logAuditAction('LOAN_ISSUED', 'loan', newLoan.id, `Issued "${book.title}" to ${borrowerName} (${borrowerRole}). Due on ${dueDateStr} (Sunday-Thursday calendar)`, req);
+
   res.status(201).json({
     success: true,
     loan: newLoan,
     updatedBook: book,
     message: `Book "${book.title}" successfully issued to ${borrowerName}. Due on ${dueDateStr} (Maldivian school calendar).`
   });
-});
+};
 
-// 10. Circulation Desk APIs: Return (Check-In) & Overdue Fine Calculation
-app.post('/api/circulation/return', (req, res) => {
+app.post('/api/circulation/issue', issueLoanHandler);
+app.post('/api/loans/checkout', issueLoanHandler);
+
+// 10. Circulation Desk APIs: Return (Check-In) & Overdue Fine Calculation (/api/circulation/return and /api/loans/return)
+const returnLoanHandler = (req: express.Request, res: express.Response) => {
   const { loanId, bookBarcodeOrId } = req.body;
 
   let loan = serverLoans.find((l) => l.id === loanId);
@@ -863,6 +954,8 @@ app.post('/api/circulation/return', (req, res) => {
     book.availableCopies = Math.min(book.totalCopies || 1, (book.availableCopies || 0) + 1);
   }
 
+  logAuditAction('LOAN_RETURNED', 'loan', loan.id, `Returned "${loan.bookTitle}" by ${loan.userName}. Overdue days: ${overdueWorkingDays}, Accrued fee: $${calculatedFee.toFixed(2)}`, req);
+
   res.json({
     success: true,
     loan,
@@ -872,10 +965,13 @@ app.post('/api/circulation/return', (req, res) => {
       ? `Book "${loan.bookTitle}" returned with ${overdueWorkingDays} working days overdue. Late fee accrued: $${calculatedFee.toFixed(2)}.`
       : `Book "${loan.bookTitle}" returned on time. No late fee accrued.`
   });
-});
+};
 
-// 11. Circulation Desk APIs: Book Loan Renewal (Blocking renewals if reserved)
-app.post('/api/circulation/renew', (req, res) => {
+app.post('/api/circulation/return', returnLoanHandler);
+app.post('/api/loans/return', returnLoanHandler);
+
+// 11. Circulation Desk APIs: Book Loan Renewal (/api/circulation/renew and /api/loans/renew)
+const renewLoanHandler = (req: express.Request, res: express.Response) => {
   const { loanId, extensionDays = 14 } = req.body;
 
   const loan = serverLoans.find((l) => l.id === loanId);
@@ -912,16 +1008,21 @@ app.post('/api/circulation/renew', (req, res) => {
   loan.renewalCount = (loan.renewalCount || 0) + 1;
   loan.status = 'active';
 
+  logAuditAction('LOAN_RENEWED', 'loan', loan.id, `Renewed "${loan.bookTitle}" for ${loan.userName}. New due date: ${newDueDateStr} (Renewal ${loan.renewalCount}/${maxRenewals})`, req);
+
   res.json({
     success: true,
     loan,
     newDueDate: newDueDateStr,
     message: `Book "${loan.bookTitle}" renewed successfully! New due date: ${newDueDateStr} (Renewal ${loan.renewalCount}/${maxRenewals}).`
   });
-});
+};
 
-// 12. Manual Fine-Waive Override Controls (Librarian/Admin only)
-app.post('/api/circulation/waive-fine', requireRole(['admin', 'librarian']), (req, res) => {
+app.post('/api/circulation/renew', renewLoanHandler);
+app.post('/api/loans/renew', renewLoanHandler);
+
+// 12. Manual Fine-Waive Override Controls (Librarian/Admin only) (/api/circulation/waive-fine and /api/fines/waive)
+const waiveFineHandler = (req: express.Request, res: express.Response) => {
   const { loanId, reason, waivedBy = 'Head Librarian' } = req.body;
 
   const loan = serverLoans.find((l) => l.id === loanId);
@@ -946,11 +1047,25 @@ app.post('/api/circulation/waive-fine', requireRole(['admin', 'librarian']), (re
     timestamp: loan.waivedAt
   });
 
+  logAuditAction('FINE_WAIVED', 'fine', loan.id, `Waived late fee of $${previousFee.toFixed(2)} on "${loan.bookTitle}" for ${loan.userName}. Reason: "${loan.waivedReason}"`, req);
+
   res.json({
     success: true,
     loan,
     waivedAmount: previousFee,
     message: `Late fee of $${previousFee.toFixed(2)} for "${loan.bookTitle}" has been waived by ${waivedBy}. Reason: "${loan.waivedReason}".`
+  });
+};
+
+app.post('/api/circulation/waive-fine', requireRole(['admin', 'librarian']), waiveFineHandler);
+app.post('/api/fines/waive', requireRole(['admin', 'librarian']), waiveFineHandler);
+
+// 12b. System Audit Logs API (Librarian/Admin only)
+app.get('/api/audit-logs', requireRole(['admin', 'librarian']), (req, res) => {
+  const limit = parseInt((req.query.limit as string) || '50', 10);
+  res.json({
+    logs: serverAuditLogs.slice(0, limit),
+    total: serverAuditLogs.length
   });
 });
 

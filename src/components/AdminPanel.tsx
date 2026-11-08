@@ -40,7 +40,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenReportCardSyncModal
 }) => {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'late-fees' | 'barcode-labels' | 'users' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'late-fees' | 'barcode-labels' | 'users' | 'settings' | 'audit-logs'>('inventory');
+
+  // Bulk Selection States
+  const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
+  const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
+
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+  const [auditActionFilter, setAuditActionFilter] = useState<string>('ALL');
 
   // Fine Waive Modal State
   const [waivingLoan, setWaivingLoan] = useState<Loan | null>(null);
@@ -74,7 +83,94 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // New Book Modal State
+  // Fetch live system audit logs
+  const fetchAuditLogs = async () => {
+    setIsLoadingAuditLogs(true);
+    try {
+      const res = await fetch('/api/audit-logs?limit=150', {
+        headers: { 'x-user-role': 'admin' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch audit logs:', e);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
+  // Export inventory to CSV
+  const handleExportCsv = (booksToExport: Book[] = books) => {
+    const headers = ['ID', 'Title', 'Author', 'ISBN', 'Barcode', 'Category', 'DDC', 'Language', 'Total Copies', 'Available Copies', 'Shelf Location', 'Is Reference'];
+    const rows = booksToExport.map(b => [
+      `"${b.id}"`,
+      `"${(b.title || '').replace(/"/g, '""')}"`,
+      `"${(b.author || '').replace(/"/g, '""')}"`,
+      `"${b.isbn || ''}"`,
+      `"${b.barcode || ''}"`,
+      `"${b.category || ''}"`,
+      `"${b.ddcCallNumber || ''}"`,
+      `"${b.bookLanguage || 'English'}"`,
+      b.totalCopies || 1,
+      b.availableCopies || 0,
+      `"${b.shelfLocation || ''}"`,
+      b.isReferenceOnly ? 'YES' : 'NO'
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `magoodhoo-library-inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Bulk Inventory Handlers
+  const handleBulkToggleReference = (isRef: boolean) => {
+    selectedBookIds.forEach(id => {
+      onUpdateBook(id, { isReferenceOnly: isRef });
+    });
+    setSelectedBookIds([]);
+  };
+
+  const handleBulkDeleteBooks = () => {
+    if (!confirm(`Are you sure you want to delete ${selectedBookIds.length} book record(s)?`)) return;
+    selectedBookIds.forEach(id => {
+      onDeleteBook(id);
+    });
+    setSelectedBookIds([]);
+  };
+
+  // Bulk Loan Handlers
+  const handleBulkMarkReturned = async () => {
+    if (selectedLoanIds.length === 0) return;
+    if (!confirm(`Mark ${selectedLoanIds.length} loan(s) as returned?`)) return;
+    for (const loanId of selectedLoanIds) {
+      try {
+        await fetch('/api/circulation/return', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+          body: JSON.stringify({ loanId })
+        });
+        onMarkFeePaid(loanId);
+      } catch (e) {
+        console.warn('Failed returning loan:', e);
+      }
+    }
+    setSelectedLoanIds([]);
+  };
+
+  const handleBulkWaiveFees = () => {
+    if (selectedLoanIds.length === 0) return;
+    if (!confirm(`Waive overdue fines for ${selectedLoanIds.length} loan(s)?`)) return;
+    selectedLoanIds.forEach(loanId => {
+      if (onWaiveFee) onWaiveFee(loanId, 'Bulk administrative fee waiver');
+    });
+    setSelectedLoanIds([]);
+  };
   const [showBookModal, setShowBookModal] = useState(false);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
 
@@ -377,6 +473,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <Settings className="w-4 h-4" /> {language === 'dv' ? 'ލައިބްރަރީ އުޞޫލުތައް' : 'Library Policies'}
         </button>
+
+        <button
+          onClick={() => setActiveTab('audit-logs')}
+          className={`flex-1 min-w-[140px] py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            activeTab === 'audit-logs' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          id="admin-audit-logs-tab"
+        >
+          <Activity className="w-4 h-4" /> {language === 'dv' ? 'ސިސްޓަމް އޮޑިޓް ލޮގް' : 'System Audit Log'}
+        </button>
       </div>
 
       {/* TAB 1: INVENTORY MANAGEMENT */}
@@ -385,13 +491,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h3 className="text-base font-black text-slate-900">Manage Cataloged Books</h3>
-              <p className="text-xs text-slate-500 font-medium">Add, edit, bulk import, or set books as Reference Only</p>
+              <p className="text-xs text-slate-500 font-medium">Add, edit, bulk import, export CSV, or set books as Reference Only</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleExportCsv(books)}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-xs"
+                title="Export complete inventory to CSV file"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-700" /> Export Inventory (CSV)
+              </button>
               {onOpenImportModal && (
                 <button
                   onClick={() => onOpenImportModal('books')}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 border border-slate-300"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 border border-slate-300 cursor-pointer"
                   id="admin-import-books-btn"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-indigo-600" /> Import Books CSV
@@ -399,7 +512,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
               <button
                 onClick={openNewBookModal}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 cursor-pointer"
                 id="add-new-book-btn"
               >
                 <Plus className="w-4 h-4" /> Add New Book Record
@@ -407,10 +520,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
+          {/* Bulk Selection Action Strip */}
+          {selectedBookIds.length > 0 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 flex items-center justify-between flex-wrap gap-2 animate-in fade-in shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-950">
+                  {selectedBookIds.length} book(s) selected
+                </span>
+                <button
+                  onClick={() => setSelectedBookIds([])}
+                  className="text-[11px] text-amber-800 underline font-semibold hover:text-amber-950 cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => handleExportCsv(books.filter(b => selectedBookIds.includes(b.id)))}
+                  className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 rounded-xl text-xs font-bold shadow-xs hover:bg-amber-100 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Selected CSV
+                </button>
+                <button
+                  onClick={() => handleBulkToggleReference(true)}
+                  className="px-3 py-1.5 bg-sky-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-sky-700 transition cursor-pointer"
+                >
+                  Set Reference Only
+                </button>
+                <button
+                  onClick={() => handleBulkToggleReference(false)}
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-emerald-700 transition cursor-pointer"
+                >
+                  Set Circulating
+                </button>
+                <button
+                  onClick={handleBulkDeleteBooks}
+                  className="px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-rose-700 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Selected
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* DENSE DESKTOP TABLE WITH STICKY HEADERS */}
+          <div className="overflow-x-auto max-h-[620px] border border-slate-200 rounded-2xl bg-white shadow-sm scrollbar-thin">
             <table className="w-full text-start text-xs text-slate-700">
-              <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+              <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-md text-slate-700 font-extrabold uppercase text-[10px] border-b border-slate-200 shadow-xs">
                 <tr>
+                  <th className="p-3 w-10 text-center border-e border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={selectedBookIds.length === books.length && books.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedBookIds(books.map(b => b.id));
+                        else setSelectedBookIds([]);
+                      }}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން / މުސަންނިފު' : 'Book Title / Author'}</th>
                   <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބައި' : 'Category'}</th>
                   <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބާވަތް' : 'Type'}</th>
@@ -421,52 +589,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {books.map(book => (
-                  <tr key={book.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3 border-e border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <img src={book.coverUrl} alt="" className="w-8 h-12 object-cover rounded-xl shadow border border-slate-200 shrink-0" />
-                        <div>
-                          <div className="font-extrabold text-slate-900"><bdi>{book.title}</bdi></div>
-                          <div className="text-[11px] text-slate-500 font-medium">{t.byAuthor} <bdi>{book.author}</bdi></div>
+                {books.map(book => {
+                  const isChecked = selectedBookIds.includes(book.id);
+                  return (
+                    <tr key={book.id} className={`hover:bg-slate-50 transition ${isChecked ? 'bg-amber-50/60' : ''}`}>
+                      <td className="p-3 w-10 text-center border-e border-slate-100">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedBookIds(prev =>
+                              prev.includes(book.id) ? prev.filter(x => x !== book.id) : [...prev, book.id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-3 border-e border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <img src={book.coverUrl} alt="" className="w-8 h-12 object-cover rounded-xl shadow border border-slate-200 shrink-0" />
+                          <div>
+                            <div className="font-extrabold text-slate-900"><bdi>{book.title}</bdi></div>
+                            <div className="text-[11px] text-slate-500 font-medium">{t.byAuthor} <bdi>{book.author}</bdi></div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-3 border-e border-slate-100 font-bold text-slate-700">{book.category}</td>
-                    <td className="p-3 border-e border-slate-100">
-                      {book.isReferenceOnly ? (
-                        <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-amber-300">
-                          {t.statusReferenceOnly}
-                        </span>
-                      ) : (
-                        <span className="bg-emerald-100 text-emerald-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-emerald-300">
-                          {t.circulating}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 border-e border-slate-100 font-mono text-[11px] text-slate-600 font-bold"><bdi>{book.barcode}</bdi></td>
-                    <td className="p-3 border-e border-slate-100 font-bold text-slate-700"><bdi>{book.shelfLocation}</bdi></td>
-                    <td className="p-3 border-e border-slate-100 font-extrabold text-slate-900"><bdi>{book.availableCopies} / {book.totalCopies}</bdi></td>
-                    <td className="p-3 text-end">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEditBookModal(book)}
-                          className="p-1.5 text-indigo-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
-                          title={t.editBook}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteBook(book.id)}
-                          className="p-1.5 text-rose-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
-                          title={t.deleteBook}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-3 border-e border-slate-100 font-bold text-slate-700">{book.category}</td>
+                      <td className="p-3 border-e border-slate-100">
+                        {book.isReferenceOnly ? (
+                          <span className="bg-sky-100 text-sky-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-sky-300">
+                            {t.statusReferenceOnly}
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-100 text-emerald-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-emerald-300">
+                            {t.circulating}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 border-e border-slate-100 font-mono text-[11px] text-slate-600 font-bold"><bdi>{book.barcode}</bdi></td>
+                      <td className="p-3 border-e border-slate-100 font-bold text-slate-700"><bdi>{book.shelfLocation}</bdi></td>
+                      <td className="p-3 border-e border-slate-100 font-extrabold text-slate-900"><bdi>{book.availableCopies} / {book.totalCopies}</bdi></td>
+                      <td className="p-3 text-end">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEditBookModal(book)}
+                            className="p-1.5 text-indigo-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
+                            title={t.editBook}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => onDeleteBook(book.id)}
+                            className="p-1.5 text-rose-600 hover:bg-slate-100 rounded-xl transition font-bold cursor-pointer"
+                            title={t.deleteBook}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -514,20 +697,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               No overdue loans or unpaid fees currently recorded!
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">Borrower Student</th>
-                    <th className="p-3">Book Title</th>
-                    <th className="p-3">Due Date</th>
-                    <th className="p-3">Calculated Fee</th>
-                    <th className="p-3">Payment Status</th>
-                    <th className="p-3 text-center">Send Email / SMS Alert</th>
-                    <th className="p-3 text-right">Fee Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+            <div className="space-y-3">
+              {/* Bulk Loan Actions Strip */}
+              {selectedLoanIds.length > 0 && (
+                <div className="bg-rose-50 border border-rose-300 rounded-2xl p-3 flex items-center justify-between flex-wrap gap-2 animate-in fade-in shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-rose-950">
+                      {selectedLoanIds.length} overdue loan(s) selected
+                    </span>
+                    <button
+                      onClick={() => setSelectedLoanIds([])}
+                      className="text-[11px] text-rose-800 underline font-semibold hover:text-rose-950 cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleBulkMarkReturned}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" /> Bulk Mark Returned ({selectedLoanIds.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkWaiveFees}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Waive Selected Fines
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto max-h-[550px] border border-slate-200 rounded-2xl bg-white shadow-sm scrollbar-thin">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-md text-slate-700 font-extrabold uppercase text-[10px] border-b border-slate-200 shadow-xs">
+                    <tr>
+                      <th className="p-3 w-10 text-center border-e border-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={selectedLoanIds.length === overdueLoans.length && overdueLoans.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedLoanIds(overdueLoans.map(l => l.id));
+                            else setSelectedLoanIds([]);
+                          }}
+                          className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                        />
+                      </th>
+                      <th className="p-3">Borrower Student</th>
+                      <th className="p-3">Book Title</th>
+                      <th className="p-3">Due Date</th>
+                      <th className="p-3">Calculated Fee</th>
+                      <th className="p-3">Payment Status</th>
+                      <th className="p-3 text-center">Send Email / SMS Alert</th>
+                      <th className="p-3 text-right">Fee Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
                   {overdueLoans.map(loan => {
                     const borrower = users.find(u => u.id === loan.userId);
                     const recipientEmail = borrower?.email || policyAlertEmail;
@@ -536,7 +764,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     const body = encodeURIComponent(`Dear ${loan.userName},\n\nYour borrowed book "${loan.bookTitle}" is overdue (Due Date: ${loan.dueDate}).\nLate fee accrued: $${loan.lateFee.toFixed(2)}.\n\nPlease return this book to Magoodhoo School Library as soon as possible.\n\nThank you.`);
 
                     return (
-                      <tr key={loan.id} className="hover:bg-slate-50 transition">
+                      <tr key={loan.id} className={`hover:bg-slate-50 transition ${selectedLoanIds.includes(loan.id) ? 'bg-rose-50/60' : ''}`}>
+                        <td className="p-3 w-10 text-center border-e border-slate-100">
+                          <input
+                            type="checkbox"
+                            checked={selectedLoanIds.includes(loan.id)}
+                            onChange={() => {
+                              setSelectedLoanIds(prev =>
+                                prev.includes(loan.id) ? prev.filter(x => x !== loan.id) : [...prev, loan.id]
+                              );
+                            }}
+                            className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="p-3">
                           <div className="font-extrabold text-slate-900">{loan.userName}</div>
                           <div className="text-[10px] text-slate-500">{borrower?.email || loan.userGrade}</div>
@@ -621,6 +861,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
         </div>
@@ -1398,6 +1639,137 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* TAB 6: SYSTEM AUDIT LOG */}
+      {activeTab === 'audit-logs' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-900 border border-amber-300 px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-1.5">
+                <Shield className="w-3.5 h-3.5 text-amber-600" />
+                {language === 'dv' ? 'ސެކިއުރިޓީ އަދި ސިސްޓަމް ޓްރެކިންގ' : 'Security & Compliance Ledger'}
+              </div>
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-indigo-600" />
+                {language === 'dv' ? 'ސިސްޓަމް އޮޑިޓް ލޮގް (Audit Trail)' : 'System Audit Logs & Operations Ledger'}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {language === 'dv'
+                  ? 'ކެޓަލޮގަށް އިތުރުކުރެވޭ ފޮތްތަކާއި، ގެންނަ ބަދަލުތަކާއި، ފޮތް ދޫކުރުމާއި، އަނބުރާ ބަލައިގަތުން އަދި ޖޫރިމަނާ މާފުކުރުމުގެ ހުރިހާ ރެކޯޑެއް.'
+                  : 'Tamper-evident logs of all book creations, edits, deletions, checkout issues, returns, renewals, and fine waiver overrides.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={fetchAuditLogs}
+                disabled={isLoadingAuditLogs}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-slate-300 cursor-pointer shadow-xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAuditLogs ? 'animate-spin' : ''}`} />
+                <span>{language === 'dv' ? 'އަލުން ގެނޭ' : 'Refresh Logs'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Action Filter Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+              {language === 'dv' ? 'ފިލްޓަރ:' : 'Filter:'}
+            </span>
+            {[
+              { id: 'ALL', label: language === 'dv' ? 'ހުރިހާ' : 'All Events' },
+              { id: 'BOOK_CREATED', label: language === 'dv' ? 'ފޮތް އެޅުން' : 'Book Created' },
+              { id: 'BOOK_UPDATED', label: language === 'dv' ? 'ފޮތް ބަދަލުކުރުން' : 'Book Updated' },
+              { id: 'BOOK_DELETED', label: language === 'dv' ? 'ފޮތް ފޮހެލުން' : 'Book Deleted' },
+              { id: 'LOAN_ISSUED', label: language === 'dv' ? 'ދޫކުރުން' : 'Loan Issued' },
+              { id: 'LOAN_RETURNED', label: language === 'dv' ? 'އަނބުރާ ބަލައިގަތުން' : 'Loan Returned' },
+              { id: 'LOAN_RENEWED', label: language === 'dv' ? 'އިތުރުކުރުން' : 'Loan Renewed' },
+              { id: 'FINE_WAIVED', label: language === 'dv' ? 'ޖޫރިމަނާ މާފު' : 'Fine Waived' },
+            ].map(pill => (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setAuditActionFilter(pill.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  auditActionFilter === pill.id
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Audit Logs Table */}
+          {isLoadingAuditLogs ? (
+            <div className="p-12 text-center text-slate-500 space-y-2">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-600" />
+              <p className="text-xs font-bold">Loading security audit records...</p>
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div className="p-10 text-center bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 font-medium">
+              No audit log records currently recorded in this session.
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[580px] border border-slate-200 rounded-2xl bg-white shadow-sm scrollbar-thin">
+              <table className="w-full text-start text-xs text-slate-700">
+                <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-md text-slate-700 font-extrabold uppercase text-[10px] border-b border-slate-200 shadow-xs">
+                  <tr>
+                    <th className="p-3 border-e border-slate-200">Timestamp</th>
+                    <th className="p-3 border-e border-slate-200">Action Type</th>
+                    <th className="p-3 border-e border-slate-200">Target Type & ID</th>
+                    <th className="p-3 border-e border-slate-200">Operation Details</th>
+                    <th className="p-3 text-end">Performed By</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLogs
+                    .filter(log => auditActionFilter === 'ALL' || log.action === auditActionFilter)
+                    .map((log: any) => {
+                      const getBadgeColor = (action: string) => {
+                        if (action === 'BOOK_CREATED') return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                        if (action === 'BOOK_UPDATED') return 'bg-sky-100 text-sky-900 border-sky-300';
+                        if (action === 'BOOK_DELETED') return 'bg-rose-100 text-rose-900 border-rose-300';
+                        if (action === 'LOAN_ISSUED') return 'bg-purple-100 text-purple-900 border-purple-300';
+                        if (action === 'LOAN_RETURNED') return 'bg-teal-100 text-teal-900 border-teal-300';
+                        if (action === 'LOAN_RENEWED') return 'bg-amber-100 text-amber-900 border-amber-300';
+                        if (action === 'FINE_WAIVED') return 'bg-indigo-100 text-indigo-900 border-indigo-300';
+                        return 'bg-slate-100 text-slate-800 border-slate-300';
+                      };
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50 transition">
+                          <td className="p-3 border-e border-slate-100 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                            <bdi>{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</bdi>
+                          </td>
+                          <td className="p-3 border-e border-slate-100">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${getBadgeColor(log.action)}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="p-3 border-e border-slate-100 font-mono text-[11px] font-bold text-slate-800">
+                            <span className="uppercase text-[9px] text-slate-400 block">{log.targetType}</span>
+                            <bdi>{log.targetId}</bdi>
+                          </td>
+                          <td className="p-3 border-e border-slate-100 text-slate-800 font-medium">
+                            {log.details}
+                          </td>
+                          <td className="p-3 text-end whitespace-nowrap">
+                            <div className="font-extrabold text-slate-900">{log.performedBy}</div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">{log.userRole}</div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

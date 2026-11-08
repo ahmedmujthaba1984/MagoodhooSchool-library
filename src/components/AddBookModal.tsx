@@ -359,12 +359,14 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4 max-sm:items-end max-sm:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleCloseModal();
       }}
     >
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 text-slate-800 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 text-slate-800 animate-in fade-in zoom-in-95 duration-200">
+        {/* Mobile Grab Handle */}
+        <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-full mx-auto -mt-2 mb-2 shrink-0"></div>
         
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b pb-4 border-slate-100">

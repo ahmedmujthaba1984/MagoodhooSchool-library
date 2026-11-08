@@ -3,6 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <script>
+      /* Suppress disabled HMR WebSocket in cloud proxy/iFrame per environment constraints */
+      (function() {
+        if (typeof window === 'undefined') return;
+        var OriginalWebSocket = window.WebSocket;
+        if (OriginalWebSocket) {
+          window.WebSocket = function(url, protocols) {
+            var isHmr = false;
+            if (protocols === 'vite-hmr' || (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1)) {
+              isHmr = true;
+            } else if (typeof url === 'string' && (url.indexOf('token=') !== -1 || url.indexOf('vite-hmr') !== -1)) {
+              isHmr = true;
+            }
+            if (isHmr) {
+              var listeners = {};
+              var mockSocket = {
+                readyState: 1,
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                url: url,
+                protocol: 'vite-hmr',
+                extensions: '',
+                bufferedAmount: 0,
+                binaryType: 'blob',
+                send: function() {},
+                close: function() {
+                  mockSocket.readyState = 3;
+                  var cbs = listeners['close'] || [];
+                  cbs.forEach(function(cb) {
+                    try { cb({ wasClean: true, code: 1000, reason: 'normal' }); } catch(err) {}
+                  });
+                },
+                addEventListener: function(event, cb) {
+                  if (!listeners[event]) listeners[event] = [];
+                  listeners[event].push(cb);
+                  if (event === 'open') {
+                    setTimeout(function() {
+                      try { cb(new Event('open')); } catch(err) {}
+                    }, 0);
+                  }
+                },
+                removeEventListener: function(event, cb) {
+                  if (listeners[event]) {
+                    listeners[event] = listeners[event].filter(function(fn) { return fn !== cb; });
+                  }
+                },
+                dispatchEvent: function() { return true; }
+              };
+              return mockSocket;
+            }
+            return new OriginalWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = OriginalWebSocket.prototype;
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
+        }
+
+        var isWsError = function(e) {
+          var msg = (e && (e.message || (e.reason && e.reason.message) || String(e.reason || e.error || e))) || '';
+          return msg.indexOf('WebSocket') !== -1 || msg.indexOf('websocket') !== -1;
+        };
+
+        window.addEventListener('error', function(event) {
+          if (isWsError(event)) {
+            if (event.preventDefault) event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            if (event.stopPropagation) event.stopPropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isWsError(event)) {
+            if (event.preventDefault) event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            if (event.stopPropagation) event.stopPropagation();
+          }
+        }, true);
+      })();
+    </script>
     <title>Magoodhoo School Library Portal — Digital Catalog & Circulation</title>
     <meta name="description" content="Magoodhoo School Digital Library Management System — Real-time book catalog, barcode scanner, circulation desk, student & parent directory, and study guides." />
     <meta property="og:title" content="Magoodhoo School Library Portal" />
