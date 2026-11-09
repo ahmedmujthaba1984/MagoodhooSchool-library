@@ -86,13 +86,17 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4 max-sm:items-end max-sm:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/15 max-h-[90vh] overflow-y-auto space-y-5 text-slate-100 animate-in fade-in zoom-in-95 duration-200">
-        
+      <div className="bg-slate-900/95 backdrop-blur-2xl rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl shadow-2xl max-w-lg w-full p-6 border border-white/15 max-h-[90vh] overflow-y-auto space-y-5 text-slate-100 animate-in fade-in zoom-in-95 duration-200 safe-bottom">
+        {/* Mobile Pull Handle */}
+        <div className="sm:hidden flex justify-center pb-2">
+          <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 border-white/10">
           <div className="flex items-center gap-3">

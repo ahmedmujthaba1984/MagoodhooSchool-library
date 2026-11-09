@@ -158,8 +158,12 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 max-sm:items-end max-sm:p-0 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-auto max-sm:my-0 animate-in fade-in zoom-in-95 duration-150 safe-bottom">
+        {/* Mobile Pull Handle */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1 bg-slate-900">
+          <div className="w-12 h-1.5 bg-slate-600 rounded-full" />
+        </div>
         
         {/* Modal Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between relative overflow-hidden">

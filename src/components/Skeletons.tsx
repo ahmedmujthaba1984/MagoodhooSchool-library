@@ -126,3 +126,20 @@ export const BorrowingHistoryTableSkeleton: React.FC<{ rows?: number }> = ({ row
     </div>
   );
 };
+
+export const CirculationSummaryCardSkeleton: React.FC<{ count?: number }> = ({ count = 4 }) => {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-200">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="p-5 bg-white border border-slate-200/90 rounded-3xl shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-24 rounded-lg shimmer-skeleton"></div>
+            <div className="w-10 h-10 rounded-2xl shimmer-skeleton"></div>
+          </div>
+          <div className="h-8 w-16 rounded-xl shimmer-skeleton"></div>
+          <div className="h-3 w-32 rounded-lg shimmer-skeleton"></div>
+        </div>
+      ))}
+    </div>
+  );
+};

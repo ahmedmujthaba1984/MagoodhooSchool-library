@@ -27,9 +27,12 @@
 
   :root {
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-thaana: 'Faruma', sans-serif;
-    --font-faruma: 'Faruma', sans-serif;
+    --font-thaana: 'Faruma', 'Noto Sans Thaana', sans-serif;
+    --font-faruma: 'Faruma', 'Noto Sans Thaana', sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --thaana-line-height: 1.85;
+    --thaana-fili-pad-top: 0.35rem;
+    --thaana-fili-pad-bottom: 0.35rem;
   }
 
   html {
@@ -55,17 +58,18 @@
   body[dir="rtl"],
   html.rtl-mode,
   .rtl-mode {
-    font-family: 'Faruma', sans-serif !important;
+    font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
     letter-spacing: 0;
-    line-height: 1.8;
+    line-height: var(--thaana-line-height);
     text-align: right;
   }
 
+  /* Prevent top/bottom clipping of Dhivehi diacritics (fili) on inline & block elements */
   [dir="rtl"] p,
-  [dir="rtl"] span:not(.font-mono):not(bdi),
+  [dir="rtl"] span:not(.font-mono):not(bdi):not(.bdi-isolate):not(.bdi-isolated),
   [dir="rtl"] label,
-  [dir="rtl"] td:not(.font-mono):not(bdi),
+  [dir="rtl"] td:not(.font-mono):not(bdi):not(.bdi-isolate):not(.bdi-isolated),
   [dir="rtl"] th,
   [dir="rtl"] button:not(.font-mono),
   [dir="rtl"] input:not(.font-mono):not(bdi),
@@ -77,9 +81,11 @@
   .font-faruma,
   .thaana-text,
   .thaana-body {
-    font-family: 'Faruma', sans-serif !important;
+    font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
-    line-height: 1.8;
+    line-height: var(--thaana-line-height);
+    padding-top: max(0px, 0.08em);
+    padding-bottom: max(0px, 0.08em);
   }
 
   [dir="rtl"] h1,
@@ -89,13 +95,16 @@
   [dir="rtl"] h5,
   [dir="rtl"] h6,
   .thaana-heading {
-    font-family: 'Faruma', sans-serif !important;
+    font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
-    line-height: 1.6;
+    line-height: 1.65;
+    padding-top: 0.15em;
+    padding-bottom: 0.15em;
   }
 
   /* Mixed-language codes, call numbers, barcodes, dates, and numbers stay isolated */
   bdi,
+  .bdi-isolate,
   .bdi-isolated,
   [dir="rtl"] .font-mono,
   [dir="rtl"] code,
@@ -110,7 +119,8 @@
 
   /* Automatically mirror navigation arrows, back buttons, and chevrons in RTL mode */
   [dir="rtl"] .rtl-mirror,
-  [dir="rtl"] .rtl-flip {
+  [dir="rtl"] .rtl-flip,
+  [dir="rtl"] .chevron-mirror {
     transform: scaleX(-1);
     display: inline-block;
   }
