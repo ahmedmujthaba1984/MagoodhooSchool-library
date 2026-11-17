@@ -5,10 +5,12 @@
   "description": "Magoodhoo School Digital Library Management, Barcode Circulation & Online Catalog Portal.",
   "start_url": "/",
   "scope": "/",
+  "dir": "auto",
+  "lang": "en",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#047857",
-  "background_color": "#0f172a",
+  "background_color": "#f1f5f9",
   "categories": ["education", "books", "utilities"],
   "icons": [
     {

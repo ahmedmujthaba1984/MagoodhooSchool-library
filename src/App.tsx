@@ -13,15 +13,23 @@ import {
   createLoan,
   updateLoan,
   createReservation,
-  updateReservation,
   cancelReservation,
   updateSettings,
-  saveUserProfile,
   createUserProfile,
   updateUserProfile,
-  deleteUserProfile
+  deleteUserProfile,
+  subscribeAcquisitions,
+  createAcquisitionRequest,
+  updateAcquisitionRequest,
+  deleteAcquisitionRequest,
+  subscribeAuditLogs,
+  appendAuditLog,
+  restoreSnapshotToFirestore
 } from './lib/firebase';
-import { Book, UserProfile, Loan, Reservation, LibrarySettings } from './types';
+import {
+  AccessRole, AuditActionType, AuditLogEntry, Book, UserProfile, Loan, Reservation, LibrarySettings,
+  PersonalItem, LedgerTransaction, AcquisitionRequest, LibrarySnapshotArchive
+} from './types';
 import { BookCatalog } from './components/BookCatalog';
 import { ReferenceSection } from './components/ReferenceSection';
 import { ParentDashboard } from './components/ParentDashboard';
@@ -40,120 +48,253 @@ import { LoginPage } from './components/LoginPage';
 import { ImportModal } from './components/ImportModal';
 import { AIAssistant } from './components/AIAssistant';
 import { ReportCardSyncModal } from './components/ReportCardSyncModal';
+import { CommandPalette } from './components/CommandPalette';
+import { PersonalLibrary } from './components/PersonalLibrary';
+import { SmartAICatalogerModal } from './components/SmartAICatalogerModal';
+import { InventoryAuditView } from './components/InventoryAuditView';
+import { ReadingEngagementView } from './components/ReadingEngagementView';
+import { AcquisitionsBoardView } from './components/AcquisitionsBoardView';
+import { PatronSuggestionModal } from './components/PatronSuggestionModal';
+import { SecurityBackupSuiteView } from './components/SecurityBackupSuiteView';
+import { convertAcquisitionToCatalogBook } from './lib/acquisitions';
+import { evaluateBadgesOnReturn } from './lib/readingEngagement';
+import { createImmutableAuditEntry } from './lib/auditLogger';
+import {
+  createSnapshotArchive,
+  serializeSnapshotArchive,
+  triggerSnapshotFileDownload
+} from './lib/backupRestore';
+import { usePermission } from './hooks/usePermission';
 import { portalSyncManager } from './lib/externalPortalSync';
 import { useLanguage } from './lib/i18n';
 import { useToast } from './lib/toast';
 import { offlineQueue } from './lib/offlineQueue';
+import { offlineDb } from './lib/offlineDb';
+import { offlineSyncEngine, OutboxSyncState } from './lib/offlineSyncEngine';
+import { buildNormalizedSnapshot } from './schema/librarySchema';
 import { useOnlineStatus } from './lib/usePWAInstall';
-import { calculateSchoolDueDate } from './lib/schoolCalendar';
-import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './data/seedData';
+import { calculateSchoolDueDate, DEFAULT_MALDIVES_SCHOOL_HOLIDAYS } from './lib/schoolCalendar';
+import {
+  sampleBooks, sampleUsers, sampleLoans, sampleReservations,
+  initialSettings, samplePersonalItems, sampleLedgerTransactions, sampleAcquisitionRequests,
+  sampleAuditLogs
+} from './data/seedData';
 import {
   LayoutDashboard,
   BookOpen,
-  PlusCircle,
   BookMarked,
   RotateCcw,
   Users,
-  UserCheck,
   ClipboardList,
-  AlertTriangle,
-  BarChart3,
   HelpCircle,
   LogIn,
   UserPlus,
-  Library,
+  Bookmark,
   MapPin,
   Phone,
   Mail,
-  Facebook,
-  Twitter,
-  Instagram,
-  Menu,
   X,
   Shield,
   Scan,
   User,
   LogOut,
-  Sparkles
+  Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ClipboardCheck,
+  Award,
+  ShoppingBag,
+  ShieldCheck
 } from 'lucide-react';
 
 const GUEST_USER: UserProfile = {
   id: 'guest',
   name: 'Guest Visitor',
-  email: 'guest@oakridge.edu.mv',
+  email: 'guest@magoodhooschool.edu.mv',
   role: 'student',
+  patronTier: 'external',
   createdAt: new Date().toISOString().split('T')[0]
 };
+
+const PERSONAL_STORAGE_KEY = 'magoodhoo_personal_library';
 
 export default function App() {
   const { t, language, isRtl } = useLanguage();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+
   const [books, setBooks] = useState<Book[]>(sampleBooks);
   const [users, setUsers] = useState<UserProfile[]>(sampleUsers);
   const [loans, setLoans] = useState<Loan[]>(sampleLoans);
   const [reservations, setReservations] = useState<Reservation[]>(sampleReservations);
   const [settings, setSettings] = useState<LibrarySettings>(initialSettings);
+  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>(sampleLedgerTransactions);
+  const [acquisitions, setAcquisitions] = useState<AcquisitionRequest[]>(sampleAcquisitionRequests);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(sampleAuditLogs);
 
-  // Automatic Offline Queue Synchronization when device comes back online
+  const [personalItems, setPersonalItems] = useState<PersonalItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(PERSONAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return samplePersonalItems;
+  });
+
   useEffect(() => {
-    const handleOnline = async () => {
-      const queue = offlineQueue.getQueue();
-      if (queue.length > 0) {
-        toast.info(
-          language === 'dv'
-            ? `އިންޓަރނެޓް ގުޅިއްޖެ! ކިއު ކުރެވިފައިވާ ${queue.length} ރިޒަވޭޝަން ސިންކް ވަނީ...`
-            : `Connection online: Syncing ${queue.length} offline queued reservation(s)...`,
-          'PWA Offline Sync'
-        );
-        try {
-          const res = await fetch('/api/reservations/queue', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ queue })
-          });
-          if (res.ok) {
-            offlineQueue.clear();
-            toast.success(
-              language === 'dv'
-                ? `ކިއުގައި ހުރި ރިޒަވޭޝަންތައް ކާމިޔާބުކަމާއެކު ސިންކް ވެއްޖެ!`
-                : `Successfully synchronized all offline queued reservations!`,
-              'PWA Live Sync'
-            );
-          }
-        } catch (err) {
-          console.warn('Batch sync fallback note:', err);
+    try {
+      localStorage.setItem(PERSONAL_STORAGE_KEY, JSON.stringify(personalItems));
+    } catch {}
+    offlineDb.savePersonalItems(personalItems).catch(() => {});
+  }, [personalItems]);
+
+  // Hydrate catalog & personal shelf from IndexedDB for instant offline availability
+  useEffect(() => {
+    let active = true;
+    offlineDb.getCatalogBooks().then((cachedBooks) => {
+      if (active && cachedBooks && cachedBooks.length > 0) {
+        setBooks((prev) => (prev === sampleBooks ? cachedBooks : prev));
+      }
+    }).catch(() => {});
+    offlineDb.getPersonalItems().then((cachedPersonal) => {
+      if (active && cachedPersonal && cachedPersonal.length > 0) {
+        setPersonalItems((prev) => (prev === samplePersonalItems ? cachedPersonal : prev));
+      }
+    }).catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (books.length > 0) {
+      offlineDb.saveCatalogBooks(books).catch(() => {});
+    }
+    const snapshot = buildNormalizedSnapshot({
+      books,
+      personalItems,
+      users,
+      loans,
+      reservations,
+      ledgerTransactions,
+      settings,
+    });
+    offlineDb.syncNormalizedSnapshot(snapshot).catch(() => {});
+  }, [books, personalItems, users, loans, reservations, ledgerTransactions, settings]);
+
+  // Fetch initial MVR Ledger records from backend
+  useEffect(() => {
+    fetch('/api/ledger')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data?.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
+          setLedgerTransactions(data.transactions);
         }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Global Cmd/Ctrl + K Command Palette shortcut
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
       }
     };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
+  // Subscribe to IndexedDB Outbox Sync Engine & flush on reconnect
+  const [syncState, setSyncState] = useState<OutboxSyncState>(() => offlineSyncEngine.getState());
+  useEffect(() => {
+    const unsub = offlineSyncEngine.subscribe(setSyncState);
+    return unsub;
+  }, []);
+
+  const runOutboxSync = async () => {
+    const result = await offlineSyncEngine.flushOutbox({
+      onConflictDetected: (conflict) => {
+        toast.warning(conflict.server_reason, 'Sync Conflict Resolved');
+      },
+    });
+
+    if (result.syncedCount > 0) {
+      toast.success(
+        language === 'dv'
+          ? `އޮފްލައިން ކިއުގައި ހުރި ${result.syncedCount} މުޢާމަލާތް ސިންކް ވެއްޖެ!`
+          : `Synchronized ${result.syncedCount} queued offline operation(s)!`,
+        'PWA Outbox Sync'
+      );
+    }
+
+    const legacyQueue = offlineQueue.getQueue();
+    if (legacyQueue.length > 0) {
+      try {
+        const res = await fetch('/api/reservations/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: legacyQueue })
+        });
+        if (res.ok) {
+          offlineQueue.clear();
+        }
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      await runOutboxSync();
+    };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, [toast, language]);
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(sampleUsers[0]);
+  const {
+    can,
+    accessRole,
+    cannotReason,
+    isSuperAdmin,
+    isDeskAssistant,
+    isTeacher,
+  } = usePermission(currentUser);
   const [activeTab, setActiveTab] = useState<string>('catalog');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
-  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  // Pre-selected checkout targets from Catalog / Member Directory
+  const [preselectedCheckoutBook, setPreselectedCheckoutBook] = useState<Book | null>(null);
+  const [preselectedMemberCode, setPreselectedMemberCode] = useState<string | null>(null);
+
   // Modals
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+  const [scannerCallback, setScannerCallback] = useState<((code: string) => void) | null>(null);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState<boolean>(false);
+  const [isSmartCatalogerOpen, setIsSmartCatalogerOpen] = useState<boolean>(false);
+  const [smartCatalogerMode, setSmartCatalogerMode] = useState<'catalog' | 'personal'>('catalog');
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [isReportCardSyncModalOpen, setIsReportCardSyncModalOpen] = useState<boolean>(false);
   const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
+  const [isSuggestBookModalOpen, setIsSuggestBookModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isQuotaExhausted, setIsQuotaExhausted] = useState<boolean>(false);
 
-  // Initialize and subscribe to Firestore & External Report Card Portal Sync
   useEffect(() => {
     let unsubscribeBooks: () => void;
     let unsubscribeUsers: () => void;
     let unsubscribeLoans: () => void;
     let unsubscribeRes: () => void;
     let unsubscribeSet: () => void;
+    let unsubscribeAcq: () => void;
+    let unsubscribeAudit: () => void;
 
-    // Listen to Quota Exhaustion state across the app
     const unsubscribeQuota = subscribeQuotaStatus((exhausted) => {
       setIsQuotaExhausted(exhausted);
     });
@@ -162,55 +303,61 @@ export default function App() {
       try {
         await initializeDatabaseIfEmpty();
       } catch (err) {
-        console.warn("Database initialization skipped or running offline:", err);
+        console.warn('Database initialization skipped or running offline:', err);
       }
 
-      // Start Real-Time Live Cloud Firestore Sync from Report Card Portal (https://reportcard-fmagoodhooschool.vercel.app/)
       try {
         portalSyncManager.startRealtimeSync();
       } catch (e) {
-        console.warn("Report Card Live Sync init note:", e);
+        console.warn('Report Card Live Sync init note:', e);
       }
 
       unsubscribeBooks = subscribeBooks(
         (data) => {
-          if (data && data.length > 0) {
-            setBooks(data);
-          }
+          if (data && data.length > 0) setBooks(data);
           setIsLoading(false);
         },
-        (err) => {
-          console.warn("Books subscription notice:", err);
-          setIsLoading(false);
-        }
+        () => setIsLoading(false)
       );
 
       unsubscribeUsers = subscribeUsers(
         (data) => {
-          if (data && data.length > 0) {
-            setUsers(data);
-          }
+          if (data && data.length > 0) setUsers(data);
         },
-        (err) => console.warn("Users subscription notice:", err)
+        () => {}
       );
 
       unsubscribeLoans = subscribeLoans(
         (data) => {
           if (data && data.length > 0) setLoans(data);
         },
-        (err) => console.warn("Loans subscription notice:", err)
+        () => {}
       );
 
       unsubscribeRes = subscribeReservations(
         (data) => {
           if (data && data.length > 0) setReservations(data);
         },
-        (err) => console.warn("Reservations subscription notice:", err)
+        () => {}
       );
 
       unsubscribeSet = subscribeSettings(
         (data) => setSettings(data),
-        (err) => console.warn("Settings subscription notice:", err)
+        () => {}
+      );
+
+      unsubscribeAcq = subscribeAcquisitions(
+        (data) => {
+          if (data && data.length > 0) setAcquisitions(data);
+        },
+        () => {}
+      );
+
+      unsubscribeAudit = subscribeAuditLogs(
+        (data) => {
+          if (data && data.length > 0) setAuditLogs(data);
+        },
+        () => {}
       );
     }
 
@@ -222,35 +369,91 @@ export default function App() {
       if (unsubscribeLoans) unsubscribeLoans();
       if (unsubscribeRes) unsubscribeRes();
       if (unsubscribeSet) unsubscribeSet();
+      if (unsubscribeAcq) unsubscribeAcq();
+      if (unsubscribeAudit) unsubscribeAudit();
       if (unsubscribeQuota) unsubscribeQuota();
       portalSyncManager.stopRealtimeSync();
     };
   }, []);
 
-  // Sync selected user profile when users state updates
   useEffect(() => {
     const updated = users.find(u => u.id === currentUser.id);
-    if (updated) {
-      setCurrentUser(updated);
-    }
+    if (updated) setCurrentUser(updated);
   }, [users]);
 
-  // Auto-open Add Book Modal when 'add-book' tab is selected from sidebar
   useEffect(() => {
-    if (activeTab === 'add-book') {
-      setIsAddBookModalOpen(true);
-    }
+    if (activeTab === 'add-book') setIsAddBookModalOpen(true);
   }, [activeTab]);
 
-  // Handle Online Book Reservation with Optimistic Update and Offline Queue
-  const handleReserveBook = async (book: Book) => {
+  const recordAuditEvent = async (params: {
+    action: AuditActionType;
+    targetType: AuditLogEntry['targetType'];
+    targetId: string;
+    details: string;
+  }) => {
+    const entry = createImmutableAuditEntry({
+      ...params,
+      actor: currentUser,
+    });
+    setAuditLogs(prev => [entry, ...prev]);
+    try {
+      await appendAuditLog(entry);
+    } catch {}
+    try {
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser.role || 'admin',
+          'x-access-role': accessRole,
+          'x-user-id': currentUser.name,
+        },
+        body: JSON.stringify(entry),
+      });
+    } catch {}
+  };
+
+  // Ledger helper
+  const handleRecordLedgerTransaction = async (txInput: Omit<LedgerTransaction, 'id'>) => {
+    const optimisticTx: LedgerTransaction = {
+      id: `ledg-${Date.now()}`,
+      ...txInput
+    };
+    setLedgerTransactions(prev => [optimisticTx, ...prev]);
+
+    try {
+      const res = await fetch('/api/ledger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser.role || 'admin',
+          'x-access-role': accessRole,
+        },
+        body: JSON.stringify(txInput)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.transaction) {
+          setLedgerTransactions(prev => prev.map(x => (x.id === optimisticTx.id ? data.transaction : x)));
+        }
+      }
+    } catch (err) {
+      console.warn('Ledger persisted locally:', err);
+    }
+
+    toast.success(`Recorded MVR ${txInput.amountMvr.toFixed(2)} (${txInput.type.replace('_', ' ')}) for ${txInput.userName}.`, 'Financial Ledger');
+  };
+
+  // Online Book Reservation (supports Kiosk patronOverride)
+  const handleReserveBook = async (book: Book, patronOverride?: UserProfile) => {
+    const actingUser = patronOverride || currentUser;
     const tempId = `res-${Date.now()}`;
     const newRes: Reservation = {
       id: tempId,
       bookId: book.id,
       bookTitle: book.title,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: actingUser.id,
+      userName: actingUser.name,
       requestDate: new Date().toISOString().split('T')[0],
       status: 'pending'
     };
@@ -258,20 +461,33 @@ export default function App() {
     setReservations(prev => [newRes, ...prev]);
 
     if (!navigator.onLine) {
+      await offlineSyncEngine.enqueueOperation({
+        action: 'reserve',
+        endpoint: '/api/reservations',
+        payload: {
+          id: tempId,
+          bookId: book.id,
+          bookTitle: book.title,
+          userId: actingUser.id,
+          userName: actingUser.name,
+          userGrade: actingUser.grade,
+          requestDate: newRes.requestDate,
+        },
+      });
       offlineQueue.enqueue({
         id: tempId,
         bookId: book.id,
         bookTitle: book.title,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userGrade: currentUser.grade,
+        userId: actingUser.id,
+        userName: actingUser.name,
+        userGrade: actingUser.grade,
         requestDate: newRes.requestDate
       });
       toast.info(
         language === 'dv'
           ? `އިންޓަރނެޓް ނެތުމުން ނަންނޯޓު ކިއު ކުރެވިއްޖެ! އަލުން ގުޅުމުން ސިންކް ވާނެ.`
-          : `Offline Mode: Reservation queued! It will automatically sync once connection restores.`,
-        'Offline Queue'
+          : `Offline Mode: Reservation queued in IndexedDB! It will sync automatically once connected.`,
+        'Offline Outbox'
       );
       return;
     }
@@ -286,94 +502,156 @@ export default function App() {
         status: newRes.status
       });
     } catch (err) {
-      console.warn("Reservation saved to local session (offline cache):", err);
+      console.warn('Reservation cached locally:', err);
     }
 
     toast.success(
       language === 'dv'
         ? `"${book.title}" އަށް އޮންލައިންކޮށް ނަންނޯޓު ކުރެވިއްޖެ!`
-        : `Successfully placed online reservation request for "${book.title}"!`,
+        : `Hold placed for "${book.title}" under ${actingUser.name}.`,
       'Reservation Confirmed'
     );
   };
 
-  // Handle Online Book Reservation Cancellation with Optimistic Update
   const handleCancelReservation = async (reservationId: string) => {
     setReservations(prev => prev.filter(r => r.id !== reservationId));
     try {
       await cancelReservation(reservationId);
-    } catch (err) {
-      console.warn("Reservation cancelled locally:", err);
-    }
-    toast.info(
-      language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރެވިއްޖެ.' : 'Reservation cancelled successfully.',
-      'Hold Released'
-    );
+    } catch {}
+    toast.info(language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރެވިއްޖެ.' : 'Reservation cancelled.', 'Hold Released');
   };
 
-  // Handle Librarian Checkout Process with Optimistic Update & Student Limits Validation
+  // Checkout with copy-level BookCopy tracking
   const handleProcessCheckout = async (
     book: Book,
     borrower: UserProfile,
     daysToBorrow: number,
-    guardianName?: string,
-    guardianPhone?: string,
-    guardianNotes?: string
+    copyBarcode?: string
   ) => {
     if (book.availableCopies <= 0) {
-      toast.error(`No copies of "${book.title}" are currently available in stock.`, 'Out of Stock');
+      toast.error(`No copies of "${book.title}" are currently available.`, 'Out of Stock');
       return;
     }
 
-    if (book.isReferenceOnly) {
-      toast.error(`"${book.title}" is a Reference-Only volume and cannot be taken outside the library.`, 'Reference Only');
+    const resolvedTier =
+      borrower.patronTier ||
+      (borrower.role === 'staff' ? 'teacher' : borrower.role === 'admin' ? 'staff' : 'student');
+    const tierPolicy = settings.patronTierRules?.[resolvedTier];
+    const canBorrowRef = tierPolicy ? (tierPolicy.allowReferenceCheckout ?? borrower.role !== 'student') : borrower.role !== 'student';
+
+    if (book.isReferenceOnly && !canBorrowRef) {
+      toast.error(`"${book.title}" is Reference-Only and cannot leave the library for ${resolvedTier} patrons.`, 'Reference Only');
       return;
     }
 
-    // Validate Student Borrowing Limits
-    const activeBorrowerLoans = loans.filter(l => l.userId === borrower.id && l.status === 'active');
-    const maxAllowed = borrower.role === 'staff' || borrower.role === 'admin'
-      ? (settings.maxBooksPerStaff || 7)
-      : (settings.maxBooksPerStudent || 3);
+    const activeBorrowerLoans = loans.filter(l => l.userId === borrower.id && (l.status === 'active' || l.status === 'overdue'));
+    const maxAllowed =
+      tierPolicy?.maxBooks ??
+      (borrower.role === 'staff' || borrower.role === 'admin'
+        ? settings.maxBooksPerStaff || 7
+        : settings.maxBooksPerStudent || 3);
 
     if (activeBorrowerLoans.length >= maxAllowed) {
       toast.error(
         language === 'dv'
-          ? `ދަރިވަރަށް މިހާރު އިތުރު ފޮތެއް ނުނެގޭނެ (${maxAllowed} ފޮތް ހަމަވެއްޖެ). އަނބުރާ ރައްދުކުރެއްވުމަށްފަހު އަލުން ނަންގަވާ.`
-          : `Borrowing limit reached: ${borrower.name} already has ${activeBorrowerLoans.length} active books (Max: ${maxAllowed}). Return a book to borrow another.`,
+          ? `ދަރިވަރަށް އިތުރު ފޮތެއް ނުނެގޭނެ (${maxAllowed} ފޮތް ހަމަވެއްޖެ).`
+          : `Borrowing limit reached (${resolvedTier}): ${borrower.name} has ${activeBorrowerLoans.length}/${maxAllowed} active books.`,
         'Loan Limit Exceeded'
       );
       return;
     }
 
+    const unpaidBalance = loans
+      .filter(l => l.userId === borrower.id && !l.feePaid && (l.lateFee || 0) > 0)
+      .reduce((sum, l) => sum + Math.max(0, (l.lateFee || 0) - (l.amountPaid || 0)), 0);
+
+    if (settings.blockBorrowingFineThreshold && unpaidBalance >= settings.blockBorrowingFineThreshold) {
+      toast.error(
+        `Checkout blocked: ${borrower.name} has MVR ${unpaidBalance.toFixed(2)} unpaid fines (Limit: MVR ${settings.blockBorrowingFineThreshold.toFixed(2)}).`,
+        'Account Fine Block'
+      );
+      return;
+    }
+
+    const activeHolidays = (settings.holidayGraceDays ?? true)
+      ? (settings.schoolHolidays ?? DEFAULT_MALDIVES_SCHOOL_HOLIDAYS)
+      : [];
     const issueDateObj = new Date();
     const issueDateStr = issueDateObj.toISOString().split('T')[0];
-    const dueDateStr = calculateSchoolDueDate(issueDateObj, daysToBorrow);
-
+    const dueDateStr = calculateSchoolDueDate(issueDateObj, daysToBorrow, activeHolidays);
     const tempLoanId = `loan-${Date.now()}`;
+
+    const assignedCopy =
+      book.copies?.find(c => c.barcode === copyBarcode && c.status === 'Available') ||
+      book.copies?.find(c => c.status === 'Available');
+
     const newLoan: Loan = {
       id: tempLoanId,
       bookId: book.id,
+      copyBarcode: assignedCopy?.barcode || copyBarcode || book.barcode,
       bookTitle: book.title,
       bookIsbn: book.isbn,
       userId: borrower.id,
       userName: borrower.name,
-      userGrade: borrower.grade || 'Student Member',
+      userGrade: borrower.grade || 'Member',
       issueDate: issueDateStr,
       dueDate: dueDateStr,
+      issuedAtTimestamp: issueDateObj.toISOString(),
       status: 'active',
       renewalCount: 0,
       lateFee: 0,
-      feePaid: true
+      feePaid: true,
+      processedBy: currentUser.name
     };
 
-    // Optimistically update local states
+    const updatedCopies = book.copies?.map(c =>
+      assignedCopy && c.copyId === assignedCopy.copyId
+        ? { ...c, status: 'Checked Out' as const, currentLoanId: tempLoanId }
+        : c
+    );
+
     setLoans(prev => [newLoan, ...prev]);
-    setBooks(prev => prev.map(b => b.id === book.id ? { ...b, availableCopies: Math.max(0, b.availableCopies - 1) } : b));
+    setBooks(prev =>
+      prev.map(b =>
+        b.id === book.id
+          ? {
+              ...b,
+              availableCopies: Math.max(0, b.availableCopies - 1),
+              copies: updatedCopies || b.copies
+            }
+          : b
+      )
+    );
+
+    if (!navigator.onLine) {
+      await offlineSyncEngine.enqueueOperation({
+        action: 'checkout',
+        endpoint: '/api/circulation/issue',
+        payload: {
+          localLoanId: tempLoanId,
+          bookId: book.id,
+          userId: borrower.id,
+          userName: borrower.name,
+          daysToBorrow,
+          dueDate: dueDateStr,
+          librarianId: currentUser.name,
+          copyBarcode: assignedCopy?.barcode || copyBarcode,
+          userRole: currentUser.role || 'admin',
+        },
+      });
+      toast.info(
+        language === 'dv'
+          ? `އޮފްލައިން މޯޑް: "${book.title}" ދޫކުރުން އައުޓްބޮކްސްގައި ރައްކާކުރެވިއްޖެ!`
+          : `Offline Mode: Checked out "${book.title}" locally. Queued in IndexedDB Outbox for auto-sync.`,
+        'Offline Circulation'
+      );
+      return;
+    }
 
     try {
       await createLoan({
         bookId: newLoan.bookId,
+        copyBarcode: newLoan.copyBarcode,
         bookTitle: newLoan.bookTitle,
         bookIsbn: newLoan.bookIsbn,
         userId: newLoan.userId,
@@ -381,83 +659,192 @@ export default function App() {
         userGrade: newLoan.userGrade,
         issueDate: newLoan.issueDate,
         dueDate: newLoan.dueDate,
+        issuedAtTimestamp: newLoan.issuedAtTimestamp,
         status: newLoan.status,
         renewalCount: newLoan.renewalCount,
         lateFee: newLoan.lateFee,
         feePaid: newLoan.feePaid
       });
       await updateBook(book.id, {
-        availableCopies: Math.max(0, book.availableCopies - 1)
+        availableCopies: Math.max(0, book.availableCopies - 1),
+        ...(updatedCopies ? { copies: updatedCopies } : {})
       });
-    } catch (err) {
-      console.warn("Checkout persisted in local cache (offline mode):", err);
-    }
+    } catch {}
 
     toast.success(
       language === 'dv'
-        ? `"${book.title}" ކާމިޔާބުކަމާއެކު ދޫކުރެވިއްޖެ! އަނބުރާ ގެންނަންޖެހޭ ތާރީޚް: ${dueDateStr}`
-        : `Successfully checked out "${book.title}" to ${borrower.name}! Due on ${dueDateStr}.`,
+        ? `"${book.title}" ދޫކުރެވިއްޖެ! އަނބުރާ ގެންނަންޖެހޭ ތާރީޚް: ${dueDateStr}`
+        : `Checked out "${book.title}" to ${borrower.name}. Due ${dueDateStr}.`,
       'Book Issued'
     );
+
+    void recordAuditEvent({
+      action: 'LOAN_ISSUED',
+      targetType: 'loan',
+      targetId: newLoan.id,
+      details: `Issued "${book.title}" (${newLoan.copyBarcode || 'N/A'}) to ${borrower.name}. Due ${dueDateStr}.`,
+    });
   };
 
-  // Handle Process Return with Optimistic Update
+  // Return with copy restoration, hold-queue alert & automated reading badge evaluation
   const handleProcessReturn = async (loan: Loan, calculatedFee: number) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const nowDate = new Date();
+    const todayStr = nowDate.toISOString().split('T')[0];
+    const returnedAtTimestamp = nowDate.toISOString();
 
-    // Optimistically update loan and book in local state
-    setLoans(prev => prev.map(l => l.id === loan.id ? {
-      ...l,
+    const completedLoan: Loan = {
+      ...loan,
       returnDate: todayStr,
+      returnedAtTimestamp,
       status: 'returned',
       lateFee: calculatedFee,
       feePaid: calculatedFee === 0
-    } : l));
+    };
 
-    setBooks(prev => prev.map(b => b.id === loan.bookId ? {
-      ...b,
-      availableCopies: Math.min(b.totalCopies, b.availableCopies + 1)
-    } : b));
+    const nextLoansList = loans.map(l => (l.id === loan.id ? completedLoan : l));
+    setLoans(nextLoansList);
 
-    try {
-      await updateLoan(loan.id, {
-        returnDate: todayStr,
-        status: 'returned',
-        lateFee: calculatedFee,
-        feePaid: calculatedFee === 0
+    const targetBook = books.find(b => b.id === loan.bookId);
+    const updatedCopies = targetBook?.copies?.map(c =>
+      (loan.copyBarcode && c.barcode === loan.copyBarcode) || c.currentLoanId === loan.id
+        ? { ...c, status: 'Available' as const, currentLoanId: undefined }
+        : c
+    );
+
+    setBooks(prev =>
+      prev.map(b =>
+        b.id === loan.bookId
+          ? {
+              ...b,
+              availableCopies: Math.min(b.totalCopies, b.availableCopies + 1),
+              copies: updatedCopies || b.copies
+            }
+          : b
+      )
+    );
+
+    if (calculatedFee > 0) {
+      await handleRecordLedgerTransaction({
+        loanId: loan.id,
+        userId: loan.userId,
+        userName: loan.userName,
+        bookTitle: loan.bookTitle,
+        type: 'fine_accrual',
+        amountMvr: calculatedFee,
+        date: todayStr,
+        notes: 'Overdue fine accrued on check-in',
+        processedBy: currentUser.name
       });
-
-      const targetBook = books.find(b => b.id === loan.bookId);
-      if (targetBook) {
-        await updateBook(targetBook.id, {
-          availableCopies: Math.min(targetBook.totalCopies, targetBook.availableCopies + 1)
-        });
-      }
-    } catch (err) {
-      console.warn("Return persisted in local cache:", err);
     }
 
-    toast.success(
-      calculatedFee > 0
-        ? `Book "${loan.bookTitle}" returned. Late fee calculated: $${calculatedFee.toFixed(2)}.`
-        : `Book "${loan.bookTitle}" returned on time. Thank you!`,
-      'Return Processed'
-    );
+    if (!navigator.onLine) {
+      await offlineSyncEngine.enqueueOperation({
+        action: 'checkin',
+        endpoint: '/api/circulation/return',
+        payload: {
+          loanId: loan.id,
+          bookBarcodeOrId: loan.copyBarcode || loan.bookIsbn || loan.bookId,
+          copyBarcode: loan.copyBarcode,
+          calculatedFee,
+          userRole: currentUser.role || 'admin',
+        },
+      });
+    } else {
+      try {
+        await updateLoan(loan.id, {
+          returnDate: todayStr,
+          returnedAtTimestamp,
+          status: 'returned',
+          lateFee: calculatedFee,
+          feePaid: calculatedFee === 0
+        });
+        if (targetBook) {
+          await updateBook(targetBook.id, {
+            availableCopies: Math.min(targetBook.totalCopies, targetBook.availableCopies + 1),
+            ...(updatedCopies ? { copies: updatedCopies } : {})
+          });
+        }
+      } catch {}
+    }
+
+    // Automated reading milestone & badge evaluation (duration-verified)
+    const borrowerProfile = users.find(u => u.id === loan.userId);
+    if (borrowerProfile) {
+      const outcome = evaluateBadgesOnReturn({
+        student: borrowerProfile,
+        existingLoans: nextLoansList,
+        returnedLoan: completedLoan,
+        books,
+      });
+
+      if (outcome.verifiedCredit) {
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === borrowerProfile.id
+              ? {
+                  ...u,
+                  booksCompletedCount: Math.max(u.booksCompletedCount || 0, outcome.totalVerifiedBooks),
+                  earnedBadgeIds: outcome.allEarnedBadgeIds,
+                }
+              : u
+          )
+        );
+        if (navigator.onLine) {
+          try {
+            await updateUserProfile(borrowerProfile.id, {
+              booksCompletedCount: Math.max(borrowerProfile.booksCompletedCount || 0, outcome.totalVerifiedBooks),
+              earnedBadgeIds: outcome.allEarnedBadgeIds,
+            });
+          } catch {}
+        }
+
+        if (outcome.newlyUnlockedBadges.length > 0) {
+          const badgeNames = outcome.newlyUnlockedBadges
+            .map(b => (language === 'dv' ? b.titleDv : b.titleEn))
+            .join(', ');
+          toast.success(
+            `${borrowerProfile.name} unlocked new reading badge(s): ${badgeNames}!`,
+            'Badge Unlocked'
+          );
+        }
+      }
+    }
+
+    const nextHold = reservations.find(r => r.bookId === loan.bookId && r.status === 'pending');
+    if (nextHold) {
+      toast.warning(
+        `HOLD QUEUE: Place "${loan.bookTitle}" on the Reserve Hold Shelf for ${nextHold.userName}!`,
+        'Pending Reservation'
+      );
+    } else {
+      toast.success(
+        calculatedFee > 0
+          ? `Book "${loan.bookTitle}" returned. Overdue fine: MVR ${calculatedFee.toFixed(2)}.`
+          : `Book "${loan.bookTitle}" returned on time.`,
+        'Return Processed'
+      );
+    }
+
+    void recordAuditEvent({
+      action: 'LOAN_RETURNED',
+      targetType: 'loan',
+      targetId: loan.id,
+      details: `Returned "${loan.bookTitle}" from ${loan.userName}. Accrued fine: MVR ${calculatedFee.toFixed(2)}.`,
+    });
   };
 
-  // Handle Renew Loan with Optimistic Update & Reservation Collision Check
+  // Renew with reservation block
   const handleRenewLoan = async (loan: Loan) => {
     if (loan.renewalCount >= settings.maxRenewals) {
       toast.error(
         language === 'dv'
           ? `އެންމެ ގިނަވެގެން އިތުރުކުރެވޭނެ އަދަދު (${settings.maxRenewals}) ހަމަވެއްޖެ.`
-          : `Maximum renewal limit (${settings.maxRenewals}) reached for this book.`,
+          : `Maximum renewal limit (${settings.maxRenewals}) reached.`,
         'Renewal Limit'
       );
       return;
     }
 
-    // CRITICAL: Block renewals if another patron has reserved the item
     const hasReservationConflict = reservations.some(
       r => r.bookId === loan.bookId && r.userId !== loan.userId && r.status === 'pending'
     );
@@ -465,78 +852,138 @@ export default function App() {
     if (hasReservationConflict) {
       toast.warning(
         language === 'dv'
-          ? `ފޮތުގެ މުއްދަތު އިތުރެއް ނުކުރެވޭނެ: އެހެން ދަރިވަރަކު މި ފޮތަށް ނަންނޯޓު ކޮށްފައިވެއެވެ. ލައިބްރަރީއަށް ރައްދުކުރައްވާ!`
-          : `Renewal blocked: Another student or patron has placed a hold reservation on "${loan.bookTitle}". Please return it to the circulation desk.`,
+          ? `މުއްދަތު އިތުރެއް ނުކުރެވޭނެ: އެހެން ދަރިވަރަކު މި ފޮތަށް ނަންނޯޓު ކޮށްފައިވެއެވެ.`
+          : `Renewal blocked: Another patron holds a reservation for "${loan.bookTitle}".`,
         'Hold Conflict'
       );
       return;
     }
 
-    const newDueDateStr = calculateSchoolDueDate(new Date(loan.dueDate), settings.maxBorrowDays);
+    const activeHolidays = (settings.holidayGraceDays ?? true)
+      ? (settings.schoolHolidays ?? DEFAULT_MALDIVES_SCHOOL_HOLIDAYS)
+      : [];
+    const newDueDateStr = calculateSchoolDueDate(new Date(loan.dueDate), settings.maxBorrowDays, activeHolidays);
 
-    setLoans(prev => prev.map(l => l.id === loan.id ? {
-      ...l,
-      dueDate: newDueDateStr,
-      renewalCount: l.renewalCount + 1
-    } : l));
+    setLoans(prev =>
+      prev.map(l =>
+        l.id === loan.id ? { ...l, dueDate: newDueDateStr, renewalCount: l.renewalCount + 1 } : l
+      )
+    );
 
-    try {
-      await updateLoan(loan.id, {
-        dueDate: newDueDateStr,
-        renewalCount: loan.renewalCount + 1
+    if (!navigator.onLine) {
+      await offlineSyncEngine.enqueueOperation({
+        action: 'renew',
+        endpoint: '/api/circulation/renew',
+        payload: {
+          loanId: loan.id,
+          extensionDays: settings.maxBorrowDays,
+          userRole: currentUser.role || 'admin',
+        },
       });
-    } catch (err) {
-      console.warn("Loan renewal persisted in local cache:", err);
+    } else {
+      try {
+        await updateLoan(loan.id, { dueDate: newDueDateStr, renewalCount: loan.renewalCount + 1 });
+      } catch {}
     }
 
     toast.success(
-      language === 'dv'
-        ? `ފޮތުގެ މުއްދަތު ${newDueDateStr} އާ ހަމައަށް އިތުރުކުރެވިއްޖެ!`
-        : `Loan extended until ${newDueDateStr}.`,
+      language === 'dv' ? `މުއްދަތު ${newDueDateStr} އާ ހަމައަށް އިތުރުކުރެވިއްޖެ!` : `Loan extended until ${newDueDateStr}.`,
       'Loan Renewed'
     );
   };
 
-  // Handle Librarian Manual Fine-Waive Override
   const handleWaiveFee = async (loanId: string, reason: string) => {
-    setLoans(prev => prev.map(l => l.id === loanId ? {
-      ...l,
-      lateFee: 0,
-      feePaid: true,
-      waivedReason: reason
-    } as Loan : l));
+    if (!can('fines:waive')) {
+      toast.error(cannotReason('fines:waive'), 'RBAC Restricted');
+      return;
+    }
+
+    const target = loans.find(l => l.id === loanId);
+    const remainingToWaive = target ? Math.max(0, (target.lateFee || 0) - (target.amountPaid || 0)) : 0;
+
+    setLoans(prev =>
+      prev.map(l =>
+        l.id === loanId
+          ? {
+              ...l,
+              lateFee: 0,
+              waivedAmount: (l.waivedAmount || 0) + remainingToWaive,
+              feePaid: true,
+              waivedReason: reason
+            }
+          : l
+      )
+    );
+
+    if (target && remainingToWaive > 0) {
+      await handleRecordLedgerTransaction({
+        loanId,
+        userId: target.userId,
+        userName: target.userName,
+        bookTitle: target.bookTitle,
+        type: 'waiver',
+        amountMvr: remainingToWaive,
+        date: new Date().toISOString().split('T')[0],
+        notes: reason,
+        processedBy: currentUser.name
+      });
+    }
 
     try {
-      await updateLoan(loanId, {
-        lateFee: 0,
-        feePaid: true
-      });
+      await updateLoan(loanId, { lateFee: 0, feePaid: true });
       await fetch('/api/circulation/waive-fine', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'admin'
+          'x-user-role': currentUser.role || 'admin',
+          'x-access-role': accessRole,
         },
-        body: JSON.stringify({
-          loanId,
-          reason,
-          waivedBy: currentUser.name
-        })
+        body: JSON.stringify({ loanId, reason, waivedBy: currentUser.name })
       });
-    } catch (err) {
-      console.warn('Fine waiver synced with local database:', err);
-    }
+    } catch {}
+
+    await recordAuditEvent({
+      action: 'FINE_WAIVED',
+      targetType: 'fine',
+      targetId: loanId,
+      details: `Waived MVR ${remainingToWaive.toFixed(2)} fine on "${target?.bookTitle || loanId}" for ${target?.userName || 'Patron'}. Reason: ${reason}`,
+    });
 
     toast.success(
       language === 'dv'
-        ? `ޖޫރިމަނާ ފައިސާ ކާމިޔާބުކަމާއެކު މަޢާފުކޮށްދެވިއްޖެ! (${reason})`
-        : `Fine waived successfully under librarian discretion! (${reason})`,
+        ? `ޖޫރިމަނާ މަޢާފުކޮށްދެވިއްޖެ (${reason})`
+        : `MVR ${remainingToWaive.toFixed(2)} fine waived (${reason}).`,
       'Fine Waived'
     );
   };
 
-  // Handle Parent Account Creation
-  // Handle Parent Account Creation (supports both modal positional signature and object signature)
+  const handleMarkFeePaid = async (loanId: string, paidAmount?: number) => {
+    const loan = loans.find(l => l.id === loanId);
+    const currentPaid = loan?.amountPaid || 0;
+    const totalFee = loan?.lateFee || 0;
+    const paidNow = paidAmount !== undefined ? paidAmount : Math.max(0, totalFee - currentPaid);
+    const newPaidTotal = Number((currentPaid + paidNow).toFixed(2));
+    const fullySettled = newPaidTotal >= totalFee || paidAmount === undefined;
+
+    setLoans(prev =>
+      prev.map(l =>
+        l.id === loanId ? { ...l, amountPaid: newPaidTotal, feePaid: fullySettled } : l
+      )
+    );
+
+    try {
+      await updateLoan(loanId, { feePaid: fullySettled });
+    } catch {}
+
+    await recordAuditEvent({
+      action: 'FINE_SETTLED',
+      targetType: 'fine',
+      targetId: loanId,
+      details: `Recorded fine payment MVR ${paidNow.toFixed(2)} for ${loan?.userName || loanId} (${fullySettled ? 'Settled' : 'Partial'}).`,
+    });
+  };
+
+  // Parent Account & Import Handlers
   const handleCreateParentAccount = async (
     nameOrProfile: any,
     email?: string,
@@ -563,7 +1010,6 @@ export default function App() {
 
     const parentTempId = `par-${Date.now()}`;
 
-    // If new student child was also requested in registration modal, create child first
     if (newChildData && newChildData.name) {
       const childTempId = `std-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const childProfile: UserProfile = {
@@ -572,6 +1018,7 @@ export default function App() {
         grade: newChildData.grade || 'Grade 6',
         studentIdCode: newChildData.studentIdCode || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
         role: 'student',
+        patronTier: 'student',
         parentId: parentTempId,
         email: `${newChildData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@fmagoodhooschool.edu.mv`,
         createdAt: new Date().toISOString().split('T')[0]
@@ -581,8 +1028,7 @@ export default function App() {
         const { id, ...cData } = childProfile;
         const realChildId = await createUserProfile(cData);
         childrenIds.push(realChildId || childTempId);
-      } catch (e) {
-        console.warn("Child creation note:", e);
+      } catch {
         childrenIds.push(childTempId);
       }
     }
@@ -593,47 +1039,42 @@ export default function App() {
       email: parentEmail,
       phone: parentPhone,
       role: 'parent',
-      childrenIds: childrenIds,
+      patronTier: 'parent',
+      childrenIds,
       createdAt: new Date().toISOString().split('T')[0]
     };
 
     setUsers(prev => [newParent, ...prev]);
 
-    // Link student children back to this parent account
     if (childrenIds.length > 0) {
-      setUsers(prev => prev.map(u => childrenIds.includes(u.id) ? { ...u, parentId: parentTempId } : u));
+      setUsers(prev => prev.map(u => (childrenIds.includes(u.id) ? { ...u, parentId: parentTempId } : u)));
       for (const cId of childrenIds) {
         try {
           await updateUserProfile(cId, { parentId: parentTempId });
-        } catch (e) {
-          console.warn("Update child parent link note:", e);
-        }
+        } catch {}
       }
     }
 
     try {
       const { id, ...pData } = newParent;
       await createUserProfile(pData);
-    } catch (err) {
-      console.warn("Parent profile saved to local cache:", err);
-    }
+    } catch {}
 
-    alert(language === 'dv' ? `ބެލެނިވެރިޔާ ${parentName} ގެ އެކައުންޓް ކާމިޔާބުކަމާއެކު ހެދިއްޖެ!` : `Parent Guardian account for ${parentName} created successfully!`);
+    toast.success(
+      language === 'dv' ? `ބެލެނިވެރިޔާ ${parentName} ގެ އެކައުންޓް ހެދިއްޖެ!` : `Parent account for ${parentName} created.`,
+      'Member Registered'
+    );
   };
 
-  // Handle Bulk Import Books
   const handleBulkImportBooks = async (importedBooks: Omit<Book, 'id'>[]) => {
     const newBooks: Book[] = importedBooks.map((b, i) => ({ ...b, id: `bk-import-${Date.now()}-${i}` }));
     setBooks(prev => [...newBooks, ...prev]);
-
     for (const b of importedBooks) {
       try {
         await addBook(b);
-      } catch (err) {
-        console.warn("Imported book persisted locally:", err);
-      }
+      } catch {}
     }
-    alert(language === 'dv' ? `${importedBooks.length} ފޮތް ކެޓަލޮގަށް އެތެރެކުރެވިއްޖެ!` : `Imported ${importedBooks.length} books into catalog.`);
+    toast.success(language === 'dv' ? `${importedBooks.length} ފޮތް އެތެރެކުރެވިއްޖެ!` : `Imported ${importedBooks.length} books.`, 'Bulk Import');
   };
 
   const handleBulkImportParents = async (importedParents: any[]) => {
@@ -642,8 +1083,7 @@ export default function App() {
       const parentTempId = `par-import-${Date.now()}-${importedCount}`;
       const linkedChildrenIds: string[] = [];
 
-      // If children were parsed in the row
-      if (Array.isArray(p.children) && p.children.length > 0) {
+      if (Array.isArray(p.children)) {
         for (const child of p.children) {
           const childTempId = `std-import-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
           const childProfile: UserProfile = {
@@ -652,21 +1092,18 @@ export default function App() {
             grade: child.grade || 'Grade 6',
             studentIdCode: child.studentIdCode || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
             role: 'student',
+            patronTier: 'student',
             parentId: parentTempId,
             email: `${child.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@fmagoodhooschool.edu.mv`,
             createdAt: new Date().toISOString().split('T')[0]
           };
-
           setUsers(prev => [childProfile, ...prev]);
           linkedChildrenIds.push(childTempId);
-
           try {
             const { id, ...cData } = childProfile;
             const newId = await createUserProfile(cData);
             if (newId) linkedChildrenIds[linkedChildrenIds.length - 1] = newId;
-          } catch (e) {
-            console.warn("Import child creation note:", e);
-          }
+          } catch {}
         }
       }
 
@@ -676,20 +1113,18 @@ export default function App() {
         email: p.email,
         phone: p.phone || '',
         role: 'parent',
+        patronTier: 'parent',
         childrenIds: linkedChildrenIds,
         createdAt: new Date().toISOString().split('T')[0]
       };
-
       setUsers(prev => [parentProfile, ...prev]);
       try {
         const { id, ...pData } = parentProfile;
         await createUserProfile(pData);
-      } catch (err) {
-        console.warn("Imported parent persisted locally:", err);
-      }
+      } catch {}
       importedCount++;
     }
-    alert(language === 'dv' ? `${importedCount} ބެލެނިވެރިންގެ އެކައުންޓް އެތެރެކުރެވިއްޖެ!` : `Imported ${importedCount} parent user records.`);
+    toast.success(language === 'dv' ? `${importedCount} ބެލެނިވެރިން އެތެރެކުރެވިއްޖެ!` : `Imported ${importedCount} parent accounts.`, 'Bulk Import');
   };
 
   const handleBulkImportStaff = async (importedStaff: Array<{ name: string; email: string; phone?: string; staffIdCode?: string; staffDepartment?: string }>) => {
@@ -699,78 +1134,43 @@ export default function App() {
       email: s.email,
       phone: s.phone || '',
       role: 'staff',
+      patronTier: 'teacher',
       staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
       staffDepartment: s.staffDepartment || 'Teaching Faculty',
       createdAt: new Date().toISOString().split('T')[0]
     }));
     setUsers(prev => [...newStaffList, ...prev]);
-
     for (const s of importedStaff) {
       try {
-        const staffProfile: Omit<UserProfile, 'id'> = {
+        await createUserProfile({
           name: s.name,
           email: s.email,
           phone: s.phone || '',
           role: 'staff',
+          patronTier: 'teacher',
           staffIdCode: s.staffIdCode || `STF-${Math.floor(3000 + Math.random() * 1000)}`,
           staffDepartment: s.staffDepartment || 'Teaching Faculty',
           createdAt: new Date().toISOString().split('T')[0]
-        };
-        await createUserProfile(staffProfile);
-      } catch (err) {
-        console.warn("Imported staff persisted locally:", err);
-      }
-    }
-    alert(`Successfully imported ${importedStaff.length} faculty and staff accounts!`);
-  };
-
-  // Handle Add Child to Parent
-  const handleAddChildToParent = async (parentId: string, childIdCode: string) => {
-    const parent = users.find(u => u.id === parentId);
-    if (!parent) return;
-
-    const childUser = users.find(u => u.studentIdCode?.toLowerCase() === childIdCode.toLowerCase() || u.name.toLowerCase() === childIdCode.toLowerCase());
-    
-    if (!childUser) {
-      alert(`No student found with ID/Name "${childIdCode}". Please check the student record.`);
-      return;
-    }
-
-    const existingChildren = parent.childrenIds || [];
-    if (!existingChildren.includes(childUser.id)) {
-      const updatedChildren = [...existingChildren, childUser.id];
-      setUsers(prev => prev.map(u => u.id === parentId ? { ...u, childrenIds: updatedChildren } : u));
-      try {
-        await updateUserProfile(parentId, {
-          childrenIds: updatedChildren
         });
-      } catch (err) {
-        console.warn("Child linked locally:", err);
-      }
-      alert(`Successfully linked ${childUser.name} to guardian ${parent.name}.`);
+      } catch {}
     }
+    toast.success(`Imported ${importedStaff.length} faculty and staff accounts.`, 'Bulk Import');
   };
 
-  // Handle Delete Parent / Student User Account
   const handleDeleteUser = async (userId: string) => {
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser) return;
-
     if (targetUser.role === 'admin') {
-      alert('Cannot delete administrator accounts!');
+      toast.error('Administrator accounts cannot be deleted.', 'Protected Account');
       return;
     }
 
     try {
-      // Delete user document from Firestore
       await deleteUserProfile(userId);
-
-      // Clean up parent/child relations
       if (targetUser.role === 'student') {
         const parent = users.find(u => u.id === targetUser.parentId || u.childrenIds?.includes(targetUser.id));
         if (parent && parent.childrenIds) {
-          const updatedChildren = parent.childrenIds.filter(id => id !== targetUser.id);
-          await updateUserProfile(parent.id, { childrenIds: updatedChildren });
+          await updateUserProfile(parent.id, { childrenIds: parent.childrenIds.filter(id => id !== targetUser.id) });
         }
       } else if (targetUser.role === 'parent') {
         const children = users.filter(u => u.parentId === targetUser.id || targetUser.childrenIds?.includes(u.id));
@@ -778,30 +1178,140 @@ export default function App() {
           await updateUserProfile(child.id, { parentId: '' });
         }
       }
-
       setUsers(prev => prev.filter(u => u.id !== userId));
-      alert(`Successfully removed ${targetUser.name} from the library portal database.`);
+      toast.success(`Removed ${targetUser.name} from the library portal.`, 'Account Removed');
     } catch (err: any) {
-      console.error("Failed to delete user profile:", err);
-      alert(`Failed to delete user profile: ${err?.message || String(err)}`);
+      toast.error(`Failed to delete user profile: ${err?.message || String(err)}`, 'Delete Failed');
     }
   };
 
   const handleSwitchUser = (user: UserProfile) => {
     setCurrentUser(user);
-    if (user.role === 'admin') {
-      setActiveTab('dashboard');
-    } else if (user.role === 'parent') {
-      setActiveTab('parent-portal');
-    } else {
-      setActiveTab('catalog');
+    const targetAccessRole = user.accessRole || (user.role === 'admin' ? 'super_admin' : user.role === 'staff' ? 'teacher' : 'student_guest');
+    if (targetAccessRole === 'super_admin') setActiveTab('dashboard');
+    else if (targetAccessRole === 'desk_assistant') setActiveTab('checkout-hub');
+    else if (user.role === 'parent') setActiveTab('parent-portal');
+    else setActiveTab('catalog');
+  };
+
+  const handleUpdateUserRole = async (userId: string, nextAccessRole: AccessRole) => {
+    if (!can('users:manage_roles')) {
+      toast.error(cannotReason('users:manage_roles'), 'RBAC Restricted');
+      return;
     }
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+
+    const nextLegacyRole =
+      nextAccessRole === 'super_admin'
+        ? 'admin'
+        : nextAccessRole === 'desk_assistant' || nextAccessRole === 'teacher'
+        ? 'staff'
+        : target.role === 'parent'
+        ? 'parent'
+        : 'student';
+
+    setUsers(prev =>
+      prev.map(u =>
+        u.id === userId ? { ...u, accessRole: nextAccessRole, role: nextLegacyRole } : u
+      )
+    );
+    try {
+      await updateUserProfile(userId, { accessRole: nextAccessRole, role: nextLegacyRole });
+    } catch {}
+
+    await recordAuditEvent({
+      action: 'ROLE_CHANGED',
+      targetType: 'user',
+      targetId: userId,
+      details: `Updated access role for ${target.name} to "${nextAccessRole}" (legacy role: ${nextLegacyRole}).`,
+    });
+
+    toast.success(`Updated ${target.name}'s access role to ${nextAccessRole}.`, 'RBAC Updated');
+  };
+
+  const handleExportBackup = async (passphrase?: string) => {
+    if (!can('data:backup_restore')) {
+      toast.error(cannotReason('data:backup_restore'), 'RBAC Restricted');
+      return;
+    }
+    const archive = createSnapshotArchive({
+      books,
+      users,
+      loans,
+      reservations,
+      ledgerTransactions,
+      acquisitions,
+      personalItems,
+      auditLogs,
+      settings,
+      exportedBy: currentUser.name,
+    });
+    const serialized = await serializeSnapshotArchive(archive, passphrase);
+    triggerSnapshotFileDownload(serialized, Boolean(passphrase?.trim()));
+
+    await recordAuditEvent({
+      action: 'BACKUP_EXPORTED',
+      targetType: 'backup',
+      targetId: archive.checksum,
+      details: `Exported ${passphrase?.trim() ? 'AES-256 encrypted ' : ''}snapshot archive (${archive.counts.titles} titles, ${archive.counts.copies} copies, ${archive.counts.loans} loans).`,
+    });
+
+    toast.success(
+      `Snapshot exported (${archive.counts.titles} titles, checksum ${archive.checksum}).`,
+      'Backup Complete'
+    );
+  };
+
+  const handleRestoreBackup = async (archive: LibrarySnapshotArchive) => {
+    if (!can('data:backup_restore')) {
+      toast.error(cannotReason('data:backup_restore'), 'RBAC Restricted');
+      return;
+    }
+
+    const { data } = archive;
+    setBooks(data.books);
+    setUsers(data.users);
+    setLoans(data.loans);
+    setReservations(data.reservations);
+    setLedgerTransactions(data.ledgerTransactions);
+    if (data.acquisitions) setAcquisitions(data.acquisitions);
+    if (data.personalItems) setPersonalItems(data.personalItems);
+    if (data.settings) setSettings(data.settings);
+    if (data.auditLogs && data.auditLogs.length > 0) {
+      setAuditLogs(prev => {
+        const seen = new Set(prev.map(x => x.id));
+        const merged = [...prev];
+        for (const item of data.auditLogs || []) {
+          if (!seen.has(item.id)) merged.push(item);
+        }
+        return merged.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+      });
+    }
+
+    try {
+      await offlineDb.saveCatalogBooks(data.books);
+      if (data.personalItems) await offlineDb.savePersonalItems(data.personalItems);
+      await restoreSnapshotToFirestore(data);
+    } catch {}
+
+    await recordAuditEvent({
+      action: 'BACKUP_RESTORED',
+      targetType: 'backup',
+      targetId: archive.checksum,
+      details: `Restored verified snapshot v${archive.schemaVersion} (${archive.counts.titles} titles, ${archive.counts.patrons} patrons, ${archive.counts.loans} loans).`,
+    });
+
+    toast.success(
+      `Restored verified snapshot (${archive.counts.titles} titles, ${archive.counts.loans} loans).`,
+      'Restore Complete'
+    );
   };
 
   const handleLogout = () => {
     setCurrentUser(GUEST_USER);
     setActiveTab('catalog');
-    alert('You have been logged out successfully.');
+    toast.info('You have signed out cleanly.', 'Signed Out');
   };
 
   const handleOpenImportModal = (type: 'books' | 'parents' = 'books') => {
@@ -809,201 +1319,356 @@ export default function App() {
     setIsImportModalOpen(true);
   };
 
-  const handleAddBook = async (bookData: Omit<Book, 'id'>) => {
+  const handleAddBook = async (bookData: Omit<Book, 'id'>): Promise<string> => {
+    const tempId = `bk-${Date.now()}`;
+    const tempBook: Book = { ...bookData, id: tempId };
+    setBooks(prev => [tempBook, ...prev]);
     try {
-      await addBook(bookData);
-      alert(`Book "${bookData.title}" saved successfully to catalog!`);
+      const realId = await addBook(bookData);
+      toast.success(`Book "${bookData.title}" saved to catalog.`, 'Book Cataloged');
+      return realId || tempId;
     } catch (err: any) {
-      console.error("Failed to save book to Firestore:", err);
-      alert(`Failed to save book: ${err?.message || String(err)}`);
-      throw err;
+      toast.warning(`Saved "${bookData.title}" to local session cache.`, 'Offline Cache');
+      return tempId;
     }
   };
 
+  // Acquisitions, Patron Suggestions & Auto-Cataloging Handlers
+  const handleCreateAcquisition = async (reqData: Omit<AcquisitionRequest, 'id'>) => {
+    const tempId = `acq-${Date.now()}`;
+    const optimistic: AcquisitionRequest = { ...reqData, id: tempId };
+    setAcquisitions(prev => [optimistic, ...prev]);
+    try {
+      const realId = await createAcquisitionRequest(reqData);
+      if (realId && realId !== tempId) {
+        setAcquisitions(prev => prev.map(a => (a.id === tempId ? { ...a, id: realId } : a)));
+      }
+    } catch {}
+    toast.success(
+      language === 'dv'
+        ? `"${reqData.title}" ލިސްޓަށް އިތުރުކުރެވިއްޖެ.`
+        : `"${reqData.title}" added to the acquisitions queue.`,
+      reqData.isDonation ? 'Donation Logged' : 'Request Submitted'
+    );
+  };
+
+  const handleUpvoteAcquisition = async (requestId: string) => {
+    const target = acquisitions.find(a => a.id === requestId);
+    if (!target) return;
+    const voterId = currentUser.id;
+    const existing = target.upvoterIds || [];
+    const nextUpvoters = existing.includes(voterId)
+      ? existing.filter(id => id !== voterId)
+      : [...existing, voterId];
+
+    setAcquisitions(prev =>
+      prev.map(a => (a.id === requestId ? { ...a, upvoterIds: nextUpvoters } : a))
+    );
+    try {
+      await updateAcquisitionRequest(requestId, { upvoterIds: nextUpvoters });
+    } catch {}
+  };
+
+  const handleUpdateAcquisition = async (id: string, data: Partial<AcquisitionRequest>) => {
+    setAcquisitions(prev => prev.map(a => (a.id === id ? { ...a, ...data } : a)));
+    try {
+      await updateAcquisitionRequest(id, data);
+    } catch {}
+  };
+
+  const handleDeleteAcquisition = async (id: string) => {
+    setAcquisitions(prev => prev.filter(a => a.id !== id));
+    try {
+      await deleteAcquisitionRequest(id);
+    } catch {}
+    toast.info('Acquisition entry removed.', 'Deleted');
+  };
+
+  const handleReceiveAndCatalogAcquisition = async (req: AcquisitionRequest) => {
+    const { bookData, assignedBarcodes } = convertAcquisitionToCatalogBook(req);
+    const catalogedBookId = await handleAddBook(bookData);
+    const todayIso = new Date().toISOString().split('T')[0];
+
+    const updates: Partial<AcquisitionRequest> = {
+      stage: 'Received & Cataloged',
+      catalogedBookId,
+      receivedDate: todayIso,
+      patronNotifiedAt: todayIso,
+    };
+
+    setAcquisitions(prev =>
+      prev.map(a => (a.id === req.id ? { ...a, ...updates } : a))
+    );
+    try {
+      await updateAcquisitionRequest(req.id, updates);
+    } catch {}
+
+    toast.success(
+      language === 'dv'
+        ? `"${req.title}" ކެޓަލޮގް ކުރެވި (${assignedBarcodes.length} ކޮޕީ) ${req.requestedByName} އަށް އެންގިއްޖެ!`
+        : `Cataloged ${assignedBarcodes.length} cop(y/ies) [${assignedBarcodes[0]}] and notified ${req.requestedByName}!`,
+      'Received & Auto-Cataloged'
+    );
+  };
+
   const handleUpdateBook = async (id: string, data: Partial<Book>) => {
+    const existing = books.find(b => b.id === id);
+    setBooks(prev => prev.map(b => (b.id === id ? { ...b, ...data } : b)));
+    if (existing && Array.isArray(existing.copies) && Array.isArray(data.copies) && data.copies.length < existing.copies.length) {
+      const removedCopies = existing.copies.filter(
+        c => !data.copies!.some(nc => nc.copyId === c.copyId || nc.barcode === c.barcode)
+      );
+      if (removedCopies.length > 0) {
+        void recordAuditEvent({
+          action: 'COPY_DELETED',
+          targetType: 'copy',
+          targetId: removedCopies.map(c => c.barcode).join(', '),
+          details: `Removed ${removedCopies.length} physical cop(y/ies) from "${existing.title}".`,
+        });
+      }
+    }
     try {
       await updateBook(id, data);
-      alert(`Book updated successfully!`);
+      toast.success('Book metadata updated.', 'Catalog Updated');
     } catch (err: any) {
-      console.error("Failed to update book in Firestore:", err);
-      alert(`Failed to update book: ${err?.message || String(err)}`);
-      throw err;
+      toast.warning('Book update saved in local session cache.', 'Offline Cache');
     }
   };
 
   const handleDeleteBook = async (id: string) => {
+    if (!can('catalog:delete')) {
+      toast.error(cannotReason('catalog:delete'), 'RBAC Restricted');
+      return;
+    }
+    const target = books.find(b => b.id === id);
     setBooks(prev => prev.filter(b => b.id !== id));
     try {
       await deleteBook(id);
-      alert("Book record deleted successfully.");
-    } catch (err: any) {
-      console.warn("Book deleted locally (offline cache):", err);
-      alert("Book record removed from catalog.");
-    }
+    } catch {}
+    await recordAuditEvent({
+      action: 'BOOK_DELETED',
+      targetType: 'book',
+      targetId: id,
+      details: `Deleted catalog record "${target?.title || id}" (ISBN: ${target?.isbn || 'N/A'}).`,
+    });
+    toast.info('Book record deleted from catalog.', 'Catalog Removed');
   };
 
   const handleUpdateSettings = async (newSettings: Partial<LibrarySettings>) => {
+    if (!can('policies:edit') && !can('notifications:send')) {
+      toast.error(cannotReason('policies:edit'), 'RBAC Restricted');
+      return;
+    }
     setSettings(prev => ({ ...prev, ...newSettings }));
     try {
       await updateSettings(newSettings);
-    } catch (err) {
-      console.warn("Settings saved to local cache:", err);
-    }
+    } catch {}
+    await recordAuditEvent({
+      action: 'POLICY_UPDATED',
+      targetType: 'policy',
+      targetId: 'settings/main',
+      details: `Updated library configuration fields: ${Object.keys(newSettings).join(', ')}.`,
+    });
+    toast.success('Library circulation rules & MVR settings updated.', 'Settings Saved');
   };
 
-  const handleMarkFeePaid = async (loanId: string) => {
-    setLoans(prev => prev.map(l => l.id === loanId ? { ...l, feePaid: true } : l));
-    try {
-      await updateLoan(loanId, { feePaid: true });
-    } catch (err) {
-      console.warn("Fee payment saved to local cache:", err);
-    }
+  // Personal Collection Handlers
+  const handleAddPersonalItem = (item: PersonalItem) => {
+    setPersonalItems(prev => [item, ...prev]);
+  };
+  const handleUpdatePersonalItem = (id: string, data: Partial<PersonalItem>) => {
+    setPersonalItems(prev => prev.map(p => (p.id === id ? { ...p, ...data } : p)));
+  };
+  const handleDeletePersonalItem = (id: string) => {
+    setPersonalItems(prev => prev.filter(p => p.id !== id));
+  };
+  const handleImportPersonalItems = (imported: PersonalItem[]) => {
+    setPersonalItems(prev => [...imported, ...prev]);
   };
 
   const todayIsoStr = new Date().toISOString().split('T')[0];
   const overdueCount = loans.filter(l => l.status === 'overdue' || (l.status === 'active' && l.dueDate < todayIsoStr)).length;
+  const pendingAcquisitionsCount = acquisitions.filter(a => a.stage === 'Requested').length;
 
-  let navItems = [];
+  let navItems: Array<{ id: string; label: string; icon: any; badge?: number; badgeColor?: string }> = [];
 
-  if (currentUser.role === 'admin') {
+  if (isSuperAdmin) {
     navItems = [
-      { id: 'dashboard', label: language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard Overview', icon: LayoutDashboard },
-      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog & Search', icon: BookOpen },
-      { id: 'checkout-hub', label: language === 'dv' ? 'ފޮތް ދޫކުރުން / ހަވާލުކުރުން' : 'Circulation Desk (Checkout/Return)', icon: RotateCcw, badge: loans.filter(l => l.status === 'active').length },
-      { id: 'students', label: language === 'dv' ? 'ދަރިވަރުން އަދި މެންބަރުން' : 'Student & Parent Directory', icon: Users },
-      { id: 'admin-panel', label: language === 'dv' ? 'އެޑްމިން އަދި ރިޕޯޓްތައް' : 'Admin Settings & Reports', icon: Shield, badge: overdueCount > 0 ? overdueCount : undefined, badgeColor: 'bg-rose-500' },
-      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Librarian Companion', icon: Sparkles },
-      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'Help & Guidelines', icon: HelpCircle },
+      { id: 'dashboard', label: language === 'dv' ? 'ޑޭޝްބޯޑް' : 'Dashboard', icon: LayoutDashboard },
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
+      { id: 'checkout-hub', label: language === 'dv' ? 'ފޮތް ދޫކުރުން / ހަވާލުކުރުން' : 'Circulation Desk', icon: RotateCcw, badge: loans.filter(l => l.status === 'active').length },
+      { id: 'students', label: language === 'dv' ? 'މެންބަރުންގެ ލިސްޓު' : 'Members Directory', icon: Users },
+      { id: 'acquisitions', label: language === 'dv' ? 'ފޮތް ހޯދުމާއި ބަޖެޓް' : 'Acquisitions & Budgets', icon: ShoppingBag, badge: pendingAcquisitionsCount > 0 ? pendingAcquisitionsCount : undefined },
+      { id: 'stocktaking', label: language === 'dv' ? 'ސްޓޮކްޓޭކް އަދި ވީޑިންގ' : 'Stocktake & Weeding', icon: ClipboardCheck },
+      { id: 'reading-challenges', label: language === 'dv' ? 'ކިޔުމުގެ ޗެލެންޖް' : 'Reading Challenges', icon: Award },
+      { id: 'personal-library', label: t.personalLibrary, icon: Bookmark },
+      { id: 'admin-panel', label: language === 'dv' ? 'އެޑްމިން އަދި ލެޖަރ' : 'Admin & MVR Ledger', icon: Shield, badge: overdueCount > 0 ? overdueCount : undefined, badgeColor: 'bg-rose-500' },
+      { id: 'security-suite', label: language === 'dv' ? 'RBAC، ނޯޓިސް & ބެކަޕް' : 'Security, Notices & Backups', icon: ShieldCheck },
+      { id: 'ai-assistant', label: t.aiLibrarian, icon: Sparkles },
+      { id: 'faq', label: t.faqHelp, icon: HelpCircle }
+    ];
+  } else if (isDeskAssistant) {
+    navItems = [
+      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog', icon: BookOpen },
+      { id: 'checkout-hub', label: language === 'dv' ? 'ފޮތް ދޫކުރުން / ހަވާލުކުރުން' : 'Circulation Desk', icon: RotateCcw, badge: loans.filter(l => l.status === 'active').length },
+      { id: 'students', label: language === 'dv' ? 'މެންބަރުންގެ ލިސްޓު' : 'Members Directory', icon: Users },
+      { id: 'security-suite', label: language === 'dv' ? 'ނޯޓިސް އަދި ސްލިޕް' : 'Overdue & Hold Notices', icon: ShieldCheck },
+      { id: 'reading-challenges', label: language === 'dv' ? 'ކިޔުމުގެ ޗެލެންޖް' : 'Reading Challenges', icon: Award },
+      { id: 'personal-library', label: t.personalLibrary, icon: Bookmark },
+      { id: 'ai-assistant', label: t.aiLibrarian, icon: Sparkles },
+      { id: 'faq', label: t.faqHelp, icon: HelpCircle }
     ];
   } else if (currentUser.role === 'parent') {
     navItems = [
-      { id: 'parent-portal', label: language === 'dv' ? 'ބެލެނިވެރިންގެ ޕޯޓަލް' : 'Parent Portal & Children Loans', icon: Users },
-      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Browse Book Catalog', icon: BookOpen },
-      { id: 'my-borrowings', label: language === 'dv' ? 'ޢާއިލާގެ ނެގުންތަކުގެ ތާރީޚް' : 'Family Borrowing History', icon: ClipboardList },
-      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Reading Helper', icon: Sparkles },
-      { id: 'faq', label: language === 'dv' ? 'ބެލެނިވެރިންގެ އިރުޝާދު' : 'Parent Guide & FAQ', icon: HelpCircle },
+      { id: 'parent-portal', label: t.parentPortal, icon: Users },
+      { id: 'catalog', label: t.catalog, icon: BookOpen },
+      { id: 'my-borrowings', label: t.myLoans, icon: ClipboardList },
+      { id: 'reading-challenges', label: language === 'dv' ? 'ކިޔުމުގެ ޗެލެންޖް' : 'Reading Challenges', icon: Award },
+      { id: 'personal-library', label: t.personalLibrary, icon: Bookmark },
+      { id: 'ai-assistant', label: t.aiLibrarian, icon: Sparkles },
+      { id: 'faq', label: t.faqHelp, icon: HelpCircle }
+    ];
+  } else if (isTeacher) {
+    navItems = [
+      { id: 'catalog', label: t.catalog, icon: BookOpen },
+      { id: 'my-borrowings', label: t.myLoans, icon: ClipboardList },
+      { id: 'reading-challenges', label: language === 'dv' ? 'ކްލާސް ކިޔުމުގެ ތަފާސްހިސާބު' : 'Class Reading Analytics', icon: Award },
+      { id: 'ai-assistant', label: language === 'dv' ? 'ލެސަން މެޗަރ (Libby AI)' : 'AI Lesson Matcher', icon: Sparkles },
+      { id: 'personal-library', label: t.personalLibrary, icon: Bookmark },
+      { id: 'reference', label: t.reference, icon: BookMarked },
+      { id: 'faq', label: t.faqHelp, icon: HelpCircle }
     ];
   } else {
-    // Student or Guest Visitor
     navItems = [
-      { id: 'catalog', label: language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް' : 'Book Catalog & Search', icon: BookOpen },
-      { id: 'my-borrowings', label: language === 'dv' ? 'ނަގާފައިވާ ފޮތްތައް' : 'My Borrowings & Due Dates', icon: ClipboardList },
-      { id: 'reference', label: language === 'dv' ? 'ރެފަރެންސް ފޮތްތައް' : 'Reference Collection', icon: BookMarked },
-      { id: 'ai-assistant', label: language === 'dv' ? 'އޭ.އައި ލައިބްރޭރިއަން' : 'AI Companion', icon: Sparkles },
-      { id: 'faq', label: language === 'dv' ? 'ސުވާލާއި އެހީ' : 'FAQ & Help', icon: HelpCircle },
+      { id: 'catalog', label: t.catalog, icon: BookOpen },
+      { id: 'my-borrowings', label: t.myLoans, icon: ClipboardList },
+      { id: 'reading-challenges', label: language === 'dv' ? 'ކިޔުމުގެ ޗެލެންޖް' : 'Reading Challenges', icon: Award },
+      { id: 'personal-library', label: t.personalLibrary, icon: Bookmark },
+      { id: 'reference', label: t.reference, icon: BookMarked },
+      { id: 'ai-assistant', label: t.aiLibrarian, icon: Sparkles },
+      { id: 'faq', label: t.faqHelp, icon: HelpCircle }
     ];
   }
 
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setIsSidebarCollapsed(prev => !prev);
+    } else {
+      setIsSidebarOpen(prev => !prev);
+    }
+  };
+
   return (
-    <div className={`min-h-screen bg-slate-100 text-slate-800 ${isRtl ? 'font-faruma' : 'font-sans'} flex flex-col antialiased`}>
-      
-      {/* Top Header Navigation Bar */}
+    <div className={`min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 ${isRtl ? 'font-faruma' : 'font-sans'} flex flex-col antialiased`}>
+      {/* Clean Sticky Header */}
       <Header
         currentUser={currentUser}
         allUsers={users}
         onSwitchUser={handleSwitchUser}
-        activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenScanner={() => setIsScannerOpen(true)}
-        overdueCount={overdueCount}
-        onLogout={handleLogout}
+        onOpenScanner={() => {
+          setScannerCallback(null);
+          setIsScannerOpen(true);
+        }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onOpenLoginModal={() => setActiveTab('login')}
         onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        onLogout={handleLogout}
+        onToggleSidebar={handleToggleSidebar}
       />
 
-      {/* Cloud Firestore Quota & Resilient Offline Status Banner */}
+      {/* Cloud Firestore Quota Resilience Banner (Only shown when quota exhausted) */}
       {isQuotaExhausted && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-900 shadow-inner flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 tracking-wider uppercase">
+        <div className="bg-amber-50 dark:bg-amber-950/60 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-100 flex-wrap gap-2 no-print">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-950 uppercase">
               {language === 'dv' ? 'އޮފްލައިން ކޭޝް' : 'Offline Resilient'}
             </span>
-            <span className="font-medium text-amber-800 text-xs">
+            <span className="font-medium">
               {language === 'dv'
-                ? 'ކްލައުޑް ފަޔަރސްޓޯރ ޑެއިލީ ކޯޓާ ހަމަވެފައިވާތީ ސިސްޓަމް ދަނީ ލޯކަލް ކޭޝް އަދި އޮފްލައިން މޯޑުގައި ކާމިޔާބުކަމާއެކު މަސައްކަތްކުރަމުންނެވެ.'
-                : 'Cloud Firestore free tier daily write limit reached (20,000 writes/day). The library is operating smoothly in local cache & read mode.'}
+                ? 'ކްލައުޑް ފަޔަރސްޓޯރ ޑެއިލީ ކޯޓާ ހަމަވެފައިވާތީ ލޯކަލް ކޭޝްގައި މަސައްކަތްކުރަނީ.'
+                : 'Cloud Firestore daily write limit reached — operating smoothly via local resilient cache.'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('admin-panel')}
-              className="text-[11px] font-bold px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg transition underline cursor-pointer"
-            >
-              {language === 'dv' ? 'ކޯޓާ ތަފްސީލު ބައްލަވާ' : 'View Quota & Diagnostics'}
-            </button>
-          </div>
+          <button
+            onClick={() => setActiveTab('admin-panel')}
+            className="text-[11px] font-bold px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg cursor-pointer"
+          >
+            {language === 'dv' ? 'ކޯޓާ ތަފްސީލު' : 'Diagnostics'}
+          </button>
         </div>
       )}
 
-      {/* Main Body Layout (Sidebar + Content Workspace) */}
+      {/* Main Workspace Split (Sidebar + Fluid Content) */}
       <div className="flex-1 flex relative overflow-hidden">
-        
-        {/* Left/Right Sidebar Navigation - Mirrored for RTL/LTR */}
+        {/* Mirrored Collapsible Navigation Sidebar */}
         <aside
-          className={`fixed lg:static inset-y-0 ${
-            isRtl ? 'right-0 border-l' : 'left-0 border-r'
-          } z-40 w-64 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-slate-200 flex flex-col justify-between transition-transform duration-300 ease-in-out border-slate-800/80 shadow-xl ${
+          className={`fixed lg:static inset-y-0 start-0 border-e z-40 ${
+            isSidebarCollapsed ? 'lg:w-[76px]' : 'w-64'
+          } bg-slate-900 text-slate-200 flex flex-col justify-between transition-all duration-200 border-slate-800 no-print ${
             isSidebarOpen
               ? 'translate-x-0 shadow-2xl'
-              : (isRtl ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0')
+              : isRtl
+              ? 'translate-x-full lg:translate-x-0'
+              : '-translate-x-full lg:translate-x-0'
           }`}
         >
-          {/* Top Sidebar Menu Header */}
-          <div className="p-4 space-y-5 overflow-y-auto">
-            
-            {/* Sidebar Brand / Mobile Close */}
+          <div className="p-3 space-y-4 overflow-y-auto">
+            {/* Sidebar Brand Header + Collapse Toggle */}
             <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md">
+              <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'lg:justify-center lg:w-full' : ''}`}>
+                <div className="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-white shrink-0">
                   <BookOpen className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="font-black text-white text-sm tracking-wide">{language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ' : 'LibraryMS'}</div>
-                  <div className="text-[10px] text-indigo-300 font-semibold">{language === 'dv' ? 'މަގޫދޫ ސުކޫލް' : 'Magoodhoo Portal'}</div>
-                </div>
+                {!isSidebarCollapsed && (
+                  <div className="min-w-0">
+                    <div className="font-black text-white text-xs tracking-wide truncate">
+                      {language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ' : 'Magoodhoo ILS'}
+                    </div>
+                    <div className="text-[10px] text-emerald-400 font-semibold truncate">
+                      {language === 'dv' ? 'މަގޫދޫ ސްކޫލް' : 'School Library'}
+                    </div>
+                  </div>
+                )}
               </div>
+
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Navigation Menu Links with Custom Vibrant Badges */}
-            <nav className="space-y-1.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">
-                {language === 'dv' ? 'މެނޫ / ނެވިގޭޝަން' : 'Navigation Desk'}
-              </div>
+            <nav className="space-y-1">
+              {!isSidebarCollapsed && (
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">
+                  {t.navigationDesk}
+                </div>
+              )}
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
-
                 return (
                   <button
                     key={item.id}
                     onClick={() => {
-                      if (item.id === 'add-book') {
-                        setIsAddBookModalOpen(true);
-                      } else {
-                        setActiveTab(item.id);
-                        setIsSidebarOpen(false);
-                      }
+                      setActiveTab(item.id);
+                      setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all transform active:scale-98 cursor-pointer ${
+                    title={isSidebarCollapsed ? item.label : undefined}
+                    className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center' : 'justify-between'} px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                       isActive
-                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 font-black border border-indigo-400/30'
-                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                        ? 'bg-emerald-700 text-white shadow-sm'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-amber-300' : 'text-indigo-400'}`} />
-                      <span>{item.label}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                     </div>
-
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span className={`text-[10px] font-black text-white px-2 py-0.5 rounded-full shadow-xs ${item.badgeColor || 'bg-blue-600'}`}>
+                    {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
+                      <span className={`text-[10px] font-mono tabular-nums font-black text-white px-2 py-0.5 rounded-md ${item.badgeColor || 'bg-emerald-600'}`}>
                         {item.badge}
                       </span>
                     )}
@@ -1013,507 +1678,375 @@ export default function App() {
             </nav>
           </div>
 
-          {/* Bottom Sidebar Footer */}
-          <div className="p-4 border-t border-slate-800/80 space-y-2 bg-slate-950/60">
-            {currentUser.id !== 'guest' ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/50">
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(prev => !prev)}
+              className="hidden lg:flex w-full items-center justify-center gap-2 py-1.5 px-2 rounded-lg text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              title="Collapse / Expand Sidebar"
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              {!isSidebarCollapsed && <span>{language === 'dv' ? 'ސައިޑްބާ ހަނިކުރޭ' : 'Collapse Rail'}</span>}
+            </button>
+
+            {!isSidebarCollapsed && (
+              currentUser.id !== 'guest' ? (
+                <div className="flex items-center gap-2">
                   <button
                     onClick={handleLogout}
-                    className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                     id="sidebar-logout-btn"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" /> {t.logout}
+                    <LogOut className="w-3.5 h-3.5" /> {t.logout}
                   </button>
                   <button
                     onClick={() => {
                       setActiveTab('login');
                       setIsSidebarOpen(false);
                     }}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                     id="sidebar-switch-account-btn"
                   >
-                    <LogIn className="w-3.5 h-3.5 text-indigo-400" /> {language === 'dv' ? 'ބަދަލުކުރައްވާ' : 'Switch'}
+                    <LogIn className="w-3.5 h-3.5" /> {language === 'dv' ? 'ބަދަލުކުރޭ' : 'Switch'}
                   </button>
                 </div>
-                <div className="text-[10px] text-slate-400 text-center font-medium pt-1">
-                  {t.activeProfile} <span className="text-amber-300 font-bold">{currentUser.name}</span> ({currentUser.role})
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
+              ) : (
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       setActiveTab('login');
                       setIsSidebarOpen(false);
                     }}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <LogIn className="w-3.5 h-3.5 text-blue-400" /> {t.login}
+                    <LogIn className="w-3.5 h-3.5" /> {t.login}
                   </button>
                   <button
                     onClick={() => setIsAddParentModalOpen(true)}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs py-2 px-3 rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" /> {language === 'dv' ? 'ރަޖިސްޓަރީ' : 'Sign Up'}
                   </button>
                 </div>
-                <div className="text-[10px] text-slate-400 text-center font-medium pt-1">
-                  {language === 'dv' ? 'މެހުމާނެއްގެ ގޮތުގައި ބައްލަވަނީ' : 'Browsing as Guest Visitor'}
-                </div>
-              </div>
+              )
             )}
-
-            {/* Cloud Database & Quota Status Awareness Pill */}
-            <div className="pt-3 border-t border-slate-800/80">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('admin-panel');
-                  setIsSidebarOpen(false);
-                }}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition cursor-pointer group"
-                title="Click to view Google Cloud Firestore Quota & System Health Diagnostics in Admin Settings"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${isQuotaExhausted ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`}></span>
-                  <span className="text-[10px] font-bold text-slate-300 group-hover:text-white transition truncate">
-                    {isQuotaExhausted ? 'Quota Resilient' : 'Cloud DB Active'}
-                  </span>
-                </div>
-                <span className="text-[9px] font-black uppercase text-indigo-400 group-hover:text-indigo-300">
-                  {language === 'dv' ? 'ކޯޓާ' : 'Quota'}
-                </span>
-              </button>
-            </div>
           </div>
         </aside>
 
-        {/* Backdrop overlay for mobile drawer */}
+        {/* Mobile Backdrop */}
         {isSidebarOpen && (
           <div
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 lg:hidden"
-          ></div>
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden"
+          />
         )}
 
         {/* MAIN WORKSPACE CANVAS */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100/90 relative z-10 safe-bottom">
-          <>
-              {/* Active Role Context Banner */}
-              <div className={`mb-6 p-4 sm:p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs font-semibold transition-all ${
-                currentUser.role === 'admin'
-                  ? 'bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/10 border-amber-300/80 text-amber-950'
-                  : currentUser.role === 'parent'
-                  ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-purple-500/10 border-purple-300/80 text-purple-950'
-                  : 'bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-sky-500/10 border-blue-300/80 text-blue-950'
-              }`}>
-                <div className="flex items-center gap-3.5">
-                  <span className={`p-2.5 rounded-2xl text-white font-bold flex-shrink-0 shadow-md ${
-                    currentUser.role === 'admin' ? 'bg-gradient-to-tr from-amber-600 to-orange-500' : currentUser.role === 'parent' ? 'bg-gradient-to-tr from-purple-600 to-indigo-600' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
-                  }`}>
-                    {currentUser.role === 'admin' ? <Shield className="w-5 h-5" /> : currentUser.role === 'parent' ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-black text-sm sm:text-base capitalize text-slate-900">
-                        {currentUser.role === 'admin' && (language === 'dv' ? 'ސުޕަރ އެޑްމިން މޯޑް — ހުރިހާ ޚިދުމަތްތަކެއް ހުޅުވިފައި' : 'Super Admin Mode — Full Operations Unlocked')}
-                        {currentUser.role === 'parent' && (language === 'dv' ? `ބެލެނިވެރިއާ މޯޑް — ${currentUser.name}` : `Parent Guardian Mode — Active Session for ${currentUser.name}`)}
-                        {currentUser.role !== 'admin' && currentUser.role !== 'parent' && (language === 'dv' ? `ދަރިވަރު މޯޑް — ${currentUser.name}` : `Student Member Session for ${currentUser.name}`)}
-                      </p>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                        currentUser.role === 'admin' ? 'bg-amber-200 text-amber-900' : currentUser.role === 'parent' ? 'bg-purple-200 text-purple-900' : 'bg-blue-200 text-blue-900'
-                      }`}>
-                        {currentUser.role === 'admin' ? t.adminRole : currentUser.role === 'parent' ? t.parentRole : t.studentRole}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">
-                      {currentUser.role === 'admin' && (language === 'dv' ? 'ލައިބްރޭރިއަންގެ ފުރިހަމަ އިޚްތިޔާރު: ފޮތް ދޫކުރުން، ސްޓޮކް އިތުރުކުރުން، މެންބަރުން ބެލެހެއްޓުން، ޖޫރިމަނާ އަދި ރިޕޯޓްތައް.' : 'Full librarian desk permissions: book checkout, stock updates, user account management, fine waivers, and reporting.')}
-                      {currentUser.role === 'parent' && (language === 'dv' ? 'ދަރިން ނަގާފައިވާ ފޮތްތައް ބެއްލެވުން، މުއްދަތު އިތުރުކުރެއްވުން، ފޮތް ނަންނޯޓު ކުރެއްވުން އަދި ފީ ދެއްކެވުން.' : 'Monitor your children’s borrowings, check due dates, extend loans online, reserve books, and manage fees.')}
-                      {currentUser.role !== 'admin' && currentUser.role !== 'parent' && (language === 'dv' ? 'ފޮތްތަކުގެ ކެޓަލޮގް ބައްލަވައި، ރެފަރެންސް ފޮތްތައް ހޯއްދަވައި، ފޮތް ނަންނޯޓު ކުރައްވާ.' : 'Browse catalog books, view reference materials, reserve titles, and manage active loans.')}
-                    </p>
-                  </div>
-                </div>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100 dark:bg-slate-950 relative z-10 safe-bottom">
+          <div className="max-w-[1440px] mx-auto space-y-6">
+            {activeTab === 'login' && (
+              <LoginPage
+                currentUser={currentUser}
+                allUsers={users}
+                onLoginSuccess={(user) => setCurrentUser(user)}
+                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+              />
+            )}
 
-                <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-                  <button
-                    onClick={() => setActiveTab('login')}
-                    className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 px-3.5 py-2 rounded-xl font-extrabold text-xs transition shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer active:scale-95"
-                    id="role-switch-btn"
-                  >
-                    <LogIn className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>{language === 'dv' ? 'ރޯލް ބަދަލުކުރައްވާ / ލޮގިން' : 'Switch Role / Login'}</span>
-                  </button>
-                </div>
-              </div>
+            {activeTab === 'reference' && <ReferenceSection books={books} />}
 
-              {/* Easy Portal 1-Click Quick Action Cards Launchpad */}
-              {activeTab !== 'login' && (
-                <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <button
-                    onClick={() => setActiveTab('checkout-hub')}
-                    className="p-3.5 bg-white hover:bg-emerald-50/80 border border-slate-200 hover:border-emerald-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
-                  >
-                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 group-hover:scale-105 transition shrink-0">
-                      <BookMarked className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-700">
-                        {language === 'dv' ? 'ފޮތް ދޫކުރުން' : 'Borrow Book'}
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'dv' ? 'އަވަސް ޗެކްއައުޓް' : 'Quick Checkout'}
-                      </div>
-                    </div>
-                  </button>
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                books={books}
+                users={users}
+                loans={loans}
+                reservations={reservations}
+                ledgerTransactions={ledgerTransactions}
+                currentUser={currentUser}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+              />
+            )}
 
-                  <button
-                    onClick={() => setActiveTab('checkout-hub')}
-                    className="p-3.5 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
-                  >
-                    <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 group-hover:scale-105 transition shrink-0">
-                      <RotateCcw className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-blue-700">
-                        {language === 'dv' ? 'ފޮތް ޙަވާލުކުރުން' : 'Return Book'}
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'dv' ? 'އެނބުރުން ނޯޓުކުރުން' : 'Check-in Item'}
-                      </div>
-                    </div>
-                  </button>
+            {(activeTab === 'catalog' || activeTab === 'add-book') && (
+              <BookCatalog
+                books={books}
+                currentUser={currentUser}
+                reservations={reservations}
+                users={users}
+                loans={loans}
+                settings={settings}
+                isLoading={isLoading}
+                onReserveBook={handleReserveBook}
+                onOpenCheckoutForBook={(book) => {
+                  setPreselectedCheckoutBook(book);
+                  setActiveTab('checkout-hub');
+                }}
+                onViewReferenceOnly={() => setActiveTab('reference')}
+                onOpenLogin={() => setActiveTab('login')}
+                onAddBook={handleAddBook}
+                onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+                onOpenSmartCataloger={() => {
+                  setSmartCatalogerMode('catalog');
+                  setIsSmartCatalogerOpen(true);
+                }}
+                onEditBook={() => setIsAddBookModalOpen(true)}
+                onDeleteBook={handleDeleteBook}
+                onOpenImportModal={handleOpenImportModal}
+                onCancelReservation={handleCancelReservation}
+                onOpenChallenges={() => setActiveTab('reading-challenges')}
+                onOpenSuggestBook={() => setIsSuggestBookModalOpen(true)}
+              />
+            )}
 
-                  <button
-                    onClick={() => setIsScannerOpen(true)}
-                    className="p-3.5 bg-white hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
-                  >
-                    <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-700 group-hover:scale-105 transition shrink-0">
-                      <Scan className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-indigo-700">
-                        {language === 'dv' ? 'ބާކޯޑު ސްކޭން' : 'Scan Barcode'}
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'dv' ? 'ކެމެރާ / ސްކޭނަރު' : 'Camera or Reader'}
-                      </div>
-                    </div>
-                  </button>
+            {(activeTab === 'borrow-book' || activeTab === 'return-book' || activeTab === 'issued-books' || activeTab === 'late-returns' || activeTab === 'checkout-hub') && (
+              <QuickCheckout
+                books={books}
+                users={users}
+                loans={loans}
+                reservations={reservations}
+                settings={settings}
+                onProcessCheckout={handleProcessCheckout}
+                onProcessReturn={handleProcessReturn}
+                onRenewLoan={handleRenewLoan}
+                onOpenScanner={() => {
+                  setScannerCallback(null);
+                  setIsScannerOpen(true);
+                }}
+                preselectedBook={preselectedCheckoutBook}
+                preselectedMemberId={preselectedMemberCode}
+              />
+            )}
 
-                  <button
-                    onClick={() => {
-                      if (currentUser.role === 'admin') setIsAddBookModalOpen(true);
-                      else setActiveTab('catalog');
-                    }}
-                    className="p-3.5 bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3"
-                  >
-                    <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 group-hover:scale-105 transition shrink-0">
-                      <PlusCircle className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-amber-700">
-                        {currentUser.role === 'admin'
-                          ? (language === 'dv' ? 'އާ ފޮތެއް އިތުރުކުރައްވާ' : 'Add New Book')
-                          : (language === 'dv' ? 'ފޮތް ހޯއްދަވާ' : 'Find Books')}
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'dv' ? 'ސްޓޮކް އަދި ކެޓަލޮގް' : 'Catalog database'}
-                      </div>
-                    </div>
-                  </button>
+            {activeTab === 'students' && (
+              <MemberDirectory
+                allUsers={users}
+                loans={loans}
+                books={books}
+                currentUserRole={currentUser.role}
+                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                onOpenImportModal={handleOpenImportModal}
+                onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                onSelectMemberForCheckout={(memberCode) => {
+                  setPreselectedMemberCode(memberCode);
+                  setActiveTab('checkout-hub');
+                }}
+                onDeleteUser={handleDeleteUser}
+              />
+            )}
 
-                  <button
-                    onClick={() => setActiveTab('catalog')}
-                    className="p-3.5 bg-white hover:bg-purple-50/80 border border-slate-200 hover:border-purple-300 rounded-2xl shadow-xs hover:shadow-md transition text-left group cursor-pointer flex items-center gap-3 col-span-2 sm:col-span-1"
-                  >
-                    <div className="p-2.5 rounded-xl bg-purple-100 text-purple-700 group-hover:scale-105 transition shrink-0">
-                      <BookOpen className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs text-slate-900 group-hover:text-purple-700">
-                        {language === 'dv' ? 'ކެޓަލޮގް ބައްލަވާ' : 'Browse Catalog'}
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'dv' ? 'ފޮތްތަކުގެ ލިސްޓު' : 'Filter & Reserve'}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              )}
-              {activeTab === 'login' && (
-                <LoginPage
-                  currentUser={currentUser}
-                  allUsers={users}
-                  onLoginSuccess={(user) => {
-                    setCurrentUser(user);
-                  }}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                />
-              )}
+            {activeTab === 'personal-library' && (
+              <PersonalLibrary
+                items={personalItems}
+                currentUser={currentUser}
+                onAddItem={handleAddPersonalItem}
+                onUpdateItem={handleUpdatePersonalItem}
+                onDeleteItem={handleDeletePersonalItem}
+                onImportItems={handleImportPersonalItems}
+                onOpenScanner={(cb) => {
+                  setScannerCallback(() => cb || null);
+                  setIsScannerOpen(true);
+                }}
+                onOpenSmartCataloger={() => {
+                  setSmartCatalogerMode('personal');
+                  setIsSmartCatalogerOpen(true);
+                }}
+              />
+            )}
 
-              {activeTab === 'reference' && (
-                <ReferenceSection books={books} />
-              )}
+            {activeTab === 'parent-portal' && (
+              <ParentDashboard
+                parentUser={currentUser}
+                allUsers={users}
+                loans={loans}
+                reservations={reservations}
+                books={books}
+                onRenewLoan={handleRenewLoan}
+                onDeleteUser={handleDeleteUser}
+                onCancelReservation={handleCancelReservation}
+                onAddChildToParent={async (name, grade, studentIdCode) => {
+                  const childProfile: Omit<UserProfile, 'id'> = {
+                    name,
+                    grade,
+                    studentIdCode,
+                    role: 'student',
+                    patronTier: 'student',
+                    parentId: currentUser.id,
+                    email: `${name.toLowerCase().replace(/\s+/g, '.')}@fmagoodhooschool.edu.mv`,
+                    createdAt: new Date().toISOString().split('T')[0]
+                  };
+                  const newChildId = await createUserProfile(childProfile);
+                  const existingChildren = currentUser.childrenIds || [];
+                  await updateUserProfile(currentUser.id, {
+                    childrenIds: [...existingChildren, newChildId]
+                  });
+                  toast.success(`Added student account for ${name}.`, 'Child Linked');
+                }}
+                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+              />
+            )}
 
-              {activeTab === 'dashboard' && (
-                <DashboardView
-                  books={books}
-                  users={users}
-                  loans={loans}
-                  reservations={reservations}
-                  currentUser={currentUser}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
-                />
-              )}
+            {(activeTab === 'manage-students' || activeTab === 'admin-panel') && (
+              <AdminPanel
+                books={books}
+                users={users}
+                loans={loans}
+                settings={settings}
+                ledgerTransactions={ledgerTransactions}
+                immutableAuditLogs={auditLogs}
+                currentUser={currentUser}
+                currentUserName={currentUser.name}
+                isQuotaExhausted={isQuotaExhausted}
+                onAddBook={handleAddBook}
+                onUpdateBook={handleUpdateBook}
+                onDeleteBook={handleDeleteBook}
+                onDeleteUser={handleDeleteUser}
+                onUpdateSettings={handleUpdateSettings}
+                onMarkFeePaid={handleMarkFeePaid}
+                onWaiveFee={handleWaiveFee}
+                onRecordLedgerTransaction={handleRecordLedgerTransaction}
+                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                onOpenImportModal={handleOpenImportModal}
+                onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                onOpenSecuritySuite={() => setActiveTab('security-suite')}
+              />
+            )}
 
-              {(activeTab === 'catalog' || activeTab === 'add-book') && (
-                <BookCatalog
-                  books={books}
-                  currentUser={currentUser}
-                  reservations={reservations}
-                  isLoading={isLoading}
-                  onReserveBook={handleReserveBook}
-                  onOpenCheckoutForBook={(book) => {
-                    setActiveTab('borrow-book');
-                  }}
-                  onViewReferenceOnly={() => setActiveTab('reference')}
-                  onAddBook={handleAddBook}
-                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
-                  onEditBook={(book) => {
-                    setIsAddBookModalOpen(true);
-                  }}
-                  onDeleteBook={handleDeleteBook}
-                  onOpenImportModal={handleOpenImportModal}
-                  onCancelReservation={handleCancelReservation}
-                />
-              )}
+            {activeTab === 'security-suite' && (
+              <SecurityBackupSuiteView
+                currentUser={currentUser}
+                users={users}
+                books={books}
+                loans={loans}
+                reservations={reservations}
+                ledgerTransactions={ledgerTransactions}
+                acquisitions={acquisitions}
+                personalItems={personalItems}
+                auditLogs={auditLogs}
+                settings={settings}
+                onUpdateSettings={handleUpdateSettings}
+                onUpdateUserRole={handleUpdateUserRole}
+                onExportBackup={handleExportBackup}
+                onRestoreBackup={handleRestoreBackup}
+                onRecordAuditEvent={recordAuditEvent}
+              />
+            )}
 
-              {(activeTab === 'borrow-book' || activeTab === 'return-book' || activeTab === 'issued-books' || activeTab === 'late-returns' || activeTab === 'checkout-hub') && (
-                <QuickCheckout
-                  books={books}
-                  users={users}
-                  loans={loans}
-                  settings={settings}
-                  onProcessCheckout={handleProcessCheckout}
-                  onProcessReturn={handleProcessReturn}
-                  onOpenScanner={() => setIsScannerOpen(true)}
-                />
-              )}
+            {activeTab === 'ai-assistant' && (
+              <AIAssistant
+                books={books}
+                loans={loans}
+                currentUser={currentUser}
+                onSelectBook={(book) => {
+                  setPreselectedCheckoutBook(book);
+                  setActiveTab('catalog');
+                }}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onOpenSmartCataloger={() => {
+                  setSmartCatalogerMode(currentUser.role === 'admin' ? 'catalog' : 'personal');
+                  setIsSmartCatalogerOpen(true);
+                }}
+              />
+            )}
 
-              {activeTab === 'students' && (
-                <MemberDirectory
-                  allUsers={users}
-                  loans={loans}
-                  books={books}
-                  currentUserRole={currentUser.role}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                  onOpenImportModal={handleOpenImportModal}
-                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                  onSelectMemberForCheckout={(memberId) => setActiveTab('borrow-book')}
-                  onDeleteUser={handleDeleteUser}
-                />
-              )}
+            {activeTab === 'reports' && <ReportsAnalytics books={books} loans={loans} users={users} />}
 
-              {activeTab === 'parent-portal' && (
-                <ParentDashboard
-                  parentUser={currentUser}
-                  allUsers={users}
-                  loans={loans}
-                  reservations={reservations}
-                  books={books}
-                  onRenewLoan={handleRenewLoan}
-                  onDeleteUser={handleDeleteUser}
-                  onCancelReservation={handleCancelReservation}
-                  onAddChildToParent={async (name, grade, studentIdCode) => {
-                    const childProfile: Omit<UserProfile, 'id'> = {
-                      name,
-                      grade,
-                      studentIdCode,
-                      role: 'student',
-                      parentId: currentUser.id,
-                      email: `${name.toLowerCase().replace(/\s+/g, '.')}@oakridge.edu`,
-                      createdAt: new Date().toISOString().split('T')[0]
-                    };
-                    const newChildId = await createUserProfile(childProfile);
-                    const existingChildren = currentUser.childrenIds || [];
-                    await updateUserProfile(currentUser.id, {
-                      childrenIds: [...existingChildren, newChildId]
-                    });
-                    alert(`Successfully added child account for ${name}!`);
-                  }}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                />
-              )}
+            {activeTab === 'stocktaking' && (
+              <InventoryAuditView
+                books={books}
+                loans={loans}
+                onAutoCheckIn={(loan) => handleProcessReturn(loan, 0)}
+                onUpdateBook={handleUpdateBook}
+                onDeleteBook={handleDeleteBook}
+              />
+            )}
 
-              {(activeTab === 'manage-students' || activeTab === 'admin-panel') && (
-                <AdminPanel
-                  books={books}
-                  users={users}
-                  loans={loans}
-                  settings={settings}
-                  isQuotaExhausted={isQuotaExhausted}
-                  onAddBook={handleAddBook}
-                  onUpdateBook={handleUpdateBook}
-                  onDeleteBook={handleDeleteBook}
-                  onDeleteUser={handleDeleteUser}
-                  onUpdateSettings={handleUpdateSettings}
-                  onMarkFeePaid={handleMarkFeePaid}
-                  onWaiveFee={handleWaiveFee}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                  onOpenImportModal={handleOpenImportModal}
-                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                />
-              )}
+            {activeTab === 'acquisitions' && (
+              <AcquisitionsBoardView
+                requests={acquisitions}
+                books={books}
+                settings={settings}
+                onCreateRequest={handleCreateAcquisition}
+                onUpdateRequest={handleUpdateAcquisition}
+                onDeleteRequest={handleDeleteAcquisition}
+                onToggleUpvote={handleUpvoteAcquisition}
+                onReceiveAndCatalog={handleReceiveAndCatalogAcquisition}
+                onUpdateSettings={handleUpdateSettings}
+                onOpenSuggestionPortal={() => setIsSuggestBookModalOpen(true)}
+              />
+            )}
 
-              {activeTab === 'ai-assistant' && (
-                <AIAssistant
-                  books={books}
-                  currentUser={currentUser}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                />
-              )}
+            {activeTab === 'reading-challenges' && (
+              <ReadingEngagementView
+                currentUser={currentUser}
+                users={users}
+                loans={loans}
+                books={books}
+              />
+            )}
 
-              {activeTab === 'reports' && (
-                <ReportsAnalytics
-                  books={books}
-                  loans={loans}
-                  users={users}
-                />
-              )}
+            {(activeTab === 'my-borrowings' || activeTab === 'my-loans') && (
+              <MyBorrowings
+                currentUser={currentUser}
+                loans={loans}
+                reservations={reservations}
+                books={books}
+                isLoading={isLoading}
+                onRenewLoan={handleRenewLoan}
+                onCancelReservation={handleCancelReservation}
+                onOpenChallenges={() => setActiveTab('reading-challenges')}
+              />
+            )}
 
-              {(activeTab === 'my-borrowings' || activeTab === 'my-loans') && (
-                <MyBorrowings
-                  currentUser={currentUser}
-                  loans={loans}
-                  reservations={reservations}
-                  books={books}
-                  isLoading={isLoading}
-                  onRenewLoan={handleRenewLoan}
-                  onCancelReservation={handleCancelReservation}
-                />
-              )}
-
-              {activeTab === 'faq' && (
-                <FaqHelpView />
-              )}
-            </>
+            {activeTab === 'faq' && <FaqHelpView />}
+          </div>
         </main>
       </div>
 
-      {/* 4. FOOTER (MATCHING REFERENCE IMAGE) */}
-      <footer className="bg-[#1E2530] text-slate-300 border-t border-slate-800 relative z-20">
-        <div className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
-          
-          {/* Column 1: Brand Info */}
-          <div className="space-y-3">
+      {/* Concise School Library Footer */}
+      <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 relative z-20 no-print">
+        <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-xs">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-yellow-400 text-slate-900 rounded font-black text-sm">
-                JS
+              <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <span className="font-extrabold text-white text-sm tracking-wide">
+                F. Magoodhoo School Library
               </span>
-              <span className="font-extrabold text-white text-base tracking-wider">LIBRARYMS</span>
             </div>
-            <p className="text-slate-400 leading-relaxed font-normal">
-              Your modern, complete solution for efficient school library management, catalog organization, and borrowing workflows.
+            <p className="text-slate-400 leading-relaxed">
+              Bilingual Integrated Library System (ILS) & Personal Reading Portal for students, staff, and guardians.
             </p>
           </div>
 
-          {/* Column 2: Quick Links */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-white uppercase text-xs tracking-wider">Quick Links</h4>
-            <ul className="space-y-2 text-slate-400 font-medium">
-              <li>
-                <button onClick={() => setActiveTab('dashboard')} className="hover:text-blue-400 transition">Dashboard</button>
-              </li>
-              <li>
-                <button onClick={() => setActiveTab('catalog')} className="hover:text-blue-400 transition">Book Catalog</button>
-              </li>
-              <li>
-                <button onClick={() => setActiveTab('faq')} className="hover:text-blue-400 transition">FAQ & Knowledge Base</button>
-              </li>
+          <div className="space-y-2">
+            <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider">Navigation</h4>
+            <ul className="space-y-1.5 text-slate-400 font-medium">
+              <li><button onClick={() => setActiveTab('catalog')} className="hover:text-emerald-400 transition cursor-pointer">{t.catalog}</button></li>
+              <li><button onClick={() => setActiveTab('personal-library')} className="hover:text-emerald-400 transition cursor-pointer">{t.personalLibrary}</button></li>
+              <li><button onClick={() => setActiveTab('faq')} className="hover:text-emerald-400 transition cursor-pointer">{t.faqHelp}</button></li>
             </ul>
           </div>
 
-          {/* Column 3: Contact */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-white uppercase text-xs tracking-wider">Contact</h4>
-            <ul className="space-y-2 text-slate-400 font-medium">
-              <li className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                <span>Magoodhoo School, F. Magoodhoo, Republic of Maldives</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                <span>+960 6740018</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-amber-400" />
-                <span>admin@magoodhooschool.edu.mv</span>
-              </li>
+          <div className="space-y-2">
+            <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider">School Contact</h4>
+            <ul className="space-y-1.5 text-slate-400 font-medium">
+              <li className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-emerald-400" /> F. Magoodhoo, Republic of Maldives</li>
+              <li className="flex items-center gap-2 font-mono tabular-nums"><Phone className="w-3.5 h-3.5 text-emerald-400" /> <bdi>+960 6740018</bdi></li>
+              <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-emerald-400" /> <bdi>admin@magoodhooschool.edu.mv</bdi></li>
             </ul>
           </div>
-
-          {/* Column 4: Follow Us */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-white uppercase text-xs tracking-wider">Follow Us</h4>
-            <div className="flex items-center gap-3">
-              <a href="#facebook" className="p-2 bg-slate-800 hover:bg-blue-600 text-white rounded-lg transition">
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a href="#twitter" className="p-2 bg-slate-800 hover:bg-sky-500 text-white rounded-lg transition">
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a href="#instagram" className="p-2 bg-slate-800 hover:bg-pink-600 text-white rounded-lg transition">
-                <Instagram className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-
         </div>
-
-        {/* Sub-footer Copyright */}
-        <div className="bg-[#151B24] border-t border-slate-800/80 py-4 px-6 text-center text-[11px] text-slate-500 font-medium">
-          © 2025 LibraryMS. All Rights Reserved.
+        <div className="bg-slate-950 border-t border-slate-800/80 py-3 px-6 text-center text-[11px] text-slate-500 font-medium">
+          © 2026 F. Magoodhoo School Library Portal. All Rights Reserved.
         </div>
       </footer>
 
-      {/* MODALS */}
-
-      {/* Add New Book Modal (with Internet Data Fetcher) */}
-      <AddBookModal
-        isOpen={isAddBookModalOpen}
-        onClose={() => setIsAddBookModalOpen(false)}
-        onAddBook={handleAddBook}
-      />
-
-      {/* Global Barcode Scanner Modal */}
-      <BarcodeScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        books={books}
-        users={users}
-        loans={loans}
-        onProcessReturn={handleProcessReturn}
-        onScanResult={(scannedCode, matchedBook) => {
-          if (matchedBook) {
-            setActiveTab('catalog');
-          }
-        }}
-      />
-
-      {/* Register Parent / Member Modal */}
-      <AddParentModal
-        isOpen={isAddParentModalOpen}
-        onClose={() => setIsAddParentModalOpen(false)}
-        allUsers={users}
-        onCreateParentAccount={handleCreateParentAccount}
-      />
-
-      {/* Mobile Bottom Navigation Bar (Optimized for Smartphones & Tablets with Safe-Area Inset) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-around shadow-2xl safe-bottom">
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-around shadow-2xl safe-bottom no-print">
         <button
           onClick={() => setActiveTab('catalog')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
@@ -1525,17 +2058,20 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActiveTab('ai-assistant')}
+          onClick={() => setActiveTab('personal-library')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'ai-assistant' ? 'text-purple-700 font-black' : 'text-slate-500'
+            activeTab === 'personal-library' ? 'text-emerald-700 font-black' : 'text-slate-500'
           }`}
         >
-          <Sparkles className="w-5 h-5" />
-          <span>{language === 'dv' ? 'ލައިބްރޭރިއަން' : 'Libby AI'}</span>
+          <Bookmark className="w-5 h-5" />
+          <span>{language === 'dv' ? 'ލައިބްރަރީ' : 'Shelf'}</span>
         </button>
 
         <button
-          onClick={() => setIsScannerOpen(true)}
+          onClick={() => {
+            setScannerCallback(null);
+            setIsScannerOpen(true);
+          }}
           className="flex flex-col items-center justify-center w-11 h-11 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full shadow-lg -mt-5 border-2 border-white active:scale-95 transition"
           title="Scan Book Barcode"
         >
@@ -1543,13 +2079,13 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActiveTab('my-borrowings')}
+          onClick={() => setActiveTab('ai-assistant')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'my-borrowings' ? 'text-emerald-700 font-black' : 'text-slate-500'
+            activeTab === 'ai-assistant' ? 'text-emerald-700 font-black' : 'text-slate-500'
           }`}
         >
-          <BookMarked className="w-5 h-5" />
-          <span>{language === 'dv' ? 'ފޮތްތައް' : 'My Books'}</span>
+          <Sparkles className="w-5 h-5" />
+          <span>{language === 'dv' ? 'އޭއައި' : 'Libby AI'}</span>
         </button>
 
         <button
@@ -1563,7 +2099,80 @@ export default function App() {
         </button>
       </div>
 
-      {/* Bulk Data Import Modal */}
+      {/* MODALS */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        books={books}
+        users={users}
+        personalItems={personalItems}
+        isAdmin={isSuperAdmin}
+        onSelectBook={(book) => {
+          setPreselectedCheckoutBook(book);
+          setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'catalog');
+        }}
+        onSelectUser={(user) => {
+          setPreselectedMemberCode(user.studentIdCode || user.staffIdCode || user.id);
+          setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'students');
+        }}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenScanner={() => {
+          setScannerCallback(null);
+          setIsScannerOpen(true);
+        }}
+      />
+
+      <AddBookModal
+        isOpen={isAddBookModalOpen}
+        onClose={() => setIsAddBookModalOpen(false)}
+        onAddBook={handleAddBook}
+        onOpenSmartCataloger={() => {
+          setSmartCatalogerMode('catalog');
+          setIsSmartCatalogerOpen(true);
+        }}
+      />
+
+      <SmartAICatalogerModal
+        isOpen={isSmartCatalogerOpen}
+        onClose={() => setIsSmartCatalogerOpen(false)}
+        mode={smartCatalogerMode}
+        currentUserId={currentUser.id}
+        onSaveCatalogBook={handleAddBook}
+        onSavePersonalItem={handleAddPersonalItem}
+      />
+
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => {
+          setIsScannerOpen(false);
+          setScannerCallback(null);
+        }}
+        books={books}
+        users={users}
+        loans={loans}
+        settings={settings}
+        onProcessReturn={handleProcessReturn}
+        onScanResult={(scannedCode, matchedBook) => {
+          if (scannerCallback) {
+            scannerCallback(scannedCode);
+            setScannerCallback(null);
+            setIsScannerOpen(false);
+            return;
+          }
+          if (matchedBook) {
+            setPreselectedCheckoutBook(matchedBook);
+            setActiveTab(currentUser.role === 'admin' ? 'checkout-hub' : 'catalog');
+          }
+        }}
+      />
+
+      <AddParentModal
+        isOpen={isAddParentModalOpen}
+        onClose={() => setIsAddParentModalOpen(false)}
+        allUsers={users}
+        onCreateParentAccount={handleCreateParentAccount}
+      />
+
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
@@ -1573,27 +2182,57 @@ export default function App() {
         onImportStaff={handleBulkImportStaff}
       />
 
-      {/* Cloud Firestore Report Card Portal Real-Time Sync Modal */}
       <ReportCardSyncModal
         isOpen={isReportCardSyncModalOpen}
         onClose={() => setIsReportCardSyncModalOpen(false)}
       />
 
-      {/* PWA Offline Mode Indicator Banner */}
-      {!isOnline && (
+      <PatronSuggestionModal
+        isOpen={isSuggestBookModalOpen}
+        onClose={() => setIsSuggestBookModalOpen(false)}
+        currentUser={currentUser}
+        requests={acquisitions}
+        onCreateRequest={handleCreateAcquisition}
+        onToggleUpvote={handleUpvoteAcquisition}
+      />
+
+      {/* PWA Offline Mode & Outbox Sync Indicator */}
+      {(!isOnline || syncState.pendingCount > 0 || syncState.conflicts.length > 0) && (
         <div
           role="status"
-          className="fixed bottom-16 sm:bottom-6 start-4 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-bold shadow-xl backdrop-blur-md animate-in fade-in"
+          className="fixed bottom-16 sm:bottom-6 start-4 z-50 flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-bold shadow-lg no-print max-w-md"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400' : 'bg-amber-400'}`} />
           <span>
-            {language === 'dv'
-              ? 'އޮފްލައިން މޯޑު — ކުރިން ކޭޝްކުރެވިފައިވާ މަޢުލޫމާތު ބެއްލެވޭނެ'
-              : 'Offline Mode — Browsing locally cached catalog. Holds are queued.'}
+            {!isOnline
+              ? (language === 'dv'
+                  ? `އޮފްލައިން މޯޑު${syncState.pendingCount > 0 ? ` — ${syncState.pendingCount} މުޢާމަލާތް ކިއުގައި` : ''}`
+                  : `Offline Mode${syncState.pendingCount > 0 ? ` — ${syncState.pendingCount} outbox action(s) queued` : ' — Browsing cached catalog'}`)
+              : syncState.pendingCount > 0
+              ? `${syncState.pendingCount} pending outbox operation(s)`
+              : `${syncState.conflicts.length} sync conflict notice(s) reconciled`}
           </span>
+          {isOnline && syncState.pendingCount > 0 && (
+            <button
+              type="button"
+              onClick={() => void runOutboxSync()}
+              disabled={syncState.isSyncing}
+              className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+            >
+              {syncState.isSyncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+          )}
+          {syncState.conflicts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void offlineSyncEngine.clearAllConflicts()}
+              className="px-2 py-0.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] font-bold cursor-pointer"
+            >
+              Dismiss
+            </button>
+          )}
         </div>
       )}
-
     </div>
   );
 }

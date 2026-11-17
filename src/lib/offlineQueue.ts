@@ -1,4 +1,4 @@
-import { Reservation } from '../types';
+import { offlineDb } from './offlineDb';
 
 export interface QueuedReservation {
   id: string;
@@ -25,6 +25,18 @@ export const offlineQueue = {
     }
   },
 
+  async hydrateFromIndexedDb(): Promise<QueuedReservation[]> {
+    const local = this.getQueue();
+    if (local.length > 0) return local;
+    const idbQueue = await offlineDb.getSyncQueue<QueuedReservation>();
+    if (idbQueue.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(idbQueue));
+      } catch {}
+    }
+    return idbQueue;
+  },
+
   enqueue(reservation: Omit<QueuedReservation, 'attempts' | 'status'>): QueuedReservation {
     const queue = this.getQueue();
     const item: QueuedReservation = {
@@ -38,6 +50,7 @@ export const offlineQueue = {
     } catch (err) {
       console.warn('Failed to save to offline reservation queue:', err);
     }
+    void offlineDb.saveSyncQueue(queue);
     return item;
   },
 
@@ -48,18 +61,20 @@ export const offlineQueue = {
     } catch (err) {
       console.warn('Failed to update offline reservation queue:', err);
     }
+    void offlineDb.saveSyncQueue(queue);
   },
 
   clear() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
+    void offlineDb.saveSyncQueue([]);
   },
 
   async syncQueue(
     syncHandler: (item: QueuedReservation) => Promise<boolean>
   ): Promise<{ syncedCount: number; remainingCount: number }> {
-    const queue = this.getQueue();
+    const queue = await this.hydrateFromIndexedDb();
     if (queue.length === 0) return { syncedCount: 0, remainingCount: 0 };
 
     let syncedCount = 0;
@@ -82,6 +97,7 @@ export const offlineQueue = {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
     } catch {}
+    void offlineDb.saveSyncQueue(remaining);
 
     return { syncedCount, remainingCount: remaining.length };
   },

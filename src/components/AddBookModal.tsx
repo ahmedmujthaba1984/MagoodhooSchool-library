@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Sparkles, QrCode, ShieldAlert, Image, Check, X, Wand2, Globe, Search, Loader2, DownloadCloud, AlertCircle, Pencil, Trash2, FolderPlus } from 'lucide-react';
-import { Book } from '../types';
-import { generateAiBookInfo } from '../lib/aiService';
+import {
+  BookOpen, Plus, Sparkles, QrCode, ShieldAlert, Image, Check, X,
+  Wand2, Globe, Search, Loader2, DownloadCloud, AlertCircle, Pencil,
+  Trash2, FolderPlus, Camera, ChevronDown, ChevronUp, Mic, MicOff
+} from 'lucide-react';
+import { Book, BookCopy } from '../types';
+import { generateAiBookInfo, analyzeBookCoverOcr, lookupIsbnMetadata } from '../lib/aiService';
 import { subscribeCategories, addCategoryToStore, updateCategoryInStore, deleteCategoryFromStore, DEFAULT_CATEGORIES } from '../lib/categories';
+import { BookCoverFallback } from './BookCoverFallback';
+import { useLanguage } from '../lib/i18n';
+import { useToast } from '../lib/toast';
+import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 
 interface AddBookModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddBook: (book: Omit<Book, 'id'>) => Promise<void>;
+  onOpenSmartCataloger?: () => void;
 }
 
 const PRESET_COVERS = [
-  { label: 'Fiction / Novel', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400' },
-  { label: 'Science & Nature', url: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=400' },
-  { label: 'History & World', url: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&q=80&w=400' },
-  { label: 'Children Literature', url: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=400' },
-  { label: 'Reference & Atlas', url: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&q=80&w=400' },
+  { label: 'Classic Literature', url: '/covers/classic_literature.jpg' },
+  { label: 'Science & Cosmos', url: '/covers/science_cosmos.jpg' },
+  { label: 'Dhivehi Heritage', url: '/covers/dhivehi_heritage.jpg' },
+  { label: 'Islamic Studies', url: '/covers/islamic_studies.jpg' },
+  { label: 'Tech & Reference', url: '/covers/tech_reference.jpg' },
 ];
 
 const TEMPLATES = [
@@ -48,7 +57,9 @@ const TEMPLATES = [
   }
 ];
 
-export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onAddBook }) => {
+export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onAddBook, onOpenSmartCataloger }) => {
+  const { language } = useLanguage();
+  const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [category, setCategory] = useState('Fiction / Literature');
@@ -60,16 +71,36 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
   const [isReferenceOnly, setIsReferenceOnly] = useState(false);
   const [coverUrl, setCoverUrl] = useState(PRESET_COVERS[0].url);
   const [description, setDescription] = useState('');
-  const [publisher, setPublisher] = useState('Oakridge Academic Press');
+  const [publisher, setPublisher] = useState('Magoodhoo Academic Press');
   const [publicationYear, setPublicationYear] = useState(2024);
+  const [ddcCallNumber, setDdcCallNumber] = useState('DDC 823');
+  const [bookLanguage, setBookLanguage] = useState<'English' | 'Dhivehi' | 'Arabic'>('English');
+  const [copyPrefix, setCopyPrefix] = useState('MAG-823');
+  const [replacementPriceMvr, setReplacementPriceMvr] = useState(180);
+  const [showAdvancedDrawer, setShowAdvancedDrawer] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
+  const [isOcrScanning, setIsOcrScanning] = useState(false);
 
   // Internet Book Data Fetching States
   const [onlineQuery, setOnlineQuery] = useState('');
   const [isFetchingOnline, setIsFetchingOnline] = useState(false);
   const [onlineFetchError, setOnlineFetchError] = useState<string | null>(null);
   const [onlineResults, setOnlineResults] = useState<any[]>([]);
+
+  const {
+    isRecording: isVoiceDictating,
+    isTranscribing: isVoiceTranscribing,
+    toggleRecording: toggleVoiceDictation
+  } = useVoiceAssistant({
+    language: language === 'dv' ? 'dv' : 'en',
+    onTranscript: (text) => {
+      setOnlineQuery(text);
+      fetchBookDataFromInternet(text);
+    },
+    onError: (msg) => toast.error(msg, 'Voice Cataloging'),
+  });
 
   // Dynamic Categories Management States
   const [categoriesList, setCategoriesList] = useState<string[]>(DEFAULT_CATEGORIES);
@@ -149,7 +180,7 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     setBarcode(generatedIsbn);
   };
 
-  // Fetch Book Metadata from Internet (Google Books API + Open Library API)
+  // Fetch Book Metadata from Server Proxy (/api/catalog/lookup) + Google Books / Open Library fallback
   const fetchBookDataFromInternet = async (queryText?: string) => {
     const q = (queryText || onlineQuery || isbn || title).trim();
     if (!q) {
@@ -162,7 +193,30 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     setOnlineResults([]);
 
     try {
-      // 1. Try Google Books API
+      // 1. If numeric ISBN, call our multi-source /api/catalog/lookup endpoint first
+      const cleanDigits = q.replace(/[-\s]/g, '');
+      if (/^\d{10,13}$/.test(cleanDigits)) {
+        const proxyData = await lookupIsbnMetadata(cleanDigits);
+        if (proxyData && proxyData.title) {
+          const item = {
+            title: proxyData.title,
+            author: proxyData.author,
+            publisher: proxyData.publisher || 'Academic Press',
+            publicationYear: proxyData.publicationYear || 2023,
+            description: proxyData.description || '',
+            category: proxyData.category || 'General Literature',
+            isbn: proxyData.isbn || cleanDigits,
+            barcode: proxyData.isbn || cleanDigits,
+            coverUrl: proxyData.coverUrl || PRESET_COVERS[0].url
+          };
+          setOnlineResults([item]);
+          applyOnlineBookData(item);
+          setIsFetchingOnline(false);
+          return;
+        }
+      }
+
+      // 2. Search Google Books API by title/author
       const googleRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
       if (googleRes.ok) {
         const googleData = await googleRes.json();
@@ -194,44 +248,56 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
         }
       }
 
-      // 2. Fallback to Open Library API
-      const openLibRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5`);
-      if (openLibRes.ok) {
-        const openLibData = await openLibRes.json();
-        if (openLibData.docs && openLibData.docs.length > 0) {
-          const parsed = openLibData.docs.slice(0, 5).map((doc: any) => {
-            const docIsbn = doc.isbn ? doc.isbn[0] : (q.match(/^\d+$/) ? q : `978${Math.floor(1000000000 + Math.random() * 9000000000)}`);
-            const coverId = doc.cover_i;
-            const coverUrl = coverId 
-              ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
-              : PRESET_COVERS[0].url;
-
-            return {
-              title: doc.title || 'Untitled Book',
-              author: doc.author_name ? doc.author_name.join(', ') : 'Unknown Author',
-              publisher: doc.publisher ? doc.publisher[0] : 'Open Library Press',
-              publicationYear: doc.first_publish_year || 2022,
-              description: doc.first_sentence ? doc.first_sentence[0] : `Book catalog entry. Subjects: ${doc.subject ? doc.subject.slice(0, 3).join(', ') : 'General'}.`,
-              category: doc.subject && doc.subject.length > 0 ? doc.subject[0] : 'Fiction / Literature',
-              isbn: docIsbn,
-              barcode: docIsbn,
-              coverUrl
-            };
-          });
-
-          setOnlineResults(parsed);
-          applyOnlineBookData(parsed[0]);
-          setIsFetchingOnline(false);
-          return;
-        }
-      }
-
-      setOnlineFetchError(`No online book records found matching "${q}". Please check title/ISBN and retry.`);
+      setOnlineFetchError(`No online book records found matching "${q}". You can snap a cover photo with AI Cover OCR or enter fields manually.`);
     } catch (err: any) {
       console.error('Internet book fetch error:', err);
-      setOnlineFetchError('Unable to connect to online library services. Please verify your internet connection or enter fields manually.');
+      setOnlineFetchError('Unable to connect to online library services. Use AI Cover OCR or manual entry.');
     } finally {
       setIsFetchingOnline(false);
+    }
+  };
+
+  // AI Cover OCR Upload Handler (extracts title, author, DDC, language, summary from cover photo)
+  const handleCoverOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsOcrScanning(true);
+    setOnlineFetchError(null);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1] || '';
+        const ocr = await analyzeBookCoverOcr({
+          imageBase64: base64,
+          mimeType: file.type || 'image/jpeg',
+          language: language === 'dv' ? 'dv' : 'en'
+        });
+        if (ocr) {
+          if (ocr.title) setTitle(ocr.title);
+          if (ocr.author) setAuthor(ocr.author);
+          if (ocr.publisher) setPublisher(ocr.publisher);
+          if (ocr.publicationYear) setPublicationYear(ocr.publicationYear);
+          if (ocr.ddcCallNumber) {
+            setDdcCallNumber(ocr.ddcCallNumber);
+            const digits = ocr.ddcCallNumber.match(/\d{3}/)?.[0] || '000';
+            setCopyPrefix(`MAG-${digits}`);
+          }
+          if (ocr.category) setCategory(ocr.category);
+          if (ocr.description) setDescription(ocr.description);
+          if (ocr.bookLanguage === 'Dhivehi' || ocr.bookLanguage === 'Arabic' || ocr.bookLanguage === 'English') {
+            setBookLanguage(ocr.bookLanguage);
+          }
+          if (!isbn) handleGenerateBarcode();
+        } else {
+          setOnlineFetchError('Cover OCR could not extract text. Try a clearer photo.');
+        }
+        setIsOcrScanning(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setOnlineFetchError(`Cover OCR error: ${err.message}`);
+      setIsOcrScanning(false);
     }
   };
 
@@ -318,21 +384,41 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
 
     const finalBarcode = barcode.trim() || isbn.trim() || `BK-${Date.now().toString().slice(-6)}`;
     const finalIsbn = isbn.trim() || finalBarcode;
+    const count = Math.max(1, Number(totalCopies) || 1);
+
+    const yearNum = new Date().getFullYear();
+    const accBase = Math.floor(1000 + Math.random() * 8999);
+    const resolvedShelf = shelfLocation.trim() || 'General Stacks';
+    const generatedCopies: BookCopy[] = Array.from({ length: count }, (_, idx) => ({
+      copyId: `${finalBarcode}-cp-${idx + 1}`,
+      barcode: `${copyPrefix || 'MAG-000'}-${String(idx + 1).padStart(2, '0')}`,
+      accessionNumber: `ACC-${yearNum}-${accBase + idx}`,
+      rackLocation: resolvedShelf,
+      status: 'Available',
+      condition: 'Good',
+      shelfLocation: resolvedShelf,
+      acquiredAt: new Date().toISOString().split('T')[0],
+      acquisitionPriceMvr: Number(replacementPriceMvr) || 180
+    }));
 
     const bookPayload: Omit<Book, 'id'> = {
       title: title.trim(),
       author: author.trim(),
       category: category.trim() || 'General Literature',
+      mediaType: 'Book',
+      bookLanguage,
+      ddcCallNumber: ddcCallNumber.trim() || 'DDC 000',
       isbn: finalIsbn,
       barcode: finalBarcode,
       shelfLocation: shelfLocation.trim() || 'General Stacks',
-      totalCopies: Number(totalCopies) || 1,
-      availableCopies: Number(totalCopies) || 1,
+      totalCopies: count,
+      availableCopies: count,
       isReferenceOnly: Boolean(isReferenceOnly),
       coverUrl: coverUrl.trim() || PRESET_COVERS[0].url,
       description: description.trim() || 'No description available for this catalog item.',
-      publisher: publisher.trim() || 'Oakridge Press',
+      publisher: publisher.trim() || 'Magoodhoo Academic Press',
       publicationYear: Number(publicationYear) || 2024,
+      copies: generatedCopies,
       addedAt: new Date().toISOString().split('T')[0]
     };
 
@@ -392,28 +478,43 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
           </button>
         </div>
 
-        {/* Internet Book Metadata Lookup Toolbar */}
-        <div className="p-4 bg-gradient-to-r from-sky-50 via-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl space-y-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-indigo-600 animate-pulse" />
-              <div>
-                <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
-                  Internet Book Data Auto-Fetcher
-                </h4>
-                <p className="text-[11px] text-slate-600 font-medium">
-                  Fetch real book details, cover image, synopsis, publisher, and ISBN live from Google Books & Open Library.
-                </p>
-              </div>
+        {/* Rapid Cataloging Toolbar: Multi-Source ISBN Lookup + AI Cover OCR */}
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-emerald-700" />
+                {language === 'dv' ? 'އަވަސް ކެޓަލޮގިންގ (ISBN / AI OCR)' : 'Rapid Cataloging: ISBN Lookup & AI Cover OCR'}
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Fetch metadata from Open Library / Google Books / Crossref, or upload a cover photo for instant Gemini OCR extraction.
+              </p>
             </div>
-            <span className="bg-indigo-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
-              Live Web API
-            </span>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {onOpenSmartCataloger && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseModal();
+                    onOpenSmartCataloger();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{language === 'dv' ? 'ދެ ފޮޓޯ ސްކޭނަރ' : 'Full AI Vision Modal'}</span>
+                </button>
+              )}
+              <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shrink-0">
+                {isOcrScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5 text-emerald-400" />}
+                <span>{isOcrScanning ? 'Reading Cover...' : 'AI Cover OCR Snap'}</span>
+                <input type="file" accept="image/*" onChange={handleCoverOcrUpload} className="hidden" />
+              </label>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={onlineQuery}
@@ -425,26 +526,33 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                   }
                 }}
                 placeholder="Enter ISBN (e.g. 9780451524935) or Title / Author..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                className="w-full ps-9 pe-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 id="add-book-online-search-input"
               />
             </div>
             <button
               type="button"
+              onClick={toggleVoiceDictation}
+              disabled={isVoiceTranscribing}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer shrink-0 ${
+                isVoiceDictating
+                  ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
+                  : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-300'
+              }`}
+              title={language === 'dv' ? 'އަޑުން ފޮތުގެ ނަން ކިޔާލާ' : 'Voice Dictate Title or ISBN'}
+            >
+              {isVoiceDictating ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-emerald-700" />}
+              <span className="hidden sm:inline">{isVoiceTranscribing ? '...' : isVoiceDictating ? 'Stop' : 'Dictate'}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => fetchBookDataFromInternet()}
               disabled={isFetchingOnline}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
               id="fetch-book-data-online-btn"
             >
-              {isFetchingOnline ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Fetching...
-                </>
-              ) : (
-                <>
-                  <DownloadCloud className="w-4 h-4" /> Fetch from Internet
-                </>
-              )}
+              {isFetchingOnline ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+              <span>{isFetchingOnline ? 'Fetching...' : 'Lookup'}</span>
             </button>
           </div>
 
@@ -458,17 +566,17 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
 
           {/* Search Results Picker */}
           {onlineResults.length > 1 && (
-            <div className="pt-2 border-t border-indigo-100 space-y-1.5">
-              <span className="text-[10px] font-extrabold text-indigo-900 uppercase tracking-wider block">
+            <div className="pt-2 border-t border-slate-200 space-y-1.5">
+              <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
                 Found {onlineResults.length} matching books online. Click one to auto-fill:
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pe-1">
                 {onlineResults.map((resBook, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => applyOnlineBookData(resBook)}
-                    className="p-2 bg-white hover:bg-indigo-100/70 border border-slate-200 hover:border-indigo-300 rounded-xl text-left transition flex items-center gap-2 shadow-sm group"
+                    className="p-2 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl text-start transition flex items-center gap-2 shadow-sm group cursor-pointer"
                   >
                     <img src={resBook.coverUrl} alt="" className="w-8 h-10 object-cover rounded shadow flex-shrink-0" />
                     <div className="min-w-0 flex-1">
@@ -505,13 +613,13 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
         </div>
 
         {/* Gemini AI Auto-Cataloger Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-gradient-to-r from-purple-900 to-indigo-900 text-white rounded-2xl shadow-md gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-900 border border-slate-800 text-white rounded-2xl shadow-sm gap-3">
           <div className="space-y-0.5">
-            <div className="text-xs font-black flex items-center gap-1.5 text-purple-300">
-              <Sparkles className="w-4 h-4 text-purple-400" /> Gemini AI Book Auto-Cataloger
+            <div className="text-xs font-black flex items-center gap-1.5 text-emerald-400">
+              <Sparkles className="w-4 h-4 text-emerald-400" /> AI Book Auto-Cataloger
             </div>
-            <div className="text-[10px] text-purple-200 font-medium">
-              Enter Title & Author below, then click to auto-generate description, genre, and shelf location with AI!
+            <div className="text-[10px] text-slate-300 font-medium">
+              Enter Title & Author below, then click to auto-generate description, genre, and shelf location.
             </div>
           </div>
 
@@ -519,16 +627,16 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
             type="button"
             onClick={handleAIGenerateBookInfo}
             disabled={isAIGenerating || !title.trim() || !author.trim()}
-            className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow active:scale-95 shrink-0"
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow active:scale-95 shrink-0 cursor-pointer"
             id="ai-autofill-book-info-btn"
           >
             {isAIGenerating ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Cataloging with AI...
+                <Loader2 className="w-4 h-4 animate-spin" /> Cataloging...
               </>
             ) : (
               <>
-                <Wand2 className="w-4 h-4 text-purple-200" /> AI Auto-Fill Details
+                <Wand2 className="w-4 h-4 text-emerald-100" /> AI Auto-Fill Details
               </>
             )}
           </button>
@@ -845,9 +953,66 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter brief synopsis of the book..."
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
               id="add-book-description-input"
             />
+          </div>
+
+          {/* Progressive Disclosure: Collapsible MARC21, DDC & Copy-Level Barcode Settings */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedDrawer(prev => !prev)}
+              className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              <span>Advanced Cataloging: DDC, Language, MVR Valuation & Copy Barcode Prefix</span>
+              {showAdvancedDrawer ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showAdvancedDrawer && (
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white border-t border-slate-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">DDC Call Number</label>
+                  <input
+                    type="text"
+                    value={ddcCallNumber}
+                    onChange={(e) => setDdcCallNumber(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Book Language</label>
+                  <select
+                    value={bookLanguage}
+                    onChange={(e) => setBookLanguage(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900"
+                  >
+                    <option value="English">English</option>
+                    <option value="Dhivehi">Dhivehi (ދިވެހި)</option>
+                    <option value="Arabic">Arabic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Copy Barcode Prefix</label>
+                  <input
+                    type="text"
+                    value={copyPrefix}
+                    onChange={(e) => setCopyPrefix(e.target.value)}
+                    placeholder="MAG-823"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Replacement Price (MVR)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={replacementPriceMvr}
+                    onChange={(e) => setReplacementPriceMvr(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Modal Buttons */}

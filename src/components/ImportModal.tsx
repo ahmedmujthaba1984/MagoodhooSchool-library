@@ -158,7 +158,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           publisher,
           publicationYear,
           description,
-          coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+          coverUrl: '/covers/classic_literature.jpg',
           addedAt: new Date().toISOString().split('T')[0],
         });
       }
@@ -449,7 +449,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white max-h-48 overflow-y-auto shadow-sm">
-              <table className="w-full text-left text-xs text-slate-700">
+              <table className="w-full text-start text-xs text-slate-700">
                 <thead className="bg-slate-100 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200 sticky top-0">
                   <tr>
                     {importType === 'books' ? (

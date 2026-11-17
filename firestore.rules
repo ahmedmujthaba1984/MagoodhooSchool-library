@@ -1,8 +1,79 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll([
+        'action', 'targetType', 'targetId', 'details',
+        'performedBy', 'timestamp', 'integrityHash', 'immutable'
+      ])
+      && data.action is string && data.action.size() <= 64
+      && data.targetType is string && data.targetType.size() <= 32
+      && data.targetId is string && data.targetId.size() <= 128
+      && data.details is string && data.details.size() <= 1000
+      && data.performedBy is string && data.performedBy.size() <= 160
+      && data.timestamp is string && data.timestamp.size() <= 64
+      && data.integrityHash is string && data.integrityHash.size() <= 64
+      && data.immutable == true;
+    }
+
+    // Default deny safety net
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(bookId);
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(userId);
+    }
+
+    match /loans/{loanId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(loanId);
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(reservationId);
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update: if isValidId(settingId);
+      allow delete: if false;
+    }
+
+    match /acquisitions/{requestId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(requestId);
+    }
+
+    // Immutable Activity Audit Log: append-only (never modifiable or deletable)
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow create: if isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false;
+    }
+
+    // Connectivity health probe
+    match /_quota_probe/{probeId} {
+      allow read, write: if isValidId(probeId);
+    }
+
+    match /test/{docId} {
+      allow read: if isValidId(docId);
     }
   }
 }

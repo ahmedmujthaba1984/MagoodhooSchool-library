@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   /* Thaana Faruma Font Faces with Comprehensive Format Fallbacks */
@@ -43,13 +44,18 @@
   }
 
   body {
-    background-color: #0b0f19;
+    background-color: #f1f5f9;
     color: #0f172a;
     font-family: var(--font-sans);
     min-height: 100vh;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+  }
+
+  html.dark body {
+    background-color: #020617;
+    color: #f1f5f9;
   }
 
   /* Enforce Faruma across the entire portal in RTL / Dhivehi mode */
@@ -62,7 +68,7 @@
     font-feature-settings: "kern" 1;
     letter-spacing: 0;
     line-height: var(--thaana-line-height);
-    text-align: right;
+    text-align: start;
   }
 
   /* Prevent top/bottom clipping of Dhivehi diacritics (fili) on inline & block elements */
@@ -102,19 +108,60 @@
     padding-bottom: 0.15em;
   }
 
-  /* Mixed-language codes, call numbers, barcodes, dates, and numbers stay isolated */
+  /* Mixed-language text isolation (BDI): keep Latin/names crisp in sans-serif while codes use JetBrains Mono */
   bdi,
   .bdi-isolate,
-  .bdi-isolated,
+  .bdi-isolated {
+    unicode-bidi: isolate;
+    direction: ltr;
+    display: inline-block;
+    text-align: left;
+  }
+
+  .font-mono,
+  code,
+  .bdi-code,
+  bdi.font-mono,
   [dir="rtl"] .font-mono,
   [dir="rtl"] code,
-  [dir="rtl"] bdi,
   [dir="rtl"] .bdi-code {
     unicode-bidi: isolate;
     direction: ltr;
     display: inline-block;
     text-align: left;
     font-family: var(--font-mono) !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+    body {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .print-only-sheet {
+      display: block !important;
+    }
+    .a4-sticker-grid {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 6mm !important;
+    }
+    .id-card-print-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 8mm !important;
+    }
+    .print-break-inside-avoid {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
   }
 
   /* Automatically mirror navigation arrows, back buttons, and chevrons in RTL mode */

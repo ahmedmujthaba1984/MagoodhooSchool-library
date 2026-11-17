@@ -430,7 +430,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
                 onClick={() => setActiveReport('issued')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-indigo-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '1. ދޫކުރެވިފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : '1. Issued Books Report'}</span>
@@ -443,7 +443,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button
                 onClick={() => setActiveReport('returned')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-emerald-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '2. އަނބުރާ ލިބުނު ފޮތްތަކުގެ ރިޕޯޓް' : '2. Returned Books Report'}</span>
@@ -456,7 +456,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button
                 onClick={() => setActiveReport('overdue')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-amber-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '3. މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކުގެ ރިޕޯޓް' : '3. Overdue Books Report'}</span>
@@ -469,7 +469,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button
                 onClick={() => setActiveReport('active-members')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-purple-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '4. މެންބަރުންގެ ޙަރަކާތްތަކުގެ ރިޕޯޓް' : '4. Active Members Report'}</span>
@@ -482,7 +482,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button
                 onClick={() => setActiveReport('inventory')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-blue-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '5. އިންވެންޓްރީ ޚުލާޞާ ރިޕޯޓް' : '5. Inventory Summary'}</span>
@@ -495,7 +495,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button
                 onClick={() => setActiveReport('fines')}
-                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left space-y-1 transition group cursor-pointer"
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-start space-y-1 transition group cursor-pointer"
               >
                 <div className="flex items-center justify-between text-teal-700 font-extrabold text-sm">
                   <span>{language === 'dv' ? '6. ޖޫރިމަނާގެ ރިޕޯޓް' : '6. Fine Collection Report'}</span>
@@ -525,13 +525,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search book or borrower...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -548,7 +548,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
@@ -606,13 +606,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search returned books...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -629,7 +629,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
@@ -685,13 +685,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search overdue items...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -708,7 +708,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
@@ -760,13 +760,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search member name or email...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -783,7 +783,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
@@ -851,13 +851,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               </select>
 
               <div className="relative flex-1 sm:w-48">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Filter inventory...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -874,7 +874,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>
@@ -921,13 +921,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Search fines...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -944,7 +944,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Borrower Name'}</th>
@@ -998,13 +998,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={language === 'dv' ? 'ހޯއްދަވާ...' : 'Filter activity logs...'}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
@@ -1021,7 +1021,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800 border-collapse">
+            <table className="w-full text-start text-xs text-slate-800 border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[11px] bg-slate-50">
                   <th className="p-3.5 font-bold">{language === 'dv' ? 'ތާރީޚް' : 'Transaction Date'}</th>

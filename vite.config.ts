@@ -11,59 +11,52 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon.png'],
-        manifest: {
-          id: '/',
-          name: 'Magoodhoo School Library Portal',
-          short_name: 'LibraryMS',
-          description: 'Magoodhoo School Digital Library Management, Barcode Circulation & Online Catalog Portal.',
-          theme_color: '#047857',
-          background_color: '#0f172a',
-          display: 'standalone',
-          start_url: '/',
-          scope: '/',
-          orientation: 'portrait-primary',
-          icons: [
-            {
-              src: '/pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/pwa-maskable-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable',
-            },
-            {
-              src: '/icon.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'any',
-            },
-          ],
-        },
+        includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon.png', 'offline.html'],
+        manifest: false,
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+          navigateFallback: '/offline.html',
+          navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
-              urlPattern: /^\/api\/books.*/i,
+              urlPattern: /^\/api\/(books|loans|fines|ledger|reservations).*/i,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'api-books-cache',
+                cacheName: 'api-circulation-cache',
                 expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+                  maxEntries: 150,
+                  maxAgeSeconds: 60 * 60 * 24 * 7,
                 },
                 networkTimeoutSeconds: 3,
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /^\/fonts\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'local-fonts-cache',
+                expiration: {
+                  maxEntries: 16,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /^\/covers\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'local-covers-cache',
+                expiration: {
+                  maxEntries: 80,
+                  maxAgeSeconds: 60 * 60 * 24 * 60,
+                },
                 cacheableResponse: {
                   statuses: [0, 200],
                 },
@@ -91,20 +84,6 @@ export default defineConfig(() => {
                 expiration: {
                   maxEntries: 20,
                   maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'book-covers-cache',
-                expiration: {
-                  maxEntries: 60,
-                  maxAgeSeconds: 60 * 60 * 24 * 30,
                 },
                 cacheableResponse: {
                   statuses: [0, 200],

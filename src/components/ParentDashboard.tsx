@@ -176,7 +176,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           {/* Child Tabs Header */}
           <div className="bg-slate-50 p-3.5 sm:p-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
-              <span className="text-[11px] sm:text-xs font-extrabold text-slate-500 uppercase tracking-wider pr-1 flex items-center gap-1 shrink-0">
+              <span className="text-[11px] sm:text-xs font-extrabold text-slate-500 uppercase tracking-wider pe-1 flex items-center gap-1 shrink-0">
                 <User className="w-3.5 h-3.5 text-purple-600" /> {language === 'dv' ? 'ދަރިވަރު ޚިޔާރުކުރައްވާ:' : 'Select Child:'}
               </span>
               {children.map((child) => (

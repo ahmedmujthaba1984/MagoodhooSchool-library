@@ -167,7 +167,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
         
         {/* Modal Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute top-0 end-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
           
           <div className="flex items-center gap-3 relative z-10">
             <div className="p-3 bg-indigo-500/20 border border-indigo-400/30 rounded-2xl text-indigo-300">
@@ -318,7 +318,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
               
               {/* Quick Action Sync Box */}
               <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="absolute top-0 end-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
                   <div>
                     <div className="flex items-center gap-2 mb-1">

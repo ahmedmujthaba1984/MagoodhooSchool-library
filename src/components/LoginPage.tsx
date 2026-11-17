@@ -6,6 +6,7 @@ import {
   GraduationCap, Key, Globe, ArrowRight
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import { resolveAccessRole } from '../lib/rbac';
 
 interface LoginPageProps {
   currentUser: UserProfile;
@@ -48,9 +49,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const adminUsers = allUsers.filter(u => u.role === 'admin');
+  const adminUsers = allUsers.filter(u => resolveAccessRole(u) === 'super_admin');
+  const deskUsers = allUsers.filter(u => resolveAccessRole(u) === 'desk_assistant');
+  const teacherUsers = allUsers.filter(u => resolveAccessRole(u) === 'teacher');
   const parentUsers = allUsers.filter(u => u.role === 'parent');
-  const studentUsers = allUsers.filter(u => u.role === 'student');
+  const studentUsers = allUsers.filter(u => resolveAccessRole(u) === 'student_guest' && u.role === 'student');
 
   // Helper search
   const cleanPhone = (str: string) => str.replace(/\D/g, '');
@@ -163,8 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <span>Magoodhoo School Library Portal</span>
               </h1>
               <div className="text-xs text-emerald-700 font-bold flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Secure Portal | Library Directory</span>
+                <span>Secure Portal | 4-Tier RBAC Library Directory</span>
               </div>
             </div>
           </div>
@@ -291,18 +293,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </form>
             </div>
 
-            {/* Demo Quick Select Pill Bar for Member Accounts */}
+            {/* Demo Quick Select Bar for Member Accounts */}
             <div className="pt-4 border-t border-slate-100">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Quick Sample Accounts:
               </div>
               <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                {parentUsers.slice(0, 2).map(p => (
+                {teacherUsers.slice(0, 1).map(tUser => (
+                  <button
+                    key={tUser.id}
+                    type="button"
+                    onClick={() => handleQuickSelect(tUser)}
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-md border border-emerald-200/80 transition cursor-pointer"
+                  >
+                    Teacher: {tUser.name.split(' ')[0]}
+                  </button>
+                ))}
+                {parentUsers.slice(0, 1).map(p => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => handleQuickSelect(p)}
-                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-md border border-emerald-200/80 transition cursor-pointer"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2.5 py-1 rounded-md border border-slate-200 transition cursor-pointer"
                   >
                     Parent: {p.name.split(' ')[0]}
                   </button>
@@ -390,10 +402,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </form>
             </div>
 
-            {/* Quick Launch Super Admin Pill */}
-            <div className="pt-4 border-t border-slate-100">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Librarian Desk Direct Switch:
+            {/* Quick Launch Super Admin & Desk Prefect Switch */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Librarian &amp; Desk Direct Switch:
               </div>
               <button
                 type="button"
@@ -402,14 +414,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   email: 'library@fmagoodhooschool.edu.mv',
                   name: 'Super Admin (F. Magoodhoo School Library)',
                   role: 'admin',
+                  accessRole: 'super_admin',
                   phone: '960-7770000',
                   createdAt: '2026-08-04'
                 })}
                 className="w-full bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200/80 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center justify-between cursor-pointer"
               >
-                <span>Log in as Super Admin (Library Desk)</span>
+                <span>Log in as Super Admin (Lead Librarian)</span>
                 <ArrowRight className="w-3.5 h-3.5 text-sky-600" />
               </button>
+              {deskUsers[0] && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLoginSuccess(deskUsers[0]);
+                    onNavigateTab('checkout-hub');
+                  }}
+                  className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center justify-between cursor-pointer"
+                >
+                  <span>Log in as Desk Assistant / Prefect ({deskUsers[0].name.split(' ')[0]})</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
+                </button>
+              )}
             </div>
 
           </div>

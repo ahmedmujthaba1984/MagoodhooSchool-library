@@ -32,7 +32,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
           onClick={handleInstallClick}
           disabled={isInstalling}
           title={language === 'dv' ? 'އެޕް އިންސްޓޯލް ކުރައްވާ' : 'Install PWA App'}
-          className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer border border-emerald-300/40"
+          className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-colors active:scale-95 cursor-pointer border border-emerald-600 whitespace-nowrap"
         >
           <Download className="w-3.5 h-3.5 shrink-0" />
           <span className="whitespace-nowrap">{language === 'dv' ? 'އިންސްޓޯލް' : 'Install'}</span>
@@ -45,9 +45,9 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
         type="button"
         onClick={handleInstallClick}
         disabled={isInstalling}
-        className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer border border-emerald-300/30"
+        className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-colors active:scale-95 cursor-pointer border border-emerald-600 whitespace-nowrap"
       >
-        <Download className="w-4 h-4 shrink-0 animate-bounce" />
+        <Download className="w-4 h-4 shrink-0" />
         <span className="whitespace-nowrap">
           {language === 'dv' ? 'އެޕް އިންސްޓޯލް ކުރައްވާ' : 'Install App'}
         </span>

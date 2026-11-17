@@ -25,8 +25,8 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Book, UserProfile, Loan, Reservation, LibrarySettings } from '../types';
-import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from '../data/seedData';
+import { Book, UserProfile, Loan, Reservation, LibrarySettings, AcquisitionRequest, AuditLogEntry, LibrarySnapshotData } from '../types';
+import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings, sampleAcquisitionRequests, sampleAuditLogs } from '../data/seedData';
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -196,6 +196,8 @@ const USERS_COL = 'users';
 const LOANS_COL = 'loans';
 const RESERVATIONS_COL = 'reservations';
 const SETTINGS_COL = 'settings';
+const ACQUISITIONS_COL = 'acquisitions';
+const AUDIT_LOGS_COL = 'audit_logs';
 
 /**
  * Initialize / Seed Firestore if empty (guarded against repeated queries and quota checks)
@@ -254,6 +256,22 @@ export async function initializeDatabaseIfEmpty() {
     const settingsDoc = await getDoc(doc(db, SETTINGS_COL, 'main'));
     if (!settingsDoc.exists()) {
       await setDoc(doc(db, SETTINGS_COL, 'main'), initialSettings);
+    }
+
+    const acqSnap = await getDocs(collection(db, ACQUISITIONS_COL));
+    if (acqSnap.empty) {
+      console.log('Seeding initial acquisitions & purchase requests...');
+      for (const acq of sampleAcquisitionRequests) {
+        await setDoc(doc(db, ACQUISITIONS_COL, acq.id), acq);
+      }
+    }
+
+    const auditSnap = await getDocs(collection(db, AUDIT_LOGS_COL));
+    if (auditSnap.empty) {
+      console.log('Seeding initial immutable audit trail...');
+      for (const aud of sampleAuditLogs) {
+        await setDoc(doc(db, AUDIT_LOGS_COL, aud.id), aud);
+      }
     }
 
     if (typeof window !== 'undefined') {
@@ -480,6 +498,117 @@ export async function updateSettings(settings: Partial<LibrarySettings>) {
     await setDoc(doc(db, SETTINGS_COL, 'main'), settings, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `${SETTINGS_COL}/main`);
+    throw err;
+  }
+}
+
+// 6. ACQUISITIONS & PURCHASE REQUESTS
+export function subscribeAcquisitions(
+  callback: (requests: AcquisitionRequest[]) => void,
+  onError?: (error: Error) => void
+) {
+  return onSnapshot(
+    collection(db, ACQUISITIONS_COL),
+    (snapshot) => {
+      const items: AcquisitionRequest[] = snapshot.docs.map(d => ({
+        ...d.data(),
+        id: d.id
+      } as AcquisitionRequest));
+      callback(items);
+    },
+    (err) => {
+      console.warn('Firestore subscribeAcquisitions error:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+export async function createAcquisitionRequest(req: Omit<AcquisitionRequest, 'id'>) {
+  try {
+    const docRef = await addDoc(collection(db, ACQUISITIONS_COL), req);
+    return docRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, ACQUISITIONS_COL);
+    throw err;
+  }
+}
+
+export async function updateAcquisitionRequest(id: string, data: Partial<AcquisitionRequest>) {
+  try {
+    await updateDoc(doc(db, ACQUISITIONS_COL, id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${ACQUISITIONS_COL}/${id}`);
+    throw err;
+  }
+}
+
+export async function deleteAcquisitionRequest(id: string) {
+  try {
+    await deleteDoc(doc(db, ACQUISITIONS_COL, id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${ACQUISITIONS_COL}/${id}`);
+    throw err;
+  }
+}
+
+// 7. IMMUTABLE AUDIT LOGS
+export function subscribeAuditLogs(
+  callback: (logs: AuditLogEntry[]) => void,
+  onError?: (error: Error) => void
+) {
+  return onSnapshot(
+    collection(db, AUDIT_LOGS_COL),
+    (snapshot) => {
+      const logs: AuditLogEntry[] = snapshot.docs
+        .map(d => ({ ...d.data(), id: d.id } as AuditLogEntry))
+        .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+      callback(logs);
+    },
+    (err) => {
+      console.warn('Firestore subscribeAuditLogs error:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+export async function appendAuditLog(entry: AuditLogEntry) {
+  try {
+    const safeId = (entry.id || `aud-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+    await setDoc(doc(db, AUDIT_LOGS_COL, safeId), {
+      ...entry,
+      id: safeId,
+      immutable: true,
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, AUDIT_LOGS_COL);
+  }
+}
+
+export async function restoreSnapshotToFirestore(data: LibrarySnapshotData) {
+  try {
+    for (const book of data.books) {
+      const safeId = (book.id || `bk-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+      await setDoc(doc(db, BOOKS_COL, safeId), { ...book, id: safeId });
+    }
+    for (const user of data.users) {
+      const safeId = (user.id || `usr-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+      await setDoc(doc(db, USERS_COL, safeId), { ...user, id: safeId });
+    }
+    for (const loan of data.loans) {
+      const safeId = (loan.id || `ln-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+      await setDoc(doc(db, LOANS_COL, safeId), { ...loan, id: safeId });
+    }
+    for (const res of data.reservations) {
+      const safeId = (res.id || `res-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+      await setDoc(doc(db, RESERVATIONS_COL, safeId), { ...res, id: safeId });
+    }
+    for (const acq of data.acquisitions || []) {
+      const safeId = (acq.id || `acq-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+      await setDoc(doc(db, ACQUISITIONS_COL, safeId), { ...acq, id: safeId });
+    }
+    await setDoc(doc(db, SETTINGS_COL, 'main'), data.settings, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'snapshot_restore');
     throw err;
   }
 }

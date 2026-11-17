@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   BookOpen, CheckCircle, RotateCcw, Clock, AlertTriangle,
-  Bookmark, UserCheck, XCircle
+  Bookmark, UserCheck, XCircle, Award, ArrowUpRight
 } from 'lucide-react';
 import { UserProfile, Loan, Reservation, Book } from '../types';
 import { useLanguage } from '../lib/i18n';
 import { BorrowingHistoryTableSkeleton } from './Skeletons';
+import { evaluateStudentReadingSummary } from '../lib/readingEngagement';
 
 interface MyBorrowingsProps {
   currentUser: UserProfile;
@@ -14,6 +15,7 @@ interface MyBorrowingsProps {
   books: Book[];
   onRenewLoan: (loan: Loan) => void;
   onCancelReservation?: (reservationId: string) => void;
+  onOpenChallenges?: () => void;
   isLoading?: boolean;
 }
 
@@ -24,6 +26,7 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
   books,
   onRenewLoan,
   onCancelReservation,
+  onOpenChallenges,
   isLoading = false
 }) => {
   const { t, language } = useLanguage();
@@ -41,6 +44,8 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
 
   // Tab filter for active vs overdue vs history
   const [filter, setFilter] = useState<'all' | 'overdue' | 'reservations' | 'history'>('all');
+
+  const readingSummary = evaluateStudentReadingSummary(currentUser, loans, books);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-300">
@@ -157,6 +162,33 @@ export const MyBorrowings: React.FC<MyBorrowingsProps> = ({
           <div className="text-2xl font-black text-slate-900"><bdi className="font-mono">{userReservations.length}</bdi></div>
           <p className="text-[11px] text-slate-400 font-medium">{language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައިވާ ފޮތްތައް' : 'Queue requests'}</p>
         </div>
+      </div>
+
+      {/* AUTOMATED READING MILESTONES STRIP */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+            <Award className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-black text-slate-900">
+              {language === 'dv' ? 'ކިޔުމުގެ ބެޖް މައިލްސްޓޯންސް' : 'Automated Reading Badges & Streaks'}
+            </div>
+            <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+              <bdi>{readingSummary.earnedBadgeIds.length}</bdi>/4 earned · <bdi>{readingSummary.verifiedLoans.length}</bdi> verified reads · <bdi>{readingSummary.bestOnTimeStreak}</bdi> on-time streak
+            </div>
+          </div>
+        </div>
+        {onOpenChallenges && (
+          <button
+            type="button"
+            onClick={onOpenChallenges}
+            className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 self-start sm:self-center"
+          >
+            <span>{language === 'dv' ? 'ބެޖް އަދި ސެޓްފިކެޓް ބަލާ' : 'View Badges & Certificates'}</span>
+            <ArrowUpRight className="w-3.5 h-3.5 rtl-mirror" />
+          </button>
+        )}
       </div>
 
       {/* FILTER TABS */}

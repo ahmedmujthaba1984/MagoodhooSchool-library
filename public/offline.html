@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" dir="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline — Magoodhoo School Library Portal</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        padding: 1.5rem;
+      }
+      .card {
+        max-width: 28rem;
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1.25rem;
+        padding: 2rem;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+        text-align: center;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #047857;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        font-size: 0.875rem;
+        color: #475569;
+        line-height: 1.6;
+        margin: 0 0 1.25rem;
+      }
+      .dv {
+        direction: rtl;
+        font-family: 'Faruma', 'Noto Sans Thaana', sans-serif;
+        line-height: 1.85;
+        color: #334155;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 1rem;
+        margin-top: 1rem;
+      }
+      button {
+        background: #047857;
+        color: #ffffff;
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #065f46;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="badge">PWA Offline Cache Ready</div>
+      <h1>Magoodhoo School Library Portal</h1>
+      <p>
+        You are currently offline. Cached catalog books and queued reservations remain saved in your device's IndexedDB storage and will sync automatically when you reconnect.
+      </p>
+      <button type="button" onclick="window.location.reload()">Retry Connection</button>
+      <div class="dv" lang="dv">
+        އިންޓަރނެޓް ކެނޑިފައިވީ ނަމަވެސް، ކުރިން ކޭޝްކުރެވިފައިވާ ފޮތްތައް ބެއްލެވޭނެއެވެ. އަދި އަލުން ގުޅުމާއެކު ރިޒަވޭޝަންތައް ސިންކްވާނެއެވެ.
+      </div>
+    </main>
+  </body>
+</html>

@@ -46,7 +46,7 @@ export const SearchResultListSkeleton: React.FC<{ count?: number }> = ({ count =
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-6 w-16 rounded-full shimmer-skeleton"></div>
+            <div className="h-6 w-16 rounded-md shimmer-skeleton"></div>
             <div className="h-8 w-20 rounded-xl shimmer-skeleton"></div>
           </div>
         </div>
@@ -80,7 +80,7 @@ export const TableRowSkeleton: React.FC = () => {
         <div className="h-3 w-8 mx-auto rounded shimmer-skeleton"></div>
       </td>
       <td className="p-3.5 text-center">
-        <div className="h-3 w-16 mx-auto rounded-full shimmer-skeleton"></div>
+        <div className="h-3 w-16 mx-auto rounded-md shimmer-skeleton"></div>
       </td>
       <td className="p-3.5 text-center">
         <div className="h-7 w-20 mx-auto rounded-xl shimmer-skeleton"></div>
@@ -92,7 +92,7 @@ export const TableRowSkeleton: React.FC = () => {
 export const BorrowingHistoryTableSkeleton: React.FC<{ rows?: number }> = ({ rows = 4 }) => {
   return (
     <div className="overflow-x-auto border border-slate-200/90 rounded-2xl bg-white shadow-xs animate-in fade-in duration-200">
-      <table className="w-full text-left text-xs text-slate-700">
+      <table className="w-full text-start text-xs text-slate-700">
         <thead className="bg-slate-100/90 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
           <tr>
             <th className="p-3.5">Book Title</th>
@@ -117,7 +117,7 @@ export const BorrowingHistoryTableSkeleton: React.FC<{ rows?: number }> = ({ row
                 <div className="h-3 w-24 rounded shimmer-skeleton font-mono"></div>
               </td>
               <td className="p-3.5">
-                <div className="h-5 w-24 rounded-full shimmer-skeleton"></div>
+                <div className="h-5 w-24 rounded-md shimmer-skeleton"></div>
               </td>
             </tr>
           ))}

@@ -1,32 +1,53 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search, Filter, BookOpen, BookMarked, CheckCircle, Clock,
-  Bookmark, Shield, MapPin, Eye, Plus, FileSpreadsheet,
-  User, Edit, Trash2, ChevronLeft, ChevronRight, XCircle,
-  GraduationCap, Hash, Globe, Layers, Check, Sparkles, Scan,
-  CheckSquare, Square
+  Bookmark, MapPin, Eye, Plus, FileSpreadsheet,
+  User, Edit, Trash2, XCircle, Monitor, Sparkles,
+  Scan, CheckSquare, Square, Download, Layers, ChevronDown, ChevronUp, Camera, BookPlus
 } from 'lucide-react';
-import { Book, UserProfile, Reservation } from '../types';
+import { Book, UserProfile, Reservation, Loan, LibrarySettings, MediaType } from '../types';
 import { AddBookModal } from './AddBookModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
-import { TableRowSkeleton, BookCardSkeleton, CatalogGridSkeleton, SearchResultListSkeleton } from './Skeletons';
+import { BookCoverFallback } from './BookCoverFallback';
+import { CatalogGridSkeleton } from './Skeletons';
+import { OpacKioskMode } from './OpacKioskMode';
+import { TopReadingClassesWidget } from './TopReadingClassesWidget';
 import { useLanguage } from '../lib/i18n';
 import { useToast } from '../lib/toast';
+import { usePermission } from '../hooks/usePermission';
 import { offlineQueue } from '../lib/offlineQueue';
+import { exportToMarc21 } from '../lib/dataPortability';
+
+const MEDIA_TYPES: MediaType[] = [
+  'Book',
+  'E-Book',
+  'Audiobook',
+  'Periodical',
+  'Board Game',
+  'Video/DVD',
+  'Educational Kit'
+];
 
 interface BookCatalogProps {
   books: Book[];
   currentUser: UserProfile;
   reservations: Reservation[];
-  onReserveBook: (book: Book) => void;
+  users?: UserProfile[];
+  loans?: Loan[];
+  settings?: LibrarySettings;
+  onReserveBook: (book: Book, patronOverride?: UserProfile) => void;
   onOpenCheckoutForBook: (book: Book) => void;
   onViewReferenceOnly: () => void;
+  onOpenLogin?: () => void;
   onAddBook?: (bookData: Omit<Book, 'id'>) => Promise<void>;
   onOpenAddBookModal?: () => void;
+  onOpenSmartCataloger?: () => void;
   onEditBook?: (book: Book) => void;
   onDeleteBook?: (bookId: string) => void;
   onOpenImportModal?: (type?: 'books' | 'parents' | 'staff') => void;
   onCancelReservation?: (reservationId: string) => void;
+  onOpenChallenges?: () => void;
+  onOpenSuggestBook?: () => void;
   isLoading?: boolean;
 }
 
@@ -34,40 +55,56 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   books,
   currentUser,
   reservations,
+  users = [],
+  loans = [],
+  settings,
   onReserveBook,
   onOpenCheckoutForBook,
   onViewReferenceOnly,
+  onOpenLogin,
   onAddBook,
   onOpenAddBookModal,
+  onOpenSmartCataloger,
   onEditBook,
   onDeleteBook,
   onOpenImportModal,
   onCancelReservation,
+  onOpenChallenges,
+  onOpenSuggestBook,
   isLoading = false
 }) => {
   const { t, isRtl, language, localizeCategory } = useLanguage();
-
   const { toast } = useToast();
+  const { can } = usePermission(currentUser);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isCatalogScannerOpen, setIsCatalogScannerOpen] = useState(false);
+  const [isKioskOpen, setIsKioskOpen] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedMediaType, setSelectedMediaType] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'circulating' | 'reference'>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'available' | 'checked-out'>('all');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [shelfGradeFilter, setShelfGradeFilter] = useState<'Primary' | 'Middle' | 'Secondary'>(() => {
+    const num = parseInt((currentUser.grade || '').match(/\d+/)?.[0] || '0', 10);
+    if (num >= 1 && num <= 5) return 'Primary';
+    if (num >= 6 && num <= 8) return 'Middle';
+    return 'Secondary';
+  });
 
   // Multi-facet filter checkboxes
   const [statusCheckboxes, setStatusCheckboxes] = useState<string[]>([]);
   const [gradeCheckboxes, setGradeCheckboxes] = useState<string[]>([]);
   const [langCheckboxes, setLangCheckboxes] = useState<string[]>([]);
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mobileSwipeMode, setMobileSwipeMode] = useState<'swipe' | 'stack'>('swipe');
   const [entriesPerPage, setEntriesPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [showMarcDetails, setShowMarcDetails] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
 
@@ -157,6 +194,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       // 2. Category match
       const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
 
+      // 2b. Media type match
+      const matchesMediaType =
+        selectedMediaType === 'all' || (book.mediaType || 'Book') === selectedMediaType;
+
       // 3. Circulating vs Reference Type
       const matchesType =
         selectedType === 'all' ||
@@ -198,25 +239,72 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           (book.bookLanguage && book.bookLanguage.toLowerCase() === selectedLanguage.toLowerCase());
       }
 
-      return matchesSearch && matchesCategory && matchesType && matchesStatus && matchesGrade && matchesLang;
+      return matchesSearch && matchesCategory && matchesMediaType && matchesType && matchesStatus && matchesGrade && matchesLang;
     });
-  }, [books, searchQuery, selectedCategory, selectedType, selectedStatus, selectedGrade, selectedLanguage, statusCheckboxes, gradeCheckboxes, langCheckboxes]);
+  }, [books, searchQuery, selectedCategory, selectedMediaType, selectedType, selectedStatus, selectedGrade, selectedLanguage, statusCheckboxes, gradeCheckboxes, langCheckboxes]);
 
-  const isAlreadyReservedByUser = (bookId: string) => {
-    return reservations.some(
-      r => r.bookId === bookId && r.userId === currentUser.id && r.status === 'pending'
+  // Curated Netflix/Libib-style Discovery Shelves
+  const discoveryShelves = useMemo(() => {
+    const newArrivals = [...books]
+      .sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''))
+      .slice(0, 10);
+
+    const popularDhivehi = books
+      .filter((b) => b.bookLanguage === 'Dhivehi' || /[\u0780-\u07BF]/.test(b.title))
+      .slice(0, 10);
+
+    const topByGrade = books
+      .filter((b) => (b.targetGrade || '').includes(shelfGradeFilter) || b.targetGrade === 'All Ages')
+      .slice(0, 10);
+
+    const staffPicks = books
+      .filter((b) => !b.isReferenceOnly)
+      .sort((a, b) => (b.publicationYear || 0) - (a.publicationYear || 0))
+      .slice(0, 10);
+
+    return { newArrivals, popularDhivehi, topByGrade, staffPicks };
+  }, [books, shelfGradeFilter]);
+
+  // Queue position helper for reservations
+  const getQueueStats = (bookId: string) => {
+    const pendingQueue = reservations
+      .filter((r) => r.bookId === bookId && r.status === 'pending')
+      .sort((a, b) => a.requestDate.localeCompare(b.requestDate));
+    const userIndex = pendingQueue.findIndex(
+      (r) => r.userId === currentUser.id || (currentUser.id !== 'guest' && r.userName === currentUser.name)
     );
+    return {
+      totalHolds: pendingQueue.length,
+      userPosition: userIndex >= 0 ? userIndex + 1 : 0,
+      userReservation: userIndex >= 0 ? pendingQueue[userIndex] : undefined
+    };
   };
 
-  const handleReserveWithFeedback = (book: Book) => {
+  const isAlreadyReservedByUser = (bookId: string) => {
+    return getQueueStats(bookId).userPosition > 0;
+  };
+
+  const handleReserveWithFeedback = (book: Book, patronOverride?: UserProfile) => {
+    const actingUser = patronOverride || currentUser;
+    if (actingUser.id === 'guest') {
+      toast.info(
+        language === 'dv'
+          ? 'ފޮތް ނަންނޯޓު ކުރުމަށް ލޮގިން ވެލައްވާ ނުވަތަ ކިއޮސްކް މޯޑުގައި އައިޑީ ސްކޭން ކުރައްވާ.'
+          : 'Please sign in as a student/teacher or scan your ID card in Library Kiosk Mode to place a hold.',
+        'Sign In Required'
+      );
+      if (onOpenLogin) onOpenLogin();
+      return;
+    }
+
     if (!navigator.onLine) {
       offlineQueue.enqueue({
         id: `res-offline-${Date.now()}`,
         bookId: book.id,
         bookTitle: book.title,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userGrade: currentUser.grade,
+        userId: actingUser.id,
+        userName: actingUser.name,
+        userGrade: actingUser.grade,
         requestDate: new Date().toISOString().split('T')[0]
       });
       toast.info(
@@ -225,17 +313,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           : `Offline: Hold queued! Will automatically sync once connection is restored.`,
         'Offline Queue'
       );
-      onReserveBook(book);
+      onReserveBook(book, actingUser);
       return;
     }
 
-    onReserveBook(book);
-    toast.success(
-      language === 'dv'
-        ? `"${book.title}" އަށް ކާމިޔާބުކަމާއެކު ނަންނޯޓު ކުރެވިއްޖެ!`
-        : `Successfully placed reservation hold for "${book.title}"!`,
-      'Reservation Placed'
-    );
+    onReserveBook(book, actingUser);
   };
 
   const totalPages = Math.ceil(filteredBooks.length / entriesPerPage) || 1;
@@ -245,6 +327,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
+    setSelectedMediaType('all');
     setSelectedType('all');
     setSelectedStatus('all');
     setSelectedGrade('all');
@@ -279,6 +362,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   const hasActiveFilters =
     searchQuery !== '' ||
     selectedCategory !== 'all' ||
+    selectedMediaType !== 'all' ||
     selectedType !== 'all' ||
     selectedStatus !== 'all' ||
     selectedGrade !== 'all' ||
@@ -291,51 +375,84 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     <div className="space-y-6">
       
       {/* Top Banner / Search bar */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 text-slate-900 border border-slate-200/90 shadow-xl relative overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 text-slate-900 dark:text-slate-100 border border-slate-200/90 dark:border-slate-800 shadow-sm relative overflow-hidden">
         <div className="relative z-10 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-2 max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-900 border border-indigo-200 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" /> {t.catalog}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-semibold">
+                <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-black uppercase tracking-wider">
+                  <BookOpen className="w-3.5 h-3.5" /> {t.catalog}
                 </span>
-                <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 rounded-full text-xs font-black">
-                  <bdi className="font-mono">{books.length.toLocaleString()}</bdi> {t.titles} (<bdi className="font-mono">{totalPhysicalCopies.toLocaleString()}</bdi> {t.physicalBooks})
+                <span aria-hidden="true">·</span>
+                <span className="font-mono tabular-nums">
+                  <bdi>{books.length.toLocaleString()}</bdi> {t.titles} · <bdi>{totalPhysicalCopies.toLocaleString()}</bdi> {t.physicalBooks}
                 </span>
-                <span className="bg-sky-100 text-sky-900 border border-sky-300 px-3 py-1 rounded-full text-xs font-black">
-                  <bdi className="font-mono">{totalAvailableCopies.toLocaleString()}</bdi> {t.available}
+                <span aria-hidden="true">·</span>
+                <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
+                  <bdi>{totalAvailableCopies.toLocaleString()}</bdi> {t.available}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
                 {t.catalog}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 font-medium">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
                 {language === 'dv'
                   ? 'މަގޫދޫ ސްކޫލް ލައިބްރަރީގެ ޑިޖިޓަލް ކެޓަލޮގުން ފޮތްތައް ހޯއްދަވައި، އޮންލައިންކޮށް ނަންނޯޓު ކުރައްވާ.'
-                  : 'Search through curated physical volumes, consult reference materials, and reserve titles online.'}
+                  : 'Discover curated library shelves, inspect real-time copy availability, and place self-service holds.'}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-              {currentUser.role === 'admin' && onOpenImportModal && (
+              {onOpenSuggestBook && (
+                <button
+                  type="button"
+                  onClick={onOpenSuggestBook}
+                  className="bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+                  id="opac-suggest-book-btn"
+                >
+                  <BookPlus className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <span>{language === 'dv' ? 'ފޮތެއް ހުށަހަޅާ' : 'Suggest a Book'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsKioskOpen(true)}
+                className="bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer shadow-xs whitespace-nowrap"
+                id="launch-library-kiosk-btn"
+              >
+                <Monitor className="w-4 h-4 text-emerald-400 dark:text-white" />
+                <span>{language === 'dv' ? 'ކިއޮސްކް މޯޑު' : 'Launch Library Kiosk'}</span>
+              </button>
+              {can('data:import_export') && onOpenImportModal && (
                 <button
                   type="button"
                   onClick={() => onOpenImportModal('books')}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-3 rounded-2xl transition flex items-center gap-2 border border-slate-300 cursor-pointer shadow-xs active:scale-95"
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 border border-slate-300 dark:border-slate-700 cursor-pointer whitespace-nowrap"
                   id="catalog-import-csv-btn"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                  <FileSpreadsheet className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   <span>{t.importBulk}</span>
                 </button>
               )}
-              {currentUser.role === 'admin' && (onAddBook || onOpenAddBookModal) && (
+              {can('catalog:create_edit') && onOpenSmartCataloger && (
+                <button
+                  type="button"
+                  onClick={onOpenSmartCataloger}
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                  id="catalog-smart-ai-cataloger-btn"
+                >
+                  <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>{language === 'dv' ? 'އޭއައި ކަވަރު ސްކޭނަރ' : 'AI Vision Cataloger'}</span>
+                </button>
+              )}
+              {can('catalog:create_edit') && (onAddBook || onOpenAddBookModal) && (
                 <button
                   type="button"
                   onClick={() => {
                     if (onOpenAddBookModal) onOpenAddBookModal();
                     else setIsAddBookModalOpen(true);
                   }}
-                  className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs px-4 py-3 rounded-2xl shadow-md transition flex items-center gap-2 active:scale-95 cursor-pointer"
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-4 py-2.5 rounded-2xl shadow-sm transition flex items-center gap-2 active:scale-95 cursor-pointer whitespace-nowrap"
                   id="catalog-add-book-btn"
                 >
                   <Plus className="w-4 h-4" />
@@ -347,7 +464,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
           {/* Search Bar Input with Camera Scanner & Auto-complete Index */}
           <div className="relative mt-2 max-w-3xl">
-            <Search className={`w-5 h-5 text-slate-400 absolute top-3.5 ${isRtl ? 'right-4' : 'left-4'}`} />
+            <Search className="w-5 h-5 text-slate-400 absolute top-3.5 start-4" />
             <input
               type="text"
               value={searchQuery}
@@ -361,19 +478,17 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 setCurrentPage(1);
               }}
               placeholder={t.searchPlaceholder}
-              className={`w-full py-3 bg-slate-50 text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold transition-all shadow-inner ${
-                isRtl ? 'pr-12 pl-24 text-right' : 'pl-12 pr-24 text-left'
-              }`}
+              className="w-full py-3 ps-12 pe-24 text-start bg-slate-50 text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm font-semibold transition-all shadow-inner"
               id="catalog-search-input"
             />
 
             {/* Camera Barcode / QR Scanner Trigger */}
-            <div className={`absolute top-2.5 ${isRtl ? 'left-3' : 'right-3'} flex items-center gap-1.5`}>
+            <div className="absolute top-2.5 end-3 flex items-center gap-1.5">
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-full transition"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition cursor-pointer"
                   title="Clear Search"
                 >
                   <XCircle className="w-4 h-4" />
@@ -382,10 +497,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCatalogScannerOpen(true)}
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
                 title="Scan Book Barcode or ISBN with Camera"
               >
-                <Scan className="w-3.5 h-3.5 text-indigo-600" />
+                <Scan className="w-3.5 h-3.5 text-emerald-700" />
                 <span className="hidden sm:inline font-mono text-[11px]">{language === 'dv' ? 'ސްކޭން' : 'Scan'}</span>
               </button>
             </div>
@@ -395,7 +510,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden divide-y divide-slate-100 animate-in fade-in slide-in-from-top-2">
                 <div className="bg-slate-50 px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
                   <span>{language === 'dv' ? 'އޮޓޯ-ކޮމްޕްލީޓް ނަތީޖާތައް' : 'Auto-Complete Match Index'}</span>
-                  <span className="font-mono text-indigo-600">{autoCompleteSuggestions.length} found</span>
+                  <span className="font-mono text-emerald-700">{autoCompleteSuggestions.length} found</span>
                 </div>
                 {autoCompleteSuggestions.map((item, idx) => (
                   <button
@@ -407,12 +522,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       setIsSearchFocused(false);
                       setCurrentPage(1);
                     }}
-                    className="w-full px-4 py-2.5 text-left flex items-center justify-between gap-3 hover:bg-indigo-50/70 transition cursor-pointer"
+                    className="w-full px-4 py-2.5 text-start flex items-center justify-between gap-3 hover:bg-emerald-50/70 transition cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
-                        item.type === 'title' ? 'bg-indigo-100 text-indigo-800' :
-                        item.type === 'author' ? 'bg-purple-100 text-purple-800' :
+                        item.type === 'title' ? 'bg-slate-100 text-slate-800' :
+                        item.type === 'author' ? 'bg-sky-100 text-sky-800' :
                         item.type === 'isbn' ? 'bg-amber-100 text-amber-800 font-mono' :
                         'bg-emerald-100 text-emerald-800'
                       }`}>
@@ -435,12 +550,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       </div>
 
       {/* Multi-Facet Filter Bar */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-md space-y-3.5">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-3.5">
         
         {/* Row 1: Category Badges */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-black text-slate-500 flex items-center gap-1 uppercase tracking-wider pr-2 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-indigo-600" /> {language === 'dv' ? 'ބައި / ޖެންރާ:' : 'Category:'}
+          <span className="text-xs font-black text-slate-500 dark:text-slate-400 flex items-center gap-1 uppercase tracking-wider pe-2 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-emerald-600" /> {language === 'dv' ? 'ބައި / ޖެންރާ:' : 'Subject:'}
           </span>
           <button
             type="button"
@@ -450,11 +565,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
             }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === 'all'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
             }`}
           >
-            {language === 'dv' ? `ހުރިހާ ބައިތަކެއް (${books.length})` : `All Categories (${books.length})`}
+            {language === 'dv' ? `ހުރިހާ ބައިތަކެއް (${books.length})` : `All Subjects (${books.length})`}
           </button>
           {categories.map(cat => (
             <button
@@ -466,8 +581,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
               }`}
             >
               {localizeCategory(cat)}
@@ -475,8 +590,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           ))}
         </div>
 
-        {/* Row 2: Secondary Dropdown Filters + Type & Layout Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+        {/* Row 2: Secondary Dropdown Filters + Media Type + Layout Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
           
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Availability Filter */}
@@ -486,11 +601,26 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 setSelectedStatus(e.target.value as any);
                 setCurrentPage(1);
               }}
-              className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-xs"
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
             >
               <option value="all">{language === 'dv' ? 'ހުރިހާ ޙާލަތެއް' : 'All Availability'}</option>
               <option value="available">{language === 'dv' ? '✓ ލިބެންހުރި ފޮތްތައް' : '✓ In Stock (Available)'}</option>
               <option value="checked-out">{language === 'dv' ? '⏱ ދޫކުރެވިފައި' : '⏱ Checked Out'}</option>
+            </select>
+
+            {/* Media Type Filter */}
+            <select
+              value={selectedMediaType}
+              onChange={(e) => {
+                setSelectedMediaType(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+            >
+              <option value="all">{language === 'dv' ? 'ހުރިހާ މީޑިއާ ބާވަތެއް' : 'All Media Types'}</option>
+              {MEDIA_TYPES.map((mt) => (
+                <option key={mt} value={mt}>{mt}</option>
+              ))}
             </select>
 
             {/* Target Grade Filter */}
@@ -500,7 +630,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 setSelectedGrade(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-xs"
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
             >
               {gradeOptions.map(g => (
                 <option key={g.value} value={g.value}>
@@ -516,7 +646,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 setSelectedLanguage(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-xs"
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
             >
               <option value="all">{language === 'dv' ? 'ހުރިހާ ބަހެއް' : 'All Languages'}</option>
               <option value="English">English</option>
@@ -528,7 +658,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <button
                 type="button"
                 onClick={resetFilters}
-                className="text-xs text-rose-600 hover:text-rose-700 font-bold px-2.5 py-1.5 rounded-xl hover:bg-rose-50 border border-rose-200 transition cursor-pointer flex items-center gap-1"
+                className="text-xs text-rose-600 hover:text-rose-700 font-bold px-2.5 py-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-800 transition cursor-pointer flex items-center gap-1"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>{language === 'dv' ? 'ފިލްޓަރުތައް ފޮހެލާ' : 'Clear Filters'}</span>
@@ -724,6 +854,127 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
       </div>
 
+      {/* PUBLIC OPAC LIVE CLASS & HOUSE READING STANDINGS */}
+      {!isLoading && !hasActiveFilters && users.length > 0 && (
+        <TopReadingClassesWidget
+          users={users}
+          loans={loans}
+          books={books}
+          onOpenChallenges={onOpenChallenges}
+        />
+      )}
+
+      {/* NETFLIX / LIBIB-STYLE VISUAL DISCOVERY SHELVES (When browsing without narrowing filters) */}
+      {!isLoading && !hasActiveFilters && books.length > 0 && (
+        <div className="space-y-6">
+          {[
+            {
+              key: 'new-arrivals',
+              title: language === 'dv' ? 'އަލަށް ލިބުނު ފޮތްތައް' : 'New Arrivals',
+              subtitle: language === 'dv' ? 'ލައިބްރަރީއަށް އެންމެ ފަހުން އިތުރުކުރެވުނު ފޮތްތައް' : 'Recently cataloged editions ready for checkout',
+              items: discoveryShelves.newArrivals
+            },
+            {
+              key: 'popular-dhivehi',
+              title: language === 'dv' ? 'ދިވެހި ބަހުން މަޤްބޫލު ފޮތްތައް' : 'Popular in Dhivehi',
+              subtitle: language === 'dv' ? 'ދިވެހި އަދަބިއްޔާތާއި ވާހަކަ ފޮތްތައް' : 'Maldivian literature, poetry & heritage titles',
+              items: discoveryShelves.popularDhivehi
+            },
+            {
+              key: 'top-grade',
+              title: language === 'dv' ? 'ގްރޭޑްތަކަށް ޚާއްޞަ ފޮތްތައް' : `Top Reads · ${shelfGradeFilter} School`,
+              subtitle: language === 'dv' ? 'ކްލާސް ފެންވަރާ ގުޅޭ ފޮތްތައް' : 'Curated reading levels by grade band',
+              items: discoveryShelves.topByGrade,
+              showGradeTabs: true
+            },
+            {
+              key: 'staff-picks',
+              title: language === 'dv' ? 'މުދައްރިސުންގެ ހޮވުންތައް' : 'Staff Picks',
+              subtitle: language === 'dv' ? 'ލައިބްރަރީ ޓީމުން އިރުޝާދު ދޭ ފޮތްތައް' : 'Recommended by Magoodhoo faculty & librarians',
+              items: discoveryShelves.staffPicks
+            }
+          ]
+            .filter((shelf) => shelf.items.length > 0)
+            .map((shelf) => (
+              <section key={shelf.key} className="space-y-2.5">
+                <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{shelf.title}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{shelf.subtitle}</p>
+                  </div>
+                  {shelf.showGradeTabs && (
+                    <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 gap-1">
+                      {(['Primary', 'Middle', 'Secondary'] as const).map((band) => (
+                        <button
+                          key={band}
+                          type="button"
+                          onClick={() => setShelfGradeFilter(band)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                            shelfGradeFilter === band
+                              ? 'bg-emerald-700 text-white'
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {band}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
+                  {shelf.items.map((book) => {
+                    const qStats = getQueueStats(book.id);
+                    return (
+                      <div
+                        key={`${shelf.key}-${book.id}`}
+                        onClick={() => setSelectedBook(book)}
+                        className="w-40 sm:w-44 shrink-0 snap-start bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl overflow-hidden hover:border-emerald-500/60 transition cursor-pointer group flex flex-col"
+                      >
+                        <div className="aspect-[2/3] w-full bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+                          <BookCoverFallback
+                            src={book.coverUrl}
+                            title={book.title}
+                            author={book.author}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent" />
+                          <div className="absolute bottom-2 start-2 end-2 flex items-center justify-between text-[10px] font-mono tabular-nums text-white">
+                            <span>
+                              {book.isReferenceOnly
+                                ? 'REF'
+                                : `${book.availableCopies}/${book.totalCopies} avail`}
+                            </span>
+                            {qStats.totalHolds > 0 && (
+                              <span className="text-amber-300">{qStats.totalHolds} hold{qStats.totalHolds > 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-2.5 space-y-1 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                              <bdi>{book.title}</bdi>
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              <bdi>{book.author}</bdi>
+                            </p>
+                          </div>
+                          <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 truncate pt-1">
+                            <bdi>{book.shelfLocation}</bdi>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+        </div>
+      )}
+
       {/* SKELETON LOADING STATE */}
       {isLoading && (
         <CatalogGridSkeleton count={8} />
@@ -762,133 +1013,131 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           </div>
 
           {/* DESKTOP VIEW: 4-COLUMN RESPONSIVE GRID (Hidden on mobile) */}
-          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {paginatedBooks.map((book) => {
-              const isReserved = isAlreadyReservedByUser(book.id);
+              const qStats = getQueueStats(book.id);
+              const isReserved = qStats.userPosition > 0;
 
               return (
                 <div
                   key={book.id}
-                  className="bg-white border border-slate-200/90 rounded-3xl hover:border-slate-300 hover:shadow-lg transition-all duration-300 shadow-xs flex flex-col justify-between overflow-hidden group"
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden group"
                 >
                   <div>
-                    <div className="relative h-56 bg-slate-100 overflow-hidden">
-                      <img
+                    <div
+                      className="relative h-56 bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer"
+                      onClick={() => setSelectedBook(book)}
+                    >
+                      <BookCoverFallback
                         src={book.coverUrl}
-                        alt={book.title}
-                        loading="lazy"
+                        title={book.title}
+                        author={book.author}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent"></div>
 
-                      {/* Standardized Status Badges (Available = Green, Checked Out = Amber, Reference = Blue) */}
-                      <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-1 flex-wrap">
-                        <span className="bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow border border-white/10">
-                          {localizeCategory(book.category)}
-                        </span>
-
+                      {/* Single subtle top status indicator */}
+                      <div className="absolute top-3 end-3">
                         {book.isReferenceOnly ? (
-                          <span className="bg-sky-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow flex items-center gap-1">
-                            <BookMarked className="w-3 h-3" />
-                            <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'REFERENCE'}</bdi>
+                          <span className="bg-sky-700 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-md">
+                            {language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}
                           </span>
                         ) : book.availableCopies > 0 ? (
-                          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            <bdi>{book.availableCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</bdi>
+                          <span className="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-md font-mono tabular-nums">
+                            {book.availableCopies}/{book.totalCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}
                           </span>
                         ) : (
-                          <span className="bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <bdi>{language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}</bdi>
+                          <span className="bg-amber-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-md">
+                            {language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}
                           </span>
                         )}
                       </div>
 
                       {/* Title & Author on Cover bottom */}
-                      <div className="absolute bottom-3 left-3 right-3 text-white">
-                        <h3 className="font-black text-base line-clamp-1 group-hover:text-emerald-300 transition">
+                      <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
+                        <h3 className="font-bold text-sm line-clamp-1 group-hover:text-emerald-300 transition">
                           <bdi>{book.title}</bdi>
                         </h3>
-                        <p className="text-xs text-slate-200 line-clamp-1 font-medium">
-                          {language === 'dv' ? 'މުސަންނިފު:' : 'by'} <bdi>{book.author}</bdi>
+                        <p className="text-xs text-slate-200 line-clamp-1">
+                          <bdi>{book.author}</bdi>
                         </p>
                       </div>
                     </div>
 
-                    {/* Details Section */}
-                    <div className="p-4 space-y-2.5 text-xs">
-                      <div className="flex items-center text-slate-600 gap-1 font-semibold">
+                    {/* Clean Details Section */}
+                    <div className="p-4 space-y-2 text-xs">
+                      {/* Live Shelf Availability String */}
+                      <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-semibold">
                         <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">
-                          <bdi>{book.shelfLocation}</bdi>
+                        <span className="truncate font-mono tabular-nums text-[11px]">
+                          {book.isReferenceOnly
+                            ? (language === 'dv' ? `ރެފަރެންސް — ${book.shelfLocation}` : `In-Library Use — ${book.shelfLocation}`)
+                            : language === 'dv'
+                            ? `${book.totalCopies} ގެ ތެރެއިން ${book.availableCopies} ކޮޕީ ލިބެންހުރި — ${book.shelfLocation}`
+                            : `${book.availableCopies} of ${book.totalCopies} copies available — ${book.shelfLocation}`}
                         </span>
                       </div>
 
-                      {/* DDC and Grade Badges */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {book.ddcCallNumber && (
-                          <span className="bg-slate-100 text-slate-800 border border-slate-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
-                            <bdi>{book.ddcCallNumber}</bdi>
-                          </span>
-                        )}
-                        {book.targetGrade && (
-                          <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                            {book.targetGrade}
-                          </span>
-                        )}
+                      {/* Clean single-line metadata separated by · */}
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <span>{localizeCategory(book.category)}</span>
+                        {book.ddcCallNumber && <> · <span className="font-mono"><bdi>{book.ddcCallNumber}</bdi></span></>}
+                        {book.targetGrade && <> · <span>{book.targetGrade}</span></>}
                       </div>
 
-                      <p className="text-slate-600 line-clamp-2 leading-relaxed font-normal text-xs">
+                      <p className="text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed text-xs">
                         {book.description}
                       </p>
 
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100 font-semibold">
-                        <span>ISBN: <bdi className="font-mono text-slate-800">{book.isbn}</bdi></span>
-                        <span>Copies: <bdi className="font-mono font-bold text-slate-800">{book.availableCopies}/{book.totalCopies}</bdi></span>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 font-mono tabular-nums">
+                        <span>ISBN <bdi className="text-slate-800 dark:text-slate-200">{book.isbn}</bdi></span>
+                        {qStats.totalHolds > 0 && (
+                          <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                            {qStats.totalHolds} {qStats.totalHolds === 1 ? 'hold' : 'holds'} in queue
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Card Action Footer */}
-                  <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2">
+                  <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedBook(book)}
-                      className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl border border-slate-200 bg-white transition-all shadow-xs cursor-pointer"
+                      className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-all cursor-pointer"
                       title={language === 'dv' ? 'ތަފްޞީލު ބައްލަވާ' : 'View book details'}
                     >
-                      <Eye className="w-4 h-4 text-emerald-700" />
+                      <Eye className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                     </button>
 
                     {book.isReferenceOnly ? (
                       <button
                         type="button"
                         onClick={onViewReferenceOnly}
-                        className="flex-1 bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer"
+                        className="flex-1 bg-sky-100 dark:bg-sky-950/50 hover:bg-sky-200 text-sky-900 dark:text-sky-200 border border-sky-300 dark:border-sky-800 font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        <BookMarked className="w-3.5 h-3.5 text-sky-600" />
+                        <BookMarked className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                         <span>{language === 'dv' ? 'ރެފަރެންސް މައުލޫމާތު' : 'Reference Desk'}</span>
                       </button>
                     ) : (
                       <>
                         {isReserved ? (
                           <div className="flex-1 flex items-center gap-1">
-                            <span className="flex-1 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1">
-                              <Bookmark className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>{language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved Online'}</span>
+                            <span className="flex-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1 font-mono tabular-nums">
+                              <Bookmark className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                              <span>
+                                {language === 'dv'
+                                  ? `ކިއު #${qStats.userPosition}`
+                                  : `Hold #${qStats.userPosition} in queue`}
+                              </span>
                             </span>
-                            {onCancelReservation && (
+                            {onCancelReservation && qStats.userReservation && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const userRes = reservations.find(
-                                    r => r.bookId === book.id && (r.userId === currentUser.id || r.userName === currentUser.name) && r.status === 'pending'
-                                  );
-                                  if (userRes) onCancelReservation(userRes.id);
-                                }}
-                                className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold transition shadow cursor-pointer active:scale-95 shrink-0"
-                                title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Reservation'}
+                                onClick={() => onCancelReservation(qStats.userReservation!.id)}
+                                className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+                                title={language === 'dv' ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ' : 'Cancel Hold'}
                               >
                                 ✕
                               </button>
@@ -898,18 +1147,22 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           <button
                             type="button"
                             onClick={() => handleReserveWithFeedback(book)}
-                            className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs py-2 px-3 rounded-xl text-center transition shadow-xs flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                            className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
                           >
                             <Bookmark className="w-3.5 h-3.5" />
-                            <span>{language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Book'}</span>
+                            <span>
+                              {book.availableCopies > 0
+                                ? (language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Hold')
+                                : (language === 'dv' ? 'ކިއުއަށް ވަންނަވާ' : `Join Queue (${qStats.totalHolds})`)}
+                            </span>
                           </button>
                         )}
 
-                        {currentUser.role === 'admin' && (
+                        {can('circulation:checkout') && (
                           <button
                             type="button"
                             onClick={() => onOpenCheckoutForBook(book)}
-                            className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition shadow-xs shrink-0 cursor-pointer"
+                            className="bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition shrink-0 cursor-pointer"
                             title="Desk Checkout"
                           >
                             {language === 'dv' ? 'ދޫކުރޭ' : 'Issue'}
@@ -946,23 +1199,23 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"></div>
 
                           {/* Status Badges */}
-                          <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-1">
-                            <span className="bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow border border-white/10">
+                          <div className="absolute top-3 start-3 end-3 flex justify-between items-start gap-1">
+                            <span className="bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow border border-white/10">
                               {localizeCategory(book.category)}
                             </span>
 
                             {book.isReferenceOnly ? (
-                              <span className="bg-sky-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                              <span className="bg-sky-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow flex items-center gap-1">
                                 <BookMarked className="w-3 h-3" />
                                 <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'REFERENCE'}</bdi>
                               </span>
                             ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                              <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
                                 <bdi>{book.availableCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</bdi>
                               </span>
                             ) : (
-                              <span className="bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                              <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 <bdi>{language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}</bdi>
                               </span>
@@ -1050,15 +1303,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {book.isReferenceOnly ? (
-                              <span className="bg-sky-100 text-sky-800 border border-sky-300 text-[9px] font-black px-2 py-0.5 rounded-full">
+                              <span className="bg-sky-100 text-sky-800 border border-sky-300 text-[9px] font-black px-2 py-0.5 rounded-md">
                                 REF ONLY
                               </span>
                             ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-full">
+                              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-md">
                                 {book.availableCopies} AVAILABLE
                               </span>
                             ) : (
-                              <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full">
+                              <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-md">
                                 CHECKED OUT
                               </span>
                             )}
@@ -1192,10 +1445,9 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       {/* Title Column */}
                       <td className="p-3.5 border-e border-slate-200">
                         <div className="flex items-center gap-3">
-                          <img
+                          <BookCoverFallback
                             src={book.coverUrl}
-                            alt=""
-                            loading="lazy"
+                            title={book.title}
                             className="w-8 h-10 object-cover rounded shadow-sm shrink-0 border border-slate-200"
                           />
                           <div>
@@ -1288,39 +1540,41 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             </button>
                           )}
 
-                          {/* Admin-Only Desk Controls */}
-                          {currentUser.role === 'admin' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => onOpenCheckoutForBook(book)}
-                                className="p-1.5 bg-[#1D4ED8] hover:bg-blue-800 text-white rounded-md transition shadow-xs cursor-pointer"
-                                title={language === 'dv' ? 'ފޮތް ދޫކުރައްވާ' : 'Issue Book at Desk'}
-                              >
-                                <User className="w-3.5 h-3.5" />
-                              </button>
+                          {/* Role-Guarded Desk & Catalog Controls */}
+                          {can('circulation:checkout') && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenCheckoutForBook(book)}
+                              className="p-1.5 bg-[#1D4ED8] hover:bg-blue-800 text-white rounded-md transition shadow-xs cursor-pointer"
+                              title={language === 'dv' ? 'ފޮތް ދޫކުރައްވާ' : 'Issue Book at Desk'}
+                            >
+                              <User className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onEditBook) onEditBook(book);
-                                  else setSelectedBook(book);
-                                }}
-                                className="p-1.5 bg-[#EAB308] hover:bg-amber-600 text-white rounded-md transition shadow-xs cursor-pointer"
-                                title={language === 'dv' ? 'އުނިއިތުރު ގެންނަވާ' : 'Edit Book'}
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
+                          {can('catalog:create_edit') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onEditBook) onEditBook(book);
+                                else setSelectedBook(book);
+                              }}
+                              className="p-1.5 bg-[#EAB308] hover:bg-amber-600 text-white rounded-md transition shadow-xs cursor-pointer"
+                              title={language === 'dv' ? 'އުނިއިތުރު ގެންނަވާ' : 'Edit Book'}
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
-                              <button
-                                type="button"
-                                onClick={() => setBookToDelete(book)}
-                                className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-xs cursor-pointer"
-                                title={language === 'dv' ? 'ފޮތުގެ ރެކޯޑް ފޮހެލައްވާ' : 'Delete Book'}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
+                          {can('catalog:delete') && (
+                            <button
+                              type="button"
+                              onClick={() => setBookToDelete(book)}
+                              className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-xs cursor-pointer"
+                              title={language === 'dv' ? 'ފޮތުގެ ރެކޯޑް ފޮހެލައްވާ' : 'Delete Book'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1413,12 +1667,20 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         </div>
       )}
 
-      {/* Book Detail Modal with BDI Protection & Mobile Bottom Sheet Drawer */}
+      {/* Slide-over Copy Inventory & MARC Drawer (Desktop Slide-over / Mobile Bottom Sheet) */}
       {selectedBook && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 max-sm:items-end max-sm:p-0">
-          <div className="bg-white rounded-3xl max-sm:rounded-b-none max-sm:rounded-t-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-200 max-sm:max-h-[90vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex justify-end items-stretch max-sm:items-end"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedBook(null);
+              setShowMarcDetails(false);
+            }
+          }}
+        >
+          <div className="bg-white w-full sm:max-w-xl h-full max-sm:h-auto max-sm:max-h-[92vh] max-sm:rounded-t-3xl shadow-2xl border-s border-slate-200 text-slate-800 flex flex-col justify-between overflow-hidden">
             {/* Mobile Bottom-Sheet Grab Indicator */}
-            <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-full mx-auto my-2.5 shrink-0"></div>
+            <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-md mx-auto my-2.5 shrink-0"></div>
             <div className="relative h-48 bg-slate-900 shrink-0">
               <img
                 src={selectedBook.coverUrl}
@@ -1427,13 +1689,17 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               />
               <button
                 type="button"
-                onClick={() => setSelectedBook(null)}
-                className="absolute top-3 right-3 bg-white/90 text-slate-800 p-1.5 rounded-full hover:bg-white transition shadow border border-slate-200 font-bold cursor-pointer"
+                onClick={() => {
+                  setSelectedBook(null);
+                  setShowMarcDetails(false);
+                }}
+                className="absolute top-3 end-3 bg-white/95 text-slate-800 px-2.5 py-1 rounded-lg hover:bg-white transition shadow border border-slate-200 font-bold cursor-pointer"
+                aria-label="Close drawer"
               >
                 ✕
               </button>
-              <div className="absolute bottom-4 left-4 right-4 text-white">
-                <span className="text-[10px] font-extrabold bg-indigo-600 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="absolute bottom-4 start-4 end-4 text-white">
+                <span className="text-[10px] font-extrabold bg-emerald-700 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
                   {localizeCategory(selectedBook.category)}
                 </span>
                 <h3 className="text-lg font-black mt-1 text-white">
@@ -1445,7 +1711,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               </div>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700 font-medium max-h-[60vh] overflow-y-auto">
+            <div className="p-5 space-y-4 text-xs text-slate-700 font-medium flex-1 overflow-y-auto">
               {selectedBook.isReferenceOnly && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-amber-900">
                   <BookMarked className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -1465,11 +1731,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-[11px]">
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">ISBN</span>
-                  <span className="font-mono font-bold text-slate-900"><bdi>{selectedBook.isbn}</bdi></span>
+                  <span className="font-mono tabular-nums font-bold text-slate-900"><bdi>{selectedBook.isbn}</bdi></span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">Barcode ID</span>
-                  <span className="font-mono font-bold text-slate-900"><bdi>{selectedBook.barcode}</bdi></span>
+                  <span className="font-mono tabular-nums font-bold text-slate-900"><bdi>{selectedBook.barcode}</bdi></span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">Shelf Location</span>
@@ -1477,11 +1743,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">DDC Call Number</span>
-                  <span className="font-mono font-bold text-indigo-700"><bdi>{selectedBook.ddcCallNumber || 'DDC 000'}</bdi></span>
+                  <span className="font-mono tabular-nums font-bold text-emerald-700"><bdi>{selectedBook.ddcCallNumber || 'DDC 000'}</bdi></span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">Availability</span>
-                  <span className="font-mono font-bold text-slate-900"><bdi>{selectedBook.availableCopies} / {selectedBook.totalCopies}</bdi></span>
+                  <span className="font-mono tabular-nums font-bold text-slate-900"><bdi>{selectedBook.availableCopies} / {selectedBook.totalCopies}</bdi></span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold">Language</span>
@@ -1499,27 +1765,140 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   <img src={selectedBook.barcodeImageUrl} alt="Barcode" className="max-h-20 mx-auto object-contain border bg-white p-1 rounded shadow-xs" />
                 </div>
               )}
+
+              {/* Parent-Child Physical Copy Inventory Table */}
+              {selectedBook.copies && selectedBook.copies.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-emerald-700" />
+                      {t.copyInventory} (<bdi className="font-mono tabular-nums">{selectedBook.copies.length}</bdi>)
+                    </span>
+                    <span className="text-[11px] font-mono tabular-nums text-slate-500">
+                      Holds: <bdi>{reservations.filter(r => r.bookId === selectedBook.id && r.status === 'pending').length}</bdi>
+                    </span>
+                  </div>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-start text-[11px]">
+                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                        <tr>
+                          <th className="py-1.5 px-2.5">Copy Barcode</th>
+                          <th className="py-1.5 px-2.5">Accession / Rack</th>
+                          <th className="py-1.5 px-2.5">Cond.</th>
+                          <th className="py-1.5 px-2.5">MVR</th>
+                          <th className="py-1.5 px-2.5 text-end">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedBook.copies.map(cp => (
+                          <tr key={cp.copyId}>
+                            <td className="py-1.5 px-2.5 font-mono tabular-nums font-bold text-slate-900"><bdi>{cp.barcode}</bdi></td>
+                            <td className="py-1.5 px-2.5 text-slate-600">
+                              <div className="font-mono text-[10px] text-slate-800"><bdi>{cp.accessionNumber || cp.copyId}</bdi></div>
+                              <div className="text-[10px] text-slate-500"><bdi>{cp.rackLocation || cp.shelfLocation || selectedBook.shelfLocation}</bdi></div>
+                            </td>
+                            <td className="py-1.5 px-2.5 text-slate-600">{cp.condition}</td>
+                            <td className="py-1.5 px-2.5 font-mono tabular-nums text-slate-600"><bdi>{cp.acquisitionPriceMvr ?? 150}</bdi></td>
+                            <td className="py-1.5 px-2.5 text-end">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${
+                                cp.status === 'Available' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}>
+                                {cp.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Progressive Disclosure: Collapsible MARC21 Record Preview */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowMarcDetails(prev => !prev)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-800 cursor-pointer"
+                >
+                  <span>MARC21 Bibliographic & Holdings Fields</span>
+                  {showMarcDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {showMarcDetails && (
+                  <div className="p-3 bg-slate-900 text-emerald-300 font-mono text-[11px] space-y-1 border-t border-slate-200 overflow-x-auto">
+                    <div>020 ## $a <bdi>{selectedBook.isbn}</bdi></div>
+                    <div>082 04 $a <bdi>{selectedBook.ddcCallNumber || '000'}</bdi></div>
+                    <div>100 1# $a <bdi>{selectedBook.author}</bdi></div>
+                    <div>245 10 $a <bdi>{selectedBook.title}</bdi></div>
+                    <div>260 ## $b <bdi>{selectedBook.publisher}</bdi> $c <bdi>{selectedBook.publicationYear}</bdi></div>
+                    <div>852 ## $b Magoodhoo School $c <bdi>{selectedBook.shelfLocation}</bdi></div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="p-4 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between gap-2 safe-bottom">
-              <div>
-                {!selectedBook.isReferenceOnly && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleReserveWithFeedback(selectedBook);
-                      setSelectedBook(null);
-                    }}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-extrabold transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Bookmark className="w-3.5 h-3.5" />
-                    <span>{language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Book'}</span>
-                  </button>
-                )}
+            <div className="p-4 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between gap-2 safe-bottom flex-wrap shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                {!selectedBook.isReferenceOnly && (() => {
+                  const dq = getQueueStats(selectedBook.id);
+                  if (dq.userPosition > 0) {
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold font-mono tabular-nums flex items-center gap-1.5">
+                          <Bookmark className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>#{dq.userPosition} of {dq.totalHolds} in queue</span>
+                        </span>
+                        {onCancelReservation && dq.userReservation && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onCancelReservation(dq.userReservation!.id);
+                              setSelectedBook(null);
+                              setShowMarcDetails(false);
+                            }}
+                            className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                          >
+                            Cancel Hold
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleReserveWithFeedback(selectedBook);
+                        setSelectedBook(null);
+                        setShowMarcDetails(false);
+                      }}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-extrabold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>
+                        {selectedBook.availableCopies > 0
+                          ? (language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Book')
+                          : (language === 'dv' ? 'ކިއުއަށް ވަންނަވާ' : `Join Hold Queue (${dq.totalHolds})`)}
+                      </span>
+                    </button>
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={() => exportToMarc21([selectedBook], `marc-${selectedBook.isbn}.mrk`)}
+                  className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="Export MARC21 record (.mrk)"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>MARC21</span>
+                </button>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedBook(null)}
+                onClick={() => {
+                  setSelectedBook(null);
+                  setShowMarcDetails(false);
+                }}
                 className="px-4 py-2 bg-slate-200 text-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 transition border border-slate-300 cursor-pointer"
               >
                 {t.close}
@@ -1609,6 +1988,19 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           }}
         />
       )}
+
+      {/* Self-Service Fullscreen Library Kiosk Mode */}
+      <OpacKioskMode
+        isOpen={isKioskOpen}
+        onClose={() => setIsKioskOpen(false)}
+        books={books}
+        users={users}
+        loans={loans}
+        reservations={reservations}
+        settings={settings}
+        onReserveForPatron={(book, patron) => handleReserveWithFeedback(book, patron)}
+        onCancelReservation={onCancelReservation}
+      />
 
     </div>
   );

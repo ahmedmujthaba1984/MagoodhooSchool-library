@@ -2,7 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { LanguageProvider } from './lib/i18n';
+import { ThemeLocaleProvider } from './lib/i18n';
 import { ToastProvider } from './lib/toast';
 
 // Prevent harmless Vite HMR WebSocket disconnect messages from triggering overlay errors
@@ -32,11 +32,11 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <LanguageProvider>
+    <ThemeLocaleProvider>
       <ToastProvider>
         <App />
       </ToastProvider>
-    </LanguageProvider>
+    </ThemeLocaleProvider>
   </StrictMode>,
 );
 

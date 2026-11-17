@@ -44,6 +44,23 @@ export interface Translations {
   goodStanding: string;
   noActiveLoans: string;
   noOverdueLoans: string;
+  personalLibrary: string;
+  financialLedger: string;
+  commandSearch: string;
+  peakTraffic: string;
+  collectionHealth: string;
+  aiInsights: string;
+  copyInventory: string;
+  marcExport: string;
+  voiceAssistant: string;
+  voiceListening: string;
+  peakTrafficHeatmap: string;
+  gradeEngagement: string;
+  patronTierPolicies: string;
+  printStickerSheet: string;
+  printBatchIdCards: string;
+  copyDetailsDrawer: string;
+  activeBorrowers: string;
 
   // Search & Multi-Facet Filters
   searchPlaceholder: string;
@@ -244,6 +261,23 @@ export const translations: Record<Language, Translations> = {
     goodStanding: 'All Loans in Good Standing',
     noActiveLoans: 'No Active Loans Right Now',
     noOverdueLoans: 'No Overdue Books! Great job.',
+    personalLibrary: 'Personal Library',
+    financialLedger: 'MVR Ledger & Fines',
+    commandSearch: 'Quick Jump (Ctrl+K)',
+    peakTraffic: 'Hourly Library Traffic',
+    collectionHealth: 'Collection Health & Weeding',
+    aiInsights: 'AI Circulation Insights',
+    copyInventory: 'Physical Copy Barcodes',
+    marcExport: 'Export MARC21 (.mrk)',
+    voiceAssistant: 'Voice Search',
+    voiceListening: 'Listening...',
+    peakTrafficHeatmap: 'Sun–Thu Hourly Peak Traffic Heatmap',
+    gradeEngagement: 'Grade-Level Reading Engagement',
+    patronTierPolicies: '4-Tier Patron Borrowing Policies',
+    printStickerSheet: 'Print A4 Barcode Sticker Sheet',
+    printBatchIdCards: 'Print Patron ID Cards',
+    copyDetailsDrawer: 'Copy Inventory & MARC Drawer',
+    activeBorrowers: 'Active Borrowers',
     
     searchPlaceholder: 'Search titles, authors, ISBN, barcode, publisher or call number...',
     allCategories: 'All Categories',
@@ -369,10 +403,10 @@ export const translations: Record<Language, Translations> = {
     fineWarningTitle: 'Action Required: Overdue Items Detected!',
     fineWarningDesc: 'Total late fine accumulated:',
     fineWarningAction: 'Please return overdue books to the circulation desk or clear fees.',
-    fineRate: 'MVR 0.50 per working day',
-    unpaidFines: 'Unpaid Fines',
+    fineRate: 'MVR 2.00 per working day',
+    unpaidFines: 'Unpaid Fines (MVR)',
     waiveFine: 'Waive Fine',
-    payFine: 'Pay Fine',
+    payFine: 'Settle Fine (MVR)',
     lateFeeAccumulating: 'Late fee accumulating:',
     
     catFiction: 'Fiction & Literature',
@@ -432,6 +466,23 @@ export const translations: Record<Language, Translations> = {
     goodStanding: 'ހުރިހާ ފޮތެއްގެ މުއްދަތު ހަމަނުވޭ',
     noActiveLoans: 'މިވަގުތު ނަގާފައިވާ ފޮތެއް ނެތް',
     noOverdueLoans: 'މުއްދަތު ހަމަވެފައިވާ ފޮތެއް ނެތް! ސާބަސް.',
+    personalLibrary: 'އަމިއްލަ ލައިބްރަރީ',
+    financialLedger: 'ފައިސާގެ ލެޖަރ (MVR)',
+    commandSearch: 'އަވަސް ހޯދުން (Ctrl+K)',
+    peakTraffic: 'ގަޑިއިރުގެ ލައިބްރަރީ ޓްރެފިކް',
+    collectionHealth: 'ފޮތްތަކުގެ ޞިއްޙަތާއި ކެޓަލޮގް',
+    aiInsights: 'އޭ.އައި އެނަލިޓިކްސް',
+    copyInventory: 'ކޮޕީ ބާކޯޑުތައް',
+    marcExport: 'MARC21 އެކްސްޕޯޓް',
+    voiceAssistant: 'އަޑުން ހޯދާ',
+    voiceListening: 'އަޑުއަހަނީ...',
+    peakTrafficHeatmap: 'އާދީއްތަ-ބުރާސްފަތި ގަޑިއިރު ޓްރެފިކް ހީޓްމެޕް',
+    gradeEngagement: 'ގްރޭޑްތަކުގެ ކިޔުމުގެ ތަފާސްހިސާބު',
+    patronTierPolicies: '4-ޓިއަރ މެންބަރުންގެ އުޞޫލުތައް',
+    printStickerSheet: 'A4 ބާކޯޑު ސްޓިކާ ޝީޓް ޕްރިންޓް',
+    printBatchIdCards: 'މެންބަރު އައިޑީ ކާޑުތައް ޕްރިންޓް',
+    copyDetailsDrawer: 'ކޮޕީ އިންވެންޓްރީ އަދި MARC ޑްރޯވަރ',
+    activeBorrowers: 'ފޮތް ނަގާފައިވާ މެންބަރުން',
     
     searchPlaceholder: 'ފޮތުގެ ނަން، މުސަންނިފު، އައި.އެސް.ބީ.އެން، ބާކޯޑު ނުވަތަ ރެކު ނަންބަރުން ހޯއްދަވާ...',
     allCategories: 'ހުރިހާ ބައިތަކެއް',
@@ -557,10 +608,10 @@ export const translations: Record<Language, Translations> = {
     fineWarningTitle: 'ސަމާލުކަމަށް: މުއްދަތު ހަމަވެފައިވާ ފޮތްތަކެއް އެބަހުރި!',
     fineWarningDesc: 'އަރާފައިވާ ޖުމްލަ ޖޫރިމަނާ:',
     fineWarningAction: 'މުއްދަތު ހަމަވެފައިވާ ފޮތްތައް އަވަހަށް ޙަވާލުކުރައްވާ ނުވަތަ ލައިބްރޭރިއަނާ ގުޅުއްވާ.',
-    fineRate: 'ދުވަހަކަށް 0.50 ރުފިޔާ',
-    unpaidFines: 'ނުދައްކާ ހުރި ޖޫރިމަނާ',
+    fineRate: 'ދުވަހަކަށް 2.00 ރުފިޔާ',
+    unpaidFines: 'ނުދައްކާ ހުރި ޖޫރިމަނާ (MVR)',
     waiveFine: 'ޖޫރިމަނާ މަޢާފްކުރައްވާ',
-    payFine: 'ޖޫރިމަނާ ދައްކަވާ',
+    payFine: 'ފައިސާ ބަލައިގަންނަވާ',
     lateFeeAccumulating: 'އަރަމުންދާ ޖޫރިމަނާ:',
     
     catFiction: 'ވާހަކަ އާއި އަދަބިއްޔާތު',
@@ -582,9 +633,16 @@ export const translations: Record<Language, Translations> = {
   }
 };
 
+export type ThemeMode = 'light' | 'dark';
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  toggleLanguage: () => void;
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
+  toggleTheme: () => void;
+  dir: 'ltr' | 'rtl';
   t: Translations;
   isRtl: boolean;
   localizeCategory: (cat: string) => string;
@@ -594,16 +652,26 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType>({
   language: 'en',
   setLanguage: () => {},
+  toggleLanguage: () => {},
+  theme: 'light',
+  setTheme: () => {},
+  toggleTheme: () => {},
+  dir: 'ltr',
   t: translations.en,
   isRtl: false,
   localizeCategory: (cat) => cat,
   localizeStatus: (status) => status,
 });
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeLocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('app_lang') : null;
-    return (saved === 'dv' || saved === 'en') ? saved : 'en';
+    return saved === 'dv' || saved === 'en' ? saved : 'en';
+  });
+
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('app_theme') : null;
+    return saved === 'dark' || saved === 'light' ? saved : 'light';
   });
 
   const setLanguage = (lang: Language) => {
@@ -611,6 +679,21 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (typeof window !== 'undefined') {
       localStorage.setItem('app_lang', lang);
     }
+  };
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'en' ? 'dv' : 'en');
+  };
+
+  const setTheme = (nextTheme: ThemeMode) => {
+    setThemeState(nextTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('app_theme', nextTheme);
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
   useEffect(() => {
@@ -624,6 +707,16 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   }, [language]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, [theme]);
 
   const localizeCategory = (cat: string): string => {
     if (!cat) return '';
@@ -657,9 +750,14 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return status;
   };
 
-  const value = {
+  const value: LanguageContextType = {
     language,
     setLanguage,
+    toggleLanguage,
+    theme,
+    setTheme,
+    toggleTheme,
+    dir: language === 'dv' ? 'rtl' : 'ltr',
     t: translations[language],
     isRtl: language === 'dv',
     localizeCategory,
@@ -673,4 +771,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
+export const LanguageProvider = ThemeLocaleProvider;
+export const useThemeLocale = () => useContext(LanguageContext);
 export const useLanguage = () => useContext(LanguageContext);
+

@@ -2,9 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings } from './src/data/seedData';
+import { sampleBooks, sampleUsers, sampleLoans, sampleReservations, initialSettings, sampleLedgerTransactions } from './src/data/seedData';
 import { calculateSchoolDueDate, calculateWorkingDaysOverdue } from './src/lib/schoolCalendar';
 
 const app = express();
@@ -28,11 +28,10 @@ const getGeminiClient = () => {
   });
 };
 
-// Supported Gemini text models in order of priority (per gemini-api guidelines)
+// Supported Gemini text & multimodal models in order of priority (per gemini-api guidelines)
 const GEMINI_TEXT_MODELS = [
-  'gemini-3.8-flash',
+  'gemini-4-hydrogen',
   'gemini-3.1-flash-lite',
-  'gemini-flash-latest',
 ];
 
 // Helper to call Gemini with retries and model fallbacks
@@ -320,6 +319,865 @@ function generateFallbackQuiz(bookTitle: string, author: string, isDhivehi: bool
   };
 }
 
+// 3a. AI Service Readiness Status (Read-only server health check, never exposes keys)
+app.get('/api/ai/status', (_req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  res.json({
+    configured: Boolean(apiKey),
+    primaryModel: GEMINI_TEXT_MODELS[0],
+    fallbackModel: GEMINI_TEXT_MODELS[1],
+    voiceModel: 'gemini-3.5-transcribe',
+    offlineFallbackReady: true,
+    capabilities: [
+      'vision-ocr',
+      'opac-nlq',
+      'curriculum-match',
+      'overdue-insights',
+      'reminder-drafter',
+      'voice-transcribe',
+    ],
+  });
+});
+
+// 3b. AI Smart Cataloging & Cover/Title-Page Vision OCR (Multimodal for English & Dhivehi books)
+app.post('/api/ai/cover-ocr', async (req, res) => {
+  const {
+    imageBase64,
+    titlePageBase64,
+    mimeType = 'image/jpeg',
+    titlePageMimeType = 'image/jpeg',
+    language = 'en',
+  } = req.body || {};
+
+  if (!imageBase64) {
+    return res.status(400).json({ error: 'imageBase64 is required for Cover OCR.' });
+  }
+
+  const cleanCover = String(imageBase64).replace(/^data:image\/\w+;base64,/, '');
+  const cleanTitlePage = titlePageBase64
+    ? String(titlePageBase64).replace(/^data:image\/\w+;base64,/, '')
+    : null;
+  const isDhivehi = language === 'dv';
+
+  const buildFallbackOcr = () => {
+    const year = new Date().getFullYear();
+    const titleDv = isDhivehi ? 'ދިވެހި އަދަބީ ފޮތް (ފޮޓޯ ސްކޭން)' : '';
+    const titleEn = isDhivehi
+      ? 'Dhivehi Literature Volume (Cover OCR Draft)'
+      : 'Scanned School Book (Verify Title & Author)';
+    return {
+      title_en: titleEn,
+      title_dv: titleDv,
+      title: isDhivehi ? titleDv : titleEn,
+      authors: [isDhivehi ? 'މަގޫދޫ ލިޔުންތެރިޔާ' : 'Verify Author Name'],
+      author: isDhivehi ? 'މަގޫދޫ ލިޔުންތެރިޔާ' : 'Verify Author Name',
+      publisher: 'Maldives Print / Local Press',
+      publication_year: year,
+      publicationYear: year,
+      language: isDhivehi ? 'dv' : 'en',
+      bookLanguage: isDhivehi ? 'Dhivehi' : 'English',
+      ddc_code: isDhivehi ? 'DDC 891.49' : 'DDC 823',
+      ddcCallNumber: isDhivehi ? 'DDC 891.49' : 'DDC 823',
+      category: isDhivehi ? 'Dhivehi Literature' : 'Fiction & Literature',
+      grade_level: 'Grade 6',
+      subjects: isDhivehi
+        ? ['Dhivehi Language', 'Maldivian Literature', 'School Reading']
+        : ['General Reading', 'School Curriculum', 'Literature'],
+      tags: isDhivehi
+        ? ['Dhivehi Language', 'Maldivian Literature', 'School Reading']
+        : ['General Reading', 'School Curriculum', 'Literature'],
+      synopsis: isDhivehi
+        ? 'ފޮތުގެ ބޭރުގަނޑުން ނުވަތަ ސުރުޚީ ޞަފްޙާއިން ނެގުނު ޑްރާފްޓް މަޢުލޫމާތެވެ. ބާކޯޑު ޕްރިންޓްކުރުމުގެ ކުރިން މަޢުލޫމާތު ޗެކްކޮށްލައްވާ.'
+        : 'Metadata draft extracted from the uploaded book cover and title page. Please verify the title, DDC code, and grade level before saving.',
+      description: isDhivehi
+        ? 'ފޮތުގެ ބޭރުގަނޑުން ނუވަތަ ސުރުޚީ ޞަފްޙާއިން ނެގުނު ޑްރާފްޓް މަޢުލޫމާތެވެ. ބާކޯޑު ޕްރިންޓްކުރުމުގެ ކުރިން މަޢުލޫމާތު ޗެކްކޮށްލައްވާ.'
+        : 'Metadata draft extracted from the uploaded book cover and title page. Please verify the title, DDC code, and grade level before saving.',
+      source: 'offline_fallback',
+    };
+  };
+
+  try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.json(buildFallbackOcr());
+    }
+
+    const parts: any[] = [{ inlineData: { data: cleanCover, mimeType } }];
+    if (cleanTitlePage) {
+      parts.push({ inlineData: { data: cleanTitlePage, mimeType: titlePageMimeType } });
+    }
+
+    const prompt = `You are an expert school library cataloger for F. Magoodhoo School in the Maldives.
+Examine the provided book front cover${cleanTitlePage ? ' and copyright/title page' : ''} carefully.
+It may contain English text, Dhivehi (Thaana script, e.g. ދިވެހި), or Arabic script, and may have NO ISBN.
+Extract and return strict JSON matching the schema:
+- title_en: English title or transliteration (empty string if purely Dhivehi and no English title appears, otherwise clear English title).
+- title_dv: Accurate Dhivehi Thaana script title if Dhivehi text appears on the cover/page (empty string if English-only).
+- authors: Array of author/editor names (preserve Thaana if printed in Dhivehi).
+- publisher: Publisher name (e.g. "National Institute of Education (NIE)", or "Local Press" if unspecified).
+- publication_year: 4-digit integer year if visible, otherwise ${new Date().getFullYear()}.
+- language: One of "dv", "en", "ar", "other".
+- ddc_code: Recommended Dewey Decimal Classification call number (e.g. "DDC 891.49" for Dhivehi lit, "DDC 297" for Islam, "DDC 577.789" for marine/coral biology, "DDC 823" for fiction).
+- category: Library category (e.g. "Dhivehi Literature", "Islamic Studies", "Science & Tech", "Marine Biology", "Fiction & Adventure", "Reference").
+- grade_level: Target Maldivian school grade level, strictly one of: "LKG", "UKG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "All Ages".
+- subjects: Array of 3 to 5 concise subject tags.
+- synopsis: A concise 2-sentence educational synopsis in ${isDhivehi ? 'Dhivehi Thaana script' : 'English'} (or matching the book language).`;
+
+    parts.push({ text: prompt });
+
+    const response = await callGeminiWithFallback(ai, {
+      contents: [{ role: 'user', parts }],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title_en: { type: Type.STRING },
+            title_dv: { type: Type.STRING },
+            authors: { type: Type.ARRAY, items: { type: Type.STRING } },
+            publisher: { type: Type.STRING },
+            publication_year: { type: Type.INTEGER },
+            language: { type: Type.STRING },
+            ddc_code: { type: Type.STRING },
+            category: { type: Type.STRING },
+            grade_level: { type: Type.STRING },
+            subjects: { type: Type.ARRAY, items: { type: Type.STRING } },
+            synopsis: { type: Type.STRING },
+          },
+          required: ['title_en', 'title_dv', 'authors', 'publisher', 'publication_year', 'language', 'ddc_code', 'category', 'grade_level', 'subjects', 'synopsis'],
+        },
+      },
+    });
+
+    const raw = JSON.parse(response.text || '{}');
+    const primaryTitle = (raw.language === 'dv' && raw.title_dv) ? raw.title_dv : (raw.title_en || raw.title_dv || 'Scanned Book');
+    const authorsArr = Array.isArray(raw.authors) && raw.authors.length > 0 ? raw.authors : ['Unknown Author'];
+    const langMap: Record<string, 'English' | 'Dhivehi' | 'Arabic' | 'Other'> = {
+      dv: 'Dhivehi',
+      en: 'English',
+      ar: 'Arabic',
+      other: 'Other',
+    };
+    const normLang = ['dv', 'en', 'ar', 'other'].includes(String(raw.language).toLowerCase())
+      ? String(raw.language).toLowerCase()
+      : 'en';
+
+    res.json({
+      ...raw,
+      language: normLang,
+      title: primaryTitle,
+      author: authorsArr.join(', '),
+      bookLanguage: langMap[normLang] || 'English',
+      ddcCallNumber: raw.ddc_code || 'DDC 800',
+      publicationYear: Number(raw.publication_year) || new Date().getFullYear(),
+      description: raw.synopsis || '',
+      tags: Array.isArray(raw.subjects) ? raw.subjects.slice(0, 5) : [],
+      source: 'gemini_vision',
+    });
+  } catch (error: any) {
+    console.warn('[AI Cover OCR Notice] Serving structured fallback:', error?.message?.slice(0, 100));
+    res.json(buildFallbackOcr());
+  }
+});
+
+// 3c. Natural Language Librarian & Conversational OPAC + Admin Query Engine
+app.post('/api/ai/opac-search', async (req, res) => {
+  const { query, books = serverBooks, loans = serverLoans, language = 'en' } = req.body || {};
+  const q = (query || '').trim();
+  if (!q) return res.status(400).json({ error: 'Search query is required.' });
+  const isDhivehi = language === 'dv';
+
+  const runDeterministicSearch = () => {
+    const lower = q.toLowerCase();
+    const today = new Date().toISOString().split('T')[0];
+
+    const isCirculationAnalytics =
+      lower.includes('lowest circulation') ||
+      lower.includes('highest circulation') ||
+      lower.includes('circulation this term') ||
+      lower.includes('subject categories') ||
+      lower.includes('ދައުރުވުން');
+
+    const isOverdueQuery =
+      lower.includes('overdue') ||
+      lower.includes('exceeding') ||
+      lower.includes('late') ||
+      lower.includes('މުއްދަތު ހަމަ') ||
+      lower.includes('ޖޫރިމަނާ');
+
+    const wantsAvailable =
+      lower.includes('available') ||
+      lower.includes('on the shelf') ||
+      lower.includes('right now') ||
+      lower.includes('ލިބެން');
+
+    const wantsDhivehi =
+      lower.includes('dhivehi') ||
+      lower.includes('ދިވެހި');
+
+    const gradeMatch = q.match(/(?:grade|ގްރޭޑް)\s*(\d{1,2}|lkg|ukg)/i);
+    const extractedGrade = gradeMatch ? (gradeMatch[1].toUpperCase() === 'LKG' || gradeMatch[1].toUpperCase() === 'UKG' ? gradeMatch[1].toUpperCase() : `Grade ${gradeMatch[1]}`) : undefined;
+
+    const daysMatch = q.match(/(?:exceeding|over|more than|>|ގިނަ)\s*(\d+)\s*(?:day|days|ދުވަސް)?/i);
+    const minOverdueDays = daysMatch ? parseInt(daysMatch[1], 10) : undefined;
+
+    let categoryFilter: string | undefined;
+    if (lower.includes('science') || lower.includes('ސައިންސް')) categoryFilter = 'Science';
+    else if (lower.includes('adventure') || lower.includes('story') || lower.includes('stories') || lower.includes('fiction') || lower.includes('ވާހަކަ')) categoryFilter = 'Fiction';
+    else if (lower.includes('islam') || lower.includes('އިސްލާމް')) categoryFilter = 'Islamic';
+    else if (lower.includes('marine') || lower.includes('coral') || lower.includes('reef')) categoryFilter = 'Marine';
+
+    // Analytics intent: compute circulation counts by category
+    if (isCirculationAnalytics) {
+      const countsByCat: Record<string, number> = {};
+      (books as any[]).forEach((b) => {
+        const cat = b.category || 'General';
+        if (!(cat in countsByCat)) countsByCat[cat] = 0;
+      });
+      (loans as any[]).forEach((l) => {
+        const bk = (books as any[]).find((b) => b.id === l.bookId);
+        const cat = bk?.category || 'General';
+        countsByCat[cat] = (countsByCat[cat] || 0) + 1;
+      });
+      const sorted = Object.entries(countsByCat)
+        .map(([label, count]) => ({
+          label,
+          count,
+          note: `${count} recorded loan(s)`,
+        }))
+        .sort((a, b) => a.count - b.count);
+
+      const lowestNames = sorted.slice(0, 3).map((s) => s.label).join(', ');
+      return {
+        intent: 'circulation_analytics',
+        answer: isDhivehi
+          ? `މި ޓާމުގައި އެންމެ މަދުން ދައުރުވެފައިވާ މާއްދާތަކަކީ: ${lowestNames}.`
+          : `Lowest circulating subject categories this term: ${lowestNames}.`,
+        filterPredicates: {
+          availableOnly: false,
+          category: sorted[0]?.label,
+        },
+        matchedBookIds: [],
+        matchedLoanIds: [],
+        analyticsBreakdown: sorted.slice(0, 6),
+      };
+    }
+
+    // Overdue audit intent
+    if (isOverdueQuery) {
+      const matchingLoans = (loans as any[]).filter((l) => {
+        if (l.status === 'returned') return false;
+        const isLate = l.status === 'overdue' || (l.dueDate && l.dueDate < today);
+        if (!isLate) return false;
+        if (extractedGrade && l.userGrade && !String(l.userGrade).toLowerCase().includes(extractedGrade.toLowerCase())) {
+          return false;
+        }
+        if (minOverdueDays !== undefined && l.dueDate) {
+          const diffDays = Math.max(0, Math.floor((new Date(today).getTime() - new Date(l.dueDate).getTime()) / 86400000));
+          if (diffDays < minOverdueDays) return false;
+        }
+        return true;
+      });
+
+      const matchedLoanIds = matchingLoans.slice(0, 8).map((l) => l.id);
+      return {
+        intent: 'overdue_audit',
+        answer: isDhivehi
+          ? `މުއްދަތު ހަމަވެފައިވާ ${matchedLoanIds.length} ލޯން ރެކޯޑް ފެނިއްޖެއެވެ.`
+          : `Found ${matchedLoanIds.length} active overdue loan(s)${extractedGrade ? ` for ${extractedGrade}` : ''}${minOverdueDays ? ` exceeding ${minOverdueDays} days` : ''}.`,
+        filterPredicates: {
+          borrowerGrade: extractedGrade,
+          minOverdueDays,
+        },
+        matchedBookIds: [],
+        matchedLoanIds,
+        analyticsBreakdown: [],
+      };
+    }
+
+    // Catalog search intent
+    const stopWords = new Set(['show', 'all', 'books', 'book', 'for', 'that', 'are', 'the', 'on', 'shelf', 'right', 'now', 'currently', 'available', 'with', 'find', 'good', 'stories', 'ފޮތްތައް', 'ދައްކާ', 'ހުރި']);
+    const queryTerms = lower
+      .split(/\s+/)
+      .filter((w: string) => w.length > 2 && !stopWords.has(w) && !/^(grade|ގްރޭޑް|\d+)$/.test(w));
+
+    const matchedBooks = (books as any[])
+      .filter((b) => {
+        if (wantsAvailable && (b.availableCopies <= 0 || b.isReferenceOnly)) return false;
+        if (wantsDhivehi && b.bookLanguage !== 'Dhivehi' && !/[\u0780-\u07BF]/.test(`${b.title}${b.titleDv || ''}`)) return false;
+        if (extractedGrade && b.targetGrade && b.targetGrade !== 'All Ages') {
+          const gNum = extractedGrade.match(/\d+/)?.[0];
+          const tg = String(b.targetGrade).toLowerCase();
+          const gradeNumMatch = gNum ? (
+            tg.includes(gNum) ||
+            (Number(gNum) <= 5 && tg.includes('primary')) ||
+            (Number(gNum) >= 6 && Number(gNum) <= 8 && tg.includes('middle')) ||
+            (Number(gNum) >= 9 && tg.includes('secondary'))
+          ) : tg.includes(extractedGrade.toLowerCase());
+          if (!gradeNumMatch) return false;
+        }
+        if (categoryFilter) {
+          const hayCat = `${b.category} ${b.description || ''} ${(b.tags || []).join(' ')}`.toLowerCase();
+          if (!hayCat.includes(categoryFilter.toLowerCase())) return false;
+        }
+        if (queryTerms.length === 0) return true;
+        const hay = `${b.title} ${b.titleEn || ''} ${b.titleDv || ''} ${b.author} ${b.category} ${b.targetGrade} ${b.description || ''} ${(b.tags || []).join(' ')}`.toLowerCase();
+        return queryTerms.some((t: string) => hay.includes(t));
+      })
+      .slice(0, 8)
+      .map((b) => b.id);
+
+    return {
+      intent: 'catalog_search',
+      answer: isDhivehi
+        ? `ތިޔަ ހޯއްދެވި ޝަރުޠުތަކާ ގުޅޭ ${matchedBooks.length} ފޮތް ކެޓަލޮގުން ފެނިއްޖެއެވެ.`
+        : `Found ${matchedBooks.length} catalog book(s) matching your query.`,
+      filterPredicates: {
+        language: wantsDhivehi ? 'Dhivehi' : undefined,
+        category: categoryFilter,
+        gradeLevel: extractedGrade,
+        availableOnly: wantsAvailable,
+      },
+      matchedBookIds: matchedBooks,
+      matchedLoanIds: [],
+      analyticsBreakdown: [],
+    };
+  };
+
+  try {
+    const ai = getGeminiClient();
+    if (ai) {
+      const compactBooks = (books as any[]).slice(0, 80).map((b) => ({
+        id: b.id,
+        title: b.title,
+        titleDv: b.titleDv || undefined,
+        author: b.author,
+        category: b.category,
+        language: b.bookLanguage,
+        grade: b.targetGrade,
+        available: b.availableCopies > 0 && !b.isReferenceOnly,
+        shelf: b.shelfLocation,
+      }));
+      const today = new Date().toISOString().split('T')[0];
+      const compactLoans = (loans as any[])
+        .slice(0, 60)
+        .map((l) => {
+          const daysOverdue = l.dueDate && l.status !== 'returned' && l.dueDate < today
+            ? Math.floor((new Date(today).getTime() - new Date(l.dueDate).getTime()) / 86400000)
+            : 0;
+          return {
+            id: l.id,
+            bookId: l.bookId,
+            bookTitle: l.bookTitle,
+            userName: l.userName,
+            grade: l.userGrade,
+            dueDate: l.dueDate,
+            status: l.status,
+            daysOverdue,
+            lateFeeMvr: l.lateFee || 0,
+          };
+        });
+
+      const prompt = `You are the Bilingual Conversational OPAC & Admin Query Engine for F. Magoodhoo School Library.
+Translate the user's natural language query (English or Dhivehi Thaana) into structured filter predicates and match results from the live data.
+User query: "${q}"
+Response language preference: ${isDhivehi || /[\u0780-\u07BF]/.test(q) ? 'Dhivehi Thaana' : 'English'}
+Books Catalog: ${JSON.stringify(compactBooks)}
+Loans History & Active Records: ${JSON.stringify(compactLoans)}`;
+
+      const response = await callGeminiWithFallback(ai, {
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              intent: { type: Type.STRING },
+              answer: { type: Type.STRING },
+              filterPredicates: {
+                type: Type.OBJECT,
+                properties: {
+                  language: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  gradeLevel: { type: Type.STRING },
+                  availableOnly: { type: Type.BOOLEAN },
+                  minOverdueDays: { type: Type.INTEGER },
+                  borrowerGrade: { type: Type.STRING },
+                },
+              },
+              matchedBookIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+              matchedLoanIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+              analyticsBreakdown: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    label: { type: Type.STRING },
+                    count: { type: Type.INTEGER },
+                    note: { type: Type.STRING },
+                  },
+                },
+              },
+            },
+            required: ['intent', 'answer', 'matchedBookIds', 'matchedLoanIds'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      return res.json(parsed);
+    }
+  } catch (err: any) {
+    console.warn('[OPAC AI Search Notice] Using smart local semantic parser:', err?.message?.slice(0, 80));
+  }
+
+  return res.json(runDeterministicSearch());
+});
+
+// 3d. AI Reading Recommendations & Lesson Plan Curriculum Matcher
+app.post('/api/ai/curriculum-match', async (req, res) => {
+  const {
+    grade = 'Grade 6',
+    syllabusTopic = '',
+    learningObjective = '',
+    availableOnly = false,
+    borrowedTitles = [],
+    books = serverBooks,
+    language = 'en',
+  } = req.body || {};
+  const isDhivehi = language === 'dv';
+  const topicText = (learningObjective || syllabusTopic || 'General Enrichment').trim();
+
+  const buildFallbackMatches = () => {
+    const terms = topicText.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+    const pool = (books as any[]).filter((b) => !availableOnly || b.availableCopies > 0);
+    const scored = pool.map((b) => {
+      const hay = `${b.title} ${b.category} ${b.description || ''} ${(b.tags || []).join(' ')}`.toLowerCase();
+      let score = 0;
+      terms.forEach((t: string) => {
+        if (hay.includes(t)) score += 3;
+      });
+      if (b.targetGrade && String(b.targetGrade).toLowerCase().includes(grade.toLowerCase())) score += 2;
+      if (b.availableCopies > 0) score += 1;
+      return { b, score };
+    });
+
+    const top = scored.sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.b);
+    const matches = top.map((b) => ({
+      bookId: b.id,
+      title: b.title,
+      author: b.author,
+      mediaType: b.mediaType || 'Book',
+      ddcCallNumber: b.ddcCallNumber || 'DDC 800',
+      shelfLocation: b.shelfLocation || 'General Stacks',
+      availableCopies: b.availableCopies ?? 0,
+      relevanceReason: isDhivehi
+        ? `${grade} ގެ "${topicText}" ފިލާވަޅަށް މި ފޮތުގައިވާ ${b.category} މަޢުލޫމާތު ވަރަށް ބޮޑަށް އެހީތެރިވެދޭނެއެވެ.`
+        : `Supports ${grade} objectives for "${topicText}" through ${b.category} readings and classroom reference context.`,
+    }));
+
+    const summary = isDhivehi
+      ? `${grade} ގެ "${topicText}" ފިލާވަޅާ ގުޅޭ ${matches.length} ވަޞީލަތް ލައިބްރަރީ ކެޓަލޮގުން ހޮވާލެވިއްޖެއެވެ.`
+      : `Ranked ${matches.length} catalog resource(s) aligned with "${topicText}" for ${grade}.`;
+
+    const text = `${summary}\n\n${matches.map((m) => `- **${m.title}** (${m.ddcCallNumber}) — ${m.shelfLocation}: ${m.relevanceReason}`).join('\n')}`;
+    return { summary, matches, text };
+  };
+
+  try {
+    const ai = getGeminiClient();
+    if (ai) {
+      const pool = (books as any[])
+        .filter((b) => !availableOnly || b.availableCopies > 0)
+        .slice(0, 60)
+        .map((b) => ({
+          id: b.id,
+          title: b.title,
+          author: b.author,
+          mediaType: b.mediaType || 'Book',
+          category: b.category,
+          ddc: b.ddcCallNumber,
+          grade: b.targetGrade,
+          shelf: b.shelfLocation,
+          availableCopies: b.availableCopies,
+          synopsis: (b.description || '').slice(0, 140),
+        }));
+
+      const prompt = `You are a Maldives NIE Curriculum Specialist & School Librarian.
+Match and rank Magoodhoo School Library books, reference kits, and e-resources for a teacher's lesson plan.
+Target Grade: ${grade}
+Lesson Plan Topic / Learning Objective: "${topicText}"
+Past Reading Context: ${JSON.stringify(borrowedTitles)}
+Available Catalog Resources: ${JSON.stringify(pool)}
+
+Return structured JSON with:
+- summary: 1-2 sentence overview in ${isDhivehi ? 'Dhivehi Thaana script' : 'English'}
+- matches: Top 3 to 5 ranked items from the catalog, each with bookId, title, author, mediaType, ddcCallNumber, shelfLocation, availableCopies, and a crisp relevanceReason explaining how it supports the lesson.`;
+
+      const response = await callGeminiWithFallback(ai, {
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              matches: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    bookId: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    author: { type: Type.STRING },
+                    mediaType: { type: Type.STRING },
+                    ddcCallNumber: { type: Type.STRING },
+                    shelfLocation: { type: Type.STRING },
+                    availableCopies: { type: Type.INTEGER },
+                    relevanceReason: { type: Type.STRING },
+                  },
+                  required: ['bookId', 'title', 'relevanceReason'],
+                },
+              },
+            },
+            required: ['summary', 'matches'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      const matches = Array.isArray(parsed.matches) ? parsed.matches : [];
+      const text = `${parsed.summary || ''}\n\n${matches.map((m: any) => `- **${m.title}** (${m.ddcCallNumber || 'DDC'}) — ${m.shelfLocation || 'Main'}: ${m.relevanceReason}`).join('\n')}`;
+      return res.json({ summary: parsed.summary || '', matches, text });
+    }
+  } catch (err: any) {
+    console.warn('[Curriculum Matcher Notice] Using fallback:', err?.message?.slice(0, 80));
+  }
+
+  return res.json(buildFallbackMatches());
+});
+
+// 3e. Predictive Overdue Risk Scoring & Collection Insights Engine
+app.post('/api/ai/insights', async (req, res) => {
+  const { books = serverBooks, loans = serverLoans, language = 'en' } = req.body || {};
+  const isDhivehi = language === 'dv';
+  const today = new Date().toISOString().split('T')[0];
+
+  // Historical return delay statistics per userId
+  const userDelayStats: Record<string, { total: number; late: number }> = {};
+  (loans as any[]).forEach((l) => {
+    if (!l.userId) return;
+    if (!userDelayStats[l.userId]) userDelayStats[l.userId] = { total: 0, late: 0 };
+    userDelayStats[l.userId].total += 1;
+    const wasLate =
+      l.status === 'overdue' ||
+      (l.lateFee || 0) > 0 ||
+      (l.returnDate && l.dueDate && l.returnDate > l.dueDate);
+    if (wasLate) userDelayStats[l.userId].late += 1;
+  });
+
+  const scoredActive = (loans as any[])
+    .filter((l) => l.status !== 'returned')
+    .map((l) => {
+      const diffMs = new Date(l.dueDate).getTime() - new Date(today).getTime();
+      const daysLeft = Math.ceil(diffMs / 86400000);
+      const daysOverdue = daysLeft < 0 ? Math.abs(daysLeft) : 0;
+      const stats = userDelayStats[l.userId] || { total: 1, late: 0 };
+      const lateRatio = stats.total > 0 ? stats.late / stats.total : 0;
+
+      let riskScore = 15;
+      const factors: string[] = [];
+
+      if (l.status === 'overdue' || daysOverdue > 0) {
+        riskScore += Math.min(55, 35 + daysOverdue * 3);
+        factors.push(`${daysOverdue}d overdue`);
+      } else if (daysLeft <= 2) {
+        riskScore += 35;
+        factors.push(`Due in ${daysLeft}d`);
+      } else if (daysLeft <= 5) {
+        riskScore += 20;
+        factors.push(`Due in ${daysLeft}d`);
+      }
+
+      if ((l.renewalCount || 0) >= 1) {
+        riskScore += 15;
+        factors.push(`${l.renewalCount} renewal(s)`);
+      }
+
+      if (lateRatio > 0) {
+        riskScore += Math.round(lateRatio * 25);
+        factors.push(`${stats.late}/${stats.total} historical late`);
+      }
+
+      const clampedScore = Math.min(99, riskScore);
+      return {
+        loan: l,
+        daysOverdue,
+        riskScore: clampedScore,
+        riskLevel: (l.status === 'overdue' || daysOverdue > 0 || clampedScore >= 70 ? 'CRITICAL' : 'ELEVATED') as 'CRITICAL' | 'ELEVATED',
+        riskFactors: factors.join(' · ') || 'Approaching due date',
+      };
+    })
+    .filter((x) => x.riskScore >= 40)
+    .sort((a, b) => b.riskScore - a.riskScore);
+
+  const stagnantBooks = (books as any[]).filter((b) => !b.isReferenceOnly && b.availableCopies === b.totalCopies).slice(0, 5);
+
+  let executiveSummary = isDhivehi
+    ? `ޖުމްލަ ${books.length} ފޮތުގެ ތެރެއިން ${scoredActive.length} ލޯން މުއްދަތު ހަމަވުމުގެ ނުރައްކާތެރި ހާލަތުގައިވެއެވެ. އަދި ${stagnantBooks.length} ފޮތެއްގެ ދައުރުވުން އިތުރުކުރުމަށް ލަފާދެމެވެ.`
+    : `Executive Summary: ${scoredActive.length} active loan(s) flagged with elevated or critical overdue probability based on due window and patron return history. ${stagnantBooks.length} circulating titles show zero active checkouts.`;
+
+  try {
+    const ai = getGeminiClient();
+    if (ai) {
+      const prompt = `Write a sharp 2-sentence executive summary for Magoodhoo School principal & head librarian in ${isDhivehi ? 'Dhivehi Thaana script' : 'English'}.
+Stats: ${books.length} titles, ${loans.length} recorded loans, ${scoredActive.length} overdue/high-risk loans, ${stagnantBooks.length} unborrowed titles.`;
+      const response = await callGeminiWithFallback(ai, { contents: prompt });
+      if (response.text) executiveSummary = response.text.trim();
+    }
+  } catch {}
+
+  res.json({
+    executiveSummary,
+    highRiskLoans: scoredActive.map(({ loan: l, daysOverdue, riskScore, riskLevel, riskFactors }) => ({
+      id: l.id,
+      userId: l.userId,
+      bookTitle: l.bookTitle,
+      userName: l.userName,
+      userGrade: l.userGrade,
+      dueDate: l.dueDate,
+      daysOverdue,
+      lateFeeMvr: l.lateFee || 0,
+      riskScore,
+      riskLevel,
+      riskFactors,
+    })),
+    weedingOrPromoCandidates: stagnantBooks.map((b) => ({
+      id: b.id,
+      title: b.title,
+      ddcCallNumber: b.ddcCallNumber,
+      shelfLocation: b.shelfLocation,
+    })),
+  });
+});
+
+// 3e-1. Automated Bilingual Overdue Reminder Drafter (WhatsApp / SMS / Email)
+app.post('/api/ai/draft-reminder', async (req, res) => {
+  const {
+    bookTitle = 'Library Book',
+    userName = 'Student',
+    userGrade = '',
+    dueDate = '',
+    daysOverdue = 0,
+    lateFeeMvr = 0,
+    channel = 'whatsapp',
+    language = 'en',
+  } = req.body || {};
+  const isDhivehi = language === 'dv';
+
+  const buildFallbackReminder = () => {
+    if (isDhivehi) {
+      return {
+        subject: `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ހަނދާންކޮށްދިނުން — ${bookTitle}`,
+        messageBody:
+          channel === 'sms'
+            ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ގެ މުއްދަތު ${dueDate} ގައި ހަމަވެފައިވާތީ ލައިބްރަރީއަށް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.${lateFeeMvr > 0 ? ` ޖޫރިމަނާ: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''}`
+            : `އައްސަލާމް ޢަލައިކުމް،\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީން ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" މި ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ސުންގަޑި (${dueDate}) ވަނީ ${daysOverdue > 0 ? `${daysOverdue} ދުވަސް ފަހަނައަޅައި ގޮސްފައެވެ` : 'ހަމަވާން ކައިރިވެފައެވެ'}.\n${lateFeeMvr > 0 ? `މިހާތަނަށް އަރާފައިވާ ޖޫރިމަނާ: MVR ${Number(lateFeeMvr).toFixed(2)}\n` : ''}\nވީމާ ސްކޫލް ގަޑީގައި ލައިބްރަރީ ކައުންޓަރަށް ފޮތް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ. ޝުކުރިއްޔާ!\n— މަގޫދޫ ސްކޫލް ލައިބްރަރީ`,
+        channel,
+        language,
+      };
+    }
+
+    return {
+      subject: `F. Magoodhoo School Library Reminder: "${bookTitle}"`,
+      messageBody:
+        channel === 'sms'
+          ? `Magoodhoo School Library: Reminder for ${userName}${userGrade ? ` (${userGrade})` : ''} to return "${bookTitle}" (Due: ${dueDate}${daysOverdue > 0 ? `, ${daysOverdue}d overdue` : ''}).${lateFeeMvr > 0 ? ` Fee: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''} Thank you.`
+          : `Assalaamu Alaikum,\n\nThis is a friendly reminder from F. Magoodhoo School Library regarding "${bookTitle}" borrowed by ${userName}${userGrade ? ` (${userGrade})` : ''}.\n\nDue Date: ${dueDate}${daysOverdue > 0 ? ` (${daysOverdue} day(s) overdue)` : ''}${lateFeeMvr > 0 ? `\nCurrent Fine Balance: MVR ${Number(lateFeeMvr).toFixed(2)}` : ''}\n\nKindly return or renew the book at the library desk during school hours (Sun–Thu). Thank you!\n\nWarm regards,\nF. Magoodhoo School Library Desk`,
+      channel,
+      language,
+    };
+  };
+
+  try {
+    const ai = getGeminiClient();
+    if (ai) {
+      const prompt = `Draft a polite, respectful school library return reminder for a parent or staff member at F. Magoodhoo School (Maldives).
+Channel: ${channel.toUpperCase()} (${channel === 'sms' ? 'keep under 240 characters' : 'well-formatted message'})
+Language: ${isDhivehi ? 'Natural polite Dhivehi (Thaana script)' : 'Polite clear English'}
+Patron: ${userName} (${userGrade || 'Member'})
+Book Title: "${bookTitle}"
+Due Date: ${dueDate}
+Days Overdue: ${daysOverdue}
+Late Fee (MVR): ${Number(lateFeeMvr).toFixed(2)}`;
+
+      const response = await callGeminiWithFallback(ai, {
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              subject: { type: Type.STRING },
+              messageBody: { type: Type.STRING },
+            },
+            required: ['subject', 'messageBody'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      if (parsed.messageBody) {
+        return res.json({
+          subject: parsed.subject || buildFallbackReminder().subject,
+          messageBody: parsed.messageBody,
+          channel,
+          language,
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn('[Draft Reminder Notice] Using polite template fallback:', err?.message?.slice(0, 80));
+  }
+
+  return res.json(buildFallbackReminder());
+});
+
+// 3e-2. Voice Transcription Assistant (POST /api/ai/transcribe using gemini-3.5-transcribe)
+app.post('/api/ai/transcribe', async (req, res) => {
+  try {
+    const { audioBase64, mimeType = 'audio/webm', language = 'en' } = req.body || {};
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
+      return res.status(400).json({ error: 'audioBase64 payload is required.' });
+    }
+
+    const cleanBase64 = audioBase64.includes('base64,')
+      ? audioBase64.split('base64,')[1]
+      : audioBase64;
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.json({
+        transcript: '',
+        language,
+        offlineFallback: true,
+        message: 'GEMINI_API_KEY not configured on server; use keyboard or browser speech input.',
+      });
+    }
+
+    const langHint =
+      language === 'dv'
+        ? 'The speaker may speak Dhivehi (Thaana) or English library queries (book titles, authors, ISBN, or student names). Transcribe faithfully.'
+        : 'Transcribe the library catalog search, circulation command, or book dictation cleanly as plain text.';
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-transcribe',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: cleanBase64 } },
+            { text: `${langHint} Return ONLY the transcribed text without extra commentary.` },
+          ],
+        },
+      ],
+    });
+
+    const transcript = (response.text || '').trim();
+    return res.json({ transcript, language });
+  } catch (err: any) {
+    console.warn('[Voice Transcribe Notice]:', err?.message?.slice(0, 120));
+    return res.status(502).json({
+      transcript: '',
+      error: 'Voice transcription temporarily unavailable.',
+    });
+  }
+});
+
+// 3f. Multi-Source ISBN / UPC Lookup Proxy (Google Books + Open Library + Crossref)
+app.get('/api/catalog/lookup', async (req, res) => {
+  const isbn = ((req.query.isbn as string) || '').replace(/[^0-9Xx]/g, '').trim();
+  if (!isbn) {
+    return res.status(400).json({ error: 'Valid ISBN or UPC code is required.' });
+  }
+
+  // 1. Try Open Library API
+  try {
+    const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    if (olRes.ok) {
+      const olJson: any = await olRes.json();
+      const entry = olJson[`ISBN:${isbn}`];
+      if (entry) {
+        return res.json({
+          source: 'Open Library',
+          found: true,
+          isbn,
+          title: entry.title || 'Untitled Book',
+          author: (entry.authors || []).map((a: any) => a.name).join(', ') || 'Unknown Author',
+          publisher: (entry.publishers || []).map((p: any) => p.name).join(', ') || 'Publisher',
+          publicationYear: parseInt((entry.publish_date || '').match(/\d{4}/)?.[0] || '2022', 10),
+          pageCount: entry.number_of_pages || undefined,
+          coverUrl: entry.cover?.large || entry.cover?.medium || '/covers/classic_literature.jpg',
+          category: (entry.subjects || [])[0]?.name || 'General Literature',
+          ddcCallNumber: entry.classifications?.dewey_decimal_class?.[0] ? `DDC ${entry.classifications.dewey_decimal_class[0]}` : 'DDC 800',
+          description: entry.notes || entry.subtitle || `Cataloged via Open Library (ISBN ${isbn}).`
+        });
+      }
+    }
+  } catch {}
+
+  // 2. Try Google Books API
+  try {
+    const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    if (gbRes.ok) {
+      const gbData: any = await gbRes.json();
+      const info = gbData.items?.[0]?.volumeInfo;
+      if (info) {
+        return res.json({
+          source: 'Google Books',
+          found: true,
+          isbn,
+          title: info.title || 'Untitled Book',
+          author: (info.authors || []).join(', ') || 'Unknown Author',
+          publisher: info.publisher || 'Publisher',
+          publicationYear: parseInt((info.publishedDate || '').slice(0, 4) || '2022', 10),
+          pageCount: info.pageCount || undefined,
+          coverUrl: info.imageLinks?.thumbnail?.replace('http://', 'https://') || '/covers/classic_literature.jpg',
+          category: (info.categories || [])[0] || 'General Literature',
+          ddcCallNumber: 'DDC 800',
+          description: info.description || `Retrieved via Google Books (ISBN ${isbn}).`
+        });
+      }
+    }
+  } catch {}
+
+  // 3. Try Crossref API (useful for academic & monograph ISBNs/DOIs)
+  try {
+    const crRes = await fetch(`https://api.crossref.org/works?filter=isbn:${isbn}&rows=1`);
+    if (crRes.ok) {
+      const crData: any = await crRes.json();
+      const work = crData.message?.items?.[0];
+      if (work) {
+        return res.json({
+          source: 'Crossref',
+          found: true,
+          isbn,
+          title: work.title?.[0] || 'Academic Volume',
+          author: (work.author || []).map((a: any) => `${a.given || ''} ${a.family || ''}`.trim()).join(', ') || 'Academic Author',
+          publisher: work.publisher || 'Academic Press',
+          publicationYear: work.published?.['date-parts']?.[0]?.[0] || 2022,
+          coverUrl: '/covers/tech_reference.jpg',
+          category: 'Academic & STEM',
+          ddcCallNumber: 'DDC 500',
+          description: `Academic title indexed via Crossref metadata registry (ISBN ${isbn}).`
+        });
+      }
+    }
+  } catch {}
+
+  res.status(404).json({ found: false, error: `No online bibliographic record found for ${isbn}. Please enter manually.` });
+});
+
 // 4. Send Overdue Email & SMS Notification API Route
 app.post('/api/notifications/send-overdue-alert', async (req, res) => {
   try {
@@ -349,8 +1207,8 @@ app.post('/api/notifications/send-overdue-alert', async (req, res) => {
       : `OVERDUE NOTICE: Magoodhoo School Library Book Return Needed - "${bookTitle}"`;
 
     const emailBody = isDhivehi
-      ? `އަދަބުވެރި ސަލާމަކަށްފަހު ދަންނަވަމެވެ.\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީއިން ދޫކޮށްފައިވާ "${bookTitle}" ފޮތުގެ މުއްދަތު (${dueDate}) ވަނީ ހަމަވެފައެވެ.\n\nމެންބަރުގެ ނަން: ${recipientName}\nމުއްދަތު ހަމަވި ދުވަސް: ${daysOverdue || 1} ދުވަސް\nޖޫރިމަނާ ފައިސާ: $${(lateFee || 0).toFixed(2)}\n\nވީއެންމެ އަވަހަކަށް މި ފޮތް ލައިބްރަރީއަށް އަނބުރާ ރައްދުކޮށްދެއްވުން އެދެމެވެ.\n\nޝުކުރިއްޔާ,\nމަގޫދޫ ސްކޫލް ލައިބްރަރީ އިދާރާ`
-      : `Dear ${recipientName},\n\nThis is an automated notification from Magoodhoo School Library regarding the book "${bookTitle}".\n\nThe return due date was ${dueDate} (${daysOverdue || 1} days overdue).\nCalculated Overdue Fine: $${(lateFee || 0).toFixed(2)}.\n\nPlease return this book to the library desk as soon as possible to avoid further daily fines.\n\nThank you,\nMagoodhoo School Library Administration`;
+      ? `އަދަބުވެރި ސަލާމަކަށްފަހު ދަންނަވަމެވެ.\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީއިން ދޫކޮށްފައިވާ "${bookTitle}" ފޮތުގެ މުއްދަތު (${dueDate}) ވަނީ ހަމަވެފައެވެ.\n\nމެންބަރުގެ ނަން: ${recipientName}\nމުއްދަތު ހަމަވި ދުވަސް: ${daysOverdue || 1} ދުވަސް\nޖޫރިމަނާ ފައިސާ: MVR ${(lateFee || 0).toFixed(2)}\n\nވީއެންމެ އަވަހަކަށް މި ފޮތް ލައިބްރަރީއަށް އަނބުރާ ރައްދުކޮށްދެއްވުން އެދެމެވެ.\n\nޝުކުރިއްޔާ,\nމަގޫދޫ ސްކޫލް ލައިބްރަރީ އިދާރާ`
+      : `Dear ${recipientName},\n\nThis is an automated notification from Magoodhoo School Library regarding the book "${bookTitle}".\n\nThe return due date was ${dueDate} (${daysOverdue || 1} days overdue).\nCalculated Overdue Fine: MVR ${(lateFee || 0).toFixed(2)}.\n\nPlease return this book to the library desk as soon as possible to avoid further daily fines.\n\nThank you,\nMagoodhoo School Library Administration`;
 
     const smsBody = isDhivehi
       ? `Magoodhoo Library Notice: "${bookTitle}" num nootu muudhatu hamavejje (${daysOverdue} days). Please return book at desk.`
@@ -549,13 +1407,33 @@ const fineWaiverAuditLog: any[] = [];
 // System Audit Log Interface & In-Memory Store
 export interface AuditLogEntry {
   id: string;
-  action: 'BOOK_CREATED' | 'BOOK_UPDATED' | 'BOOK_DELETED' | 'LOAN_ISSUED' | 'LOAN_RETURNED' | 'LOAN_RENEWED' | 'FINE_WAIVED' | 'INVENTORY_IMPORT';
-  targetType: 'book' | 'loan' | 'fine' | 'inventory';
+  action:
+    | 'BOOK_CREATED'
+    | 'BOOK_UPDATED'
+    | 'BOOK_DELETED'
+    | 'COPY_DELETED'
+    | 'LOAN_ISSUED'
+    | 'LOAN_RETURNED'
+    | 'LOAN_RENEWED'
+    | 'FINE_WAIVED'
+    | 'FINE_SETTLED'
+    | 'BALANCE_EDITED'
+    | 'ROLE_CHANGED'
+    | 'POLICY_UPDATED'
+    | 'BACKUP_EXPORTED'
+    | 'BACKUP_RESTORED'
+    | 'NOTIFICATION_DISPATCHED'
+    | 'INVENTORY_IMPORT';
+  targetType: 'book' | 'copy' | 'loan' | 'fine' | 'inventory' | 'user' | 'policy' | 'backup' | 'notification';
   targetId: string;
   details: string;
   performedBy: string;
+  performedById?: string;
   userRole: string;
+  accessRole?: string;
   timestamp: string;
+  integrityHash?: string;
+  immutable?: boolean;
 }
 
 const serverAuditLogs: AuditLogEntry[] = [
@@ -567,7 +1445,9 @@ const serverAuditLogs: AuditLogEntry[] = [
     details: 'System initialized with Magoodhoo School Library collection (Dhivehi Literature, Science, Islamic Studies & References).',
     performedBy: 'Ms. Davis (Librarian)',
     userRole: 'admin',
-    timestamp: new Date(Date.now() - 3600000 * 48).toISOString()
+    accessRole: 'super_admin',
+    timestamp: new Date(Date.now() - 3600000 * 48).toISOString(),
+    immutable: true,
   }
 ];
 
@@ -579,6 +1459,7 @@ function logAuditAction(
   req: express.Request
 ): AuditLogEntry {
   const role = (req.headers['x-user-role'] as string) || (req as any).user?.role || 'admin';
+  const accessRole = (req.headers['x-access-role'] as string) || (req as any).user?.accessRole || normalizeAccessRole(role);
   const userId = (req.headers['x-user-id'] as string) || (req as any).user?.id || 'Circulation Desk Staff';
   const entry: AuditLogEntry = {
     id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -588,53 +1469,85 @@ function logAuditAction(
     details,
     performedBy: userId,
     userRole: role,
-    timestamp: new Date().toISOString()
+    accessRole,
+    timestamp: new Date().toISOString(),
+    immutable: true,
   };
   serverAuditLogs.unshift(entry);
-  if (serverAuditLogs.length > 250) serverAuditLogs.pop();
+  if (serverAuditLogs.length > 500) serverAuditLogs.pop();
   return entry;
 }
 
-// RBAC Middleware supporting Session Roles, User IDs, and Bearer JWT tokens
+function normalizeAccessRole(raw: string): 'super_admin' | 'desk_assistant' | 'teacher' | 'student_guest' {
+  const clean = (raw || '').trim().toLowerCase();
+  if (clean === 'super_admin' || clean === 'admin' || clean === 'librarian' || clean === 'superadmin') {
+    return 'super_admin';
+  }
+  if (clean === 'desk_assistant' || clean === 'prefect' || clean === 'desk') {
+    return 'desk_assistant';
+  }
+  if (clean === 'teacher' || clean === 'staff') {
+    return 'teacher';
+  }
+  return 'student_guest';
+}
+
+// RBAC Middleware supporting 4-Tier Access Roles, Legacy Roles, User IDs, and Bearer JWT tokens
 const requireRole = (allowedRoles: string[]) => {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const accessHeader = ((req.headers['x-access-role'] as string) || '').toLowerCase();
     const roleHeader = ((req.headers['x-user-role'] as string) || '').toLowerCase();
     const authHeader = (req.headers['authorization'] as string) || '';
     const sessionHeader = (req.headers['x-session-id'] as string) || '';
 
-    let effectiveRole = roleHeader;
+    let effectiveRawRole = accessHeader || roleHeader;
 
     // Bearer token authentication (JWT or Bearer token parsing)
-    if (authHeader.startsWith('Bearer ')) {
+    if (!accessHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7).trim();
       if (token.toLowerCase().includes('admin') || token.toLowerCase().includes('librarian')) {
-        effectiveRole = 'admin';
+        effectiveRawRole = 'super_admin';
       } else if (token.includes('.')) {
         try {
           const parts = token.split('.');
           if (parts[1]) {
             const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-            if (payload.role) effectiveRole = payload.role.toLowerCase();
+            if (payload.accessRole || payload.role) {
+              effectiveRawRole = String(payload.accessRole || payload.role).toLowerCase();
+            }
           }
         } catch {}
       }
     }
 
-    if (!effectiveRole && sessionHeader.includes('admin')) {
-      effectiveRole = 'admin';
+    if (!effectiveRawRole && sessionHeader.includes('admin')) {
+      effectiveRawRole = 'super_admin';
+    }
+
+    const effectiveAccessRole = normalizeAccessRole(effectiveRawRole);
+    const normalizedAllowed = new Set<string>();
+    for (const r of allowedRoles) {
+      normalizedAllowed.add(r.toLowerCase());
+      normalizedAllowed.add(normalizeAccessRole(r));
     }
 
     const isAllowed =
-      allowedRoles.includes(effectiveRole) ||
-      (allowedRoles.includes('admin') && (effectiveRole === 'librarian' || effectiveRole === 'superadmin'));
+      Boolean(effectiveRawRole) &&
+      (normalizedAllowed.has(effectiveRawRole) || normalizedAllowed.has(effectiveAccessRole));
 
     if (!isAllowed) {
       return res.status(403).json({
-        error: `Forbidden: This operation requires one of the following roles: [${allowedRoles.join(', ')}]. Current role: '${effectiveRole || 'unauthenticated'}'`
+        error: `Forbidden (RBAC): This operation requires one of [${allowedRoles.join(', ')}]. Current access role: '${effectiveRawRole ? effectiveAccessRole : 'unauthenticated'}'.`,
+        requiredRoles: allowedRoles,
+        currentAccessRole: effectiveRawRole ? effectiveAccessRole : 'unauthenticated',
       });
     }
 
-    (req as any).user = { role: effectiveRole, id: req.headers['x-user-id'] };
+    (req as any).user = {
+      role: roleHeader || effectiveRawRole,
+      accessRole: effectiveAccessRole,
+      id: req.headers['x-user-id'],
+    };
     next();
   };
 };
@@ -847,46 +1760,111 @@ app.delete('/api/loans/:id', requireRole(['admin', 'librarian']), (req, res) => 
 });
 
 // 9. Circulation Desk APIs: Check-Out / Issue (/api/circulation/issue and /api/loans/checkout)
-const issueLoanHandler = (req: express.Request, res: express.Response) => {
-  const { bookId, userId, daysToBorrow = 14, librarianId } = req.body;
+const processedIdempotencyKeys = new Map<string, any>();
 
-  const book = serverBooks.find((b) => b.id === bookId || b.barcode === bookId || b.isbn === bookId);
+const issueLoanHandler = (req: express.Request, res: express.Response) => {
+  const idempotencyKey =
+    (req.headers['x-idempotency-key'] as string) || (req.body?.idempotencyKey as string);
+  if (idempotencyKey && processedIdempotencyKeys.has(idempotencyKey)) {
+    return res.status(200).json({
+      ...processedIdempotencyKeys.get(idempotencyKey),
+      idempotentReplay: true,
+    });
+  }
+
+  const { bookId, userId, daysToBorrow, librarianId, copyBarcode } = req.body;
+
+  const book = serverBooks.find(
+    (b) =>
+      b.id === bookId ||
+      b.barcode === bookId ||
+      b.isbn === bookId ||
+      (Array.isArray((b as any).copies) && (b as any).copies.some((c: any) => c.barcode === bookId))
+  );
   if (!book) {
     return res.status(404).json({ error: 'Book not found in library catalog.' });
   }
 
+  if (copyBarcode && Array.isArray((book as any).copies)) {
+    const requestedCopy = (book as any).copies.find((c: any) => c.barcode === copyBarcode);
+    if (requestedCopy && requestedCopy.status !== 'Available') {
+      return res.status(409).json({
+        error: `Conflict: Physical copy "${copyBarcode}" of "${book.title}" is already ${requestedCopy.status}.`,
+        conflictType: 'copy_already_checked_out',
+      });
+    }
+  }
+
   if (book.availableCopies <= 0) {
-    return res.status(400).json({ error: `No physical copies of "${book.title}" are currently available for check-out.` });
-  }
-
-  if (book.isReferenceOnly) {
-    return res.status(400).json({ error: `"${book.title}" is flagged as Reference Only and cannot be checked out for home circulation.` });
-  }
-
-  const borrower = serverUsers.find((u) => u.id === userId || u.studentIdCode === userId);
-  const borrowerId = borrower ? borrower.id : userId;
-  const borrowerName = borrower ? borrower.name : (req.body.userName || 'Student Borrower');
-  const borrowerRole = borrower ? borrower.role : 'student';
-
-  // Validate student loan limits
-  const activeLoans = serverLoans.filter((l) => l.userId === borrowerId && l.status === 'active');
-  const maxAllowed = borrowerRole === 'staff' || borrowerRole === 'admin'
-    ? (serverSettings.maxBooksPerStaff || 7)
-    : (serverSettings.maxBooksPerStudent || 3);
-
-  if (activeLoans.length >= maxAllowed) {
-    return res.status(400).json({
-      error: `Check-out limit reached: Member has ${activeLoans.length} active books checked out (Maximum allowed: ${maxAllowed}). Please return an existing item first.`
+    return res.status(409).json({
+      error: `No physical copies of "${book.title}" are currently available for check-out.`,
+      conflictType: 'copy_already_checked_out',
     });
   }
 
+  const borrower = serverUsers.find(
+    (u) => u.id === userId || u.studentIdCode === userId || (u as any).staffIdCode === userId
+  );
+  const borrowerId = borrower ? borrower.id : userId;
+  const borrowerName = borrower ? borrower.name : (req.body.userName || 'Student Borrower');
+  const borrowerRole = borrower ? borrower.role : 'student';
+  const patronTier = (borrower as any)?.patronTier || (borrowerRole === 'admin' ? 'staff' : borrowerRole === 'parent' ? 'external' : borrowerRole);
+
+  const tierRules: any = (serverSettings as any).patronTierRules || {};
+  const tierRule = tierRules[patronTier] || (
+    borrowerRole === 'staff' || borrowerRole === 'admin'
+      ? { maxBooks: serverSettings.maxBooksPerStaff || 7, loanDays: serverSettings.staffBorrowDays || 30, allowReferenceCheckout: serverSettings.allowReferenceCheckoutForStaff }
+      : { maxBooks: serverSettings.maxBooksPerStudent || 3, loanDays: serverSettings.maxBorrowDays || 14, allowReferenceCheckout: false }
+  );
+
+  if (book.isReferenceOnly && !tierRule.allowReferenceCheckout) {
+    return res.status(400).json({ error: `"${book.title}" is flagged as Reference Only and cannot be checked out for home circulation.` });
+  }
+
+  // Enforce unpaid MVR fine threshold block
+  const unpaidFinesMvr = serverLoans
+    .filter((l) => l.userId === borrowerId && !l.feePaid && (l.lateFee || 0) > 0)
+    .reduce((sum, l) => sum + ((l.lateFee || 0) - ((l as any).amountPaid || 0)), 0);
+  const blockThreshold = serverSettings.blockBorrowingFineThreshold ?? 30.00;
+  if (unpaidFinesMvr >= blockThreshold) {
+    return res.status(403).json({
+      error: `Borrowing suspended: Unpaid balance MVR ${unpaidFinesMvr.toFixed(2)} exceeds MVR ${blockThreshold.toFixed(2)} limit.`
+    });
+  }
+
+  // Validate 4-tier patron loan limits
+  const activeLoans = serverLoans.filter((l) => l.userId === borrowerId && (l.status === 'active' || l.status === 'overdue'));
+  const maxAllowed = tierRule.maxBooks || 3;
+
+  if (activeLoans.length >= maxAllowed) {
+    return res.status(400).json({
+      error: `Check-out limit reached: Patron tier "${patronTier}" has ${activeLoans.length}/${maxAllowed} active books checked out. Please return an existing item first.`
+    });
+  }
+
+  const resolvedLoanDays = Number(daysToBorrow) || tierRule.loanDays || 14;
   const issueDateObj = new Date();
   const issueDateStr = issueDateObj.toISOString().split('T')[0];
-  const dueDateStr = calculateSchoolDueDate(issueDateObj, daysToBorrow);
+  const dueDateStr = calculateSchoolDueDate(issueDateObj, resolvedLoanDays);
+  const newLoanId = `loan-${Date.now()}`;
+
+  // Assign & update physical copy barcode status
+  let assignedCopyBarcode = copyBarcode;
+  if (Array.isArray((book as any).copies) && (book as any).copies.length > 0) {
+    const targetCopy = copyBarcode
+      ? (book as any).copies.find((c: any) => c.barcode === copyBarcode)
+      : (book as any).copies.find((c: any) => c.status === 'Available');
+    if (targetCopy) {
+      assignedCopyBarcode = targetCopy.barcode;
+      targetCopy.status = 'Checked Out';
+      targetCopy.currentLoanId = newLoanId;
+    }
+  }
 
   const newLoan: any = {
-    id: `loan-${Date.now()}`,
+    id: newLoanId,
     bookId: book.id,
+    copyBarcode: assignedCopyBarcode,
     bookTitle: book.title,
     bookIsbn: book.isbn,
     userId: borrowerId,
@@ -897,6 +1875,7 @@ const issueLoanHandler = (req: express.Request, res: express.Response) => {
     status: 'active',
     renewalCount: 0,
     lateFee: 0,
+    amountPaid: 0,
     feePaid: true,
     processedBy: librarianId || 'Circulation Desk Staff'
   };
@@ -904,14 +1883,18 @@ const issueLoanHandler = (req: express.Request, res: express.Response) => {
   serverLoans.unshift(newLoan);
   book.availableCopies = Math.max(0, (book.availableCopies || 1) - 1);
 
-  logAuditAction('LOAN_ISSUED', 'loan', newLoan.id, `Issued "${book.title}" to ${borrowerName} (${borrowerRole}). Due on ${dueDateStr} (Sunday-Thursday calendar)`, req);
+  logAuditAction('LOAN_ISSUED', 'loan', newLoan.id, `Issued "${book.title}" (${assignedCopyBarcode || book.barcode}) to ${borrowerName} (${patronTier}). Due on ${dueDateStr} (Sun-Thu calendar)`, req);
 
-  res.status(201).json({
+  const responsePayload = {
     success: true,
     loan: newLoan,
     updatedBook: book,
     message: `Book "${book.title}" successfully issued to ${borrowerName}. Due on ${dueDateStr} (Maldivian school calendar).`
-  });
+  };
+  if (idempotencyKey) {
+    processedIdempotencyKeys.set(idempotencyKey, responsePayload);
+  }
+  res.status(201).json(responsePayload);
 };
 
 app.post('/api/circulation/issue', issueLoanHandler);
@@ -919,13 +1902,39 @@ app.post('/api/loans/checkout', issueLoanHandler);
 
 // 10. Circulation Desk APIs: Return (Check-In) & Overdue Fine Calculation (/api/circulation/return and /api/loans/return)
 const returnLoanHandler = (req: express.Request, res: express.Response) => {
+  const idempotencyKey =
+    (req.headers['x-idempotency-key'] as string) || (req.body?.idempotencyKey as string);
+  if (idempotencyKey && processedIdempotencyKeys.has(idempotencyKey)) {
+    return res.status(200).json({
+      ...processedIdempotencyKeys.get(idempotencyKey),
+      idempotentReplay: true,
+    });
+  }
+
   const { loanId, bookBarcodeOrId } = req.body;
 
   let loan = serverLoans.find((l) => l.id === loanId);
+  if (loan && loan.status === 'returned') {
+    return res.status(409).json({
+      error: `Conflict: Loan "${loan.id}" for "${loan.bookTitle}" has already been returned on ${loan.returnDate || 'record'}.`,
+      conflictType: 'loan_already_returned',
+    });
+  }
+
   if (!loan && bookBarcodeOrId) {
-    const book = serverBooks.find((b) => b.id === bookBarcodeOrId || b.barcode === bookBarcodeOrId || b.isbn === bookBarcodeOrId);
-    if (book) {
-      loan = serverLoans.find((l) => l.bookId === book.id && (l.status === 'active' || l.status === 'overdue'));
+    const q = String(bookBarcodeOrId).trim().toLowerCase();
+    loan = serverLoans.find((l) => (l as any).copyBarcode?.toLowerCase() === q && (l.status === 'active' || l.status === 'overdue'));
+    if (!loan) {
+      const book = serverBooks.find(
+        (b) =>
+          b.id.toLowerCase() === q ||
+          b.barcode.toLowerCase() === q ||
+          b.isbn.toLowerCase() === q ||
+          (Array.isArray((b as any).copies) && (b as any).copies.some((c: any) => c.barcode.toLowerCase() === q))
+      );
+      if (book) {
+        loan = serverLoans.find((l) => l.bookId === book.id && (l.status === 'active' || l.status === 'overdue'));
+      }
     }
   }
 
@@ -936,11 +1945,11 @@ const returnLoanHandler = (req: express.Request, res: express.Response) => {
   const todayStr = new Date().toISOString().split('T')[0];
   const overdueWorkingDays = calculateWorkingDaysOverdue(loan.dueDate, todayStr, true);
 
-  // Overdue fine calculation: $0.50/day after grace period, capped at max fine cap
+  // Overdue fine calculation: MVR 2.00/day after grace period, capped at MVR 100.00 max fine cap
   const graceDays = serverSettings.gracePeriodDays ?? 2;
   const billableDays = Math.max(0, overdueWorkingDays - graceDays);
-  const rate = serverSettings.lateFeePerDay ?? 0.50;
-  const maxCap = serverSettings.maxOverdueFineCap ?? 25.00;
+  const rate = serverSettings.lateFeePerDay ?? 2.00;
+  const maxCap = serverSettings.maxOverdueFineCap ?? 100.00;
   const calculatedFee = Math.min(maxCap, billableDays * rate);
 
   loan.returnDate = todayStr;
@@ -948,23 +1957,53 @@ const returnLoanHandler = (req: express.Request, res: express.Response) => {
   loan.lateFee = calculatedFee;
   loan.feePaid = calculatedFee === 0;
 
-  // Restore book inventory copy
-  const book = serverBooks.find((b) => b.id === loan.bookId);
+  // Restore book inventory copy and physical copy status
+  const book = serverBooks.find((b) => b.id === loan!.bookId);
   if (book) {
     book.availableCopies = Math.min(book.totalCopies || 1, (book.availableCopies || 0) + 1);
+    if (Array.isArray((book as any).copies)) {
+      const copyRec = (book as any).copies.find(
+        (c: any) =>
+          ((loan as any).copyBarcode && c.barcode === (loan as any).copyBarcode) ||
+          c.currentLoanId === loan!.id
+      );
+      if (copyRec) {
+        copyRec.status = 'Available';
+        copyRec.currentLoanId = undefined;
+      }
+    }
   }
 
-  logAuditAction('LOAN_RETURNED', 'loan', loan.id, `Returned "${loan.bookTitle}" by ${loan.userName}. Overdue days: ${overdueWorkingDays}, Accrued fee: $${calculatedFee.toFixed(2)}`, req);
+  if (calculatedFee > 0) {
+    serverLedger.unshift({
+      id: `ledg-${Date.now()}`,
+      loanId: loan.id,
+      userId: loan.userId,
+      userName: loan.userName,
+      bookTitle: loan.bookTitle,
+      type: 'fine_accrual',
+      amountMvr: calculatedFee,
+      date: todayStr,
+      notes: `${billableDays} school working day(s) overdue @ MVR ${rate.toFixed(2)}/day`,
+      processedBy: 'System Circulation Engine',
+    });
+  }
 
-  res.json({
+  logAuditAction('LOAN_RETURNED', 'loan', loan.id, `Returned "${loan.bookTitle}" by ${loan.userName}. Overdue days: ${overdueWorkingDays}, Accrued fee: MVR ${calculatedFee.toFixed(2)}`, req);
+
+  const responsePayload = {
     success: true,
     loan,
     overdueWorkingDays,
     calculatedFee,
     message: calculatedFee > 0
-      ? `Book "${loan.bookTitle}" returned with ${overdueWorkingDays} working days overdue. Late fee accrued: $${calculatedFee.toFixed(2)}.`
+      ? `Book "${loan.bookTitle}" returned with ${overdueWorkingDays} working days overdue. Late fee accrued: MVR ${calculatedFee.toFixed(2)}.`
       : `Book "${loan.bookTitle}" returned on time. No late fee accrued.`
-  });
+  };
+  if (idempotencyKey) {
+    processedIdempotencyKeys.set(idempotencyKey, responsePayload);
+  }
+  res.json(responsePayload);
 };
 
 app.post('/api/circulation/return', returnLoanHandler);
@@ -1047,29 +2086,56 @@ const waiveFineHandler = (req: express.Request, res: express.Response) => {
     timestamp: loan.waivedAt
   });
 
-  logAuditAction('FINE_WAIVED', 'fine', loan.id, `Waived late fee of $${previousFee.toFixed(2)} on "${loan.bookTitle}" for ${loan.userName}. Reason: "${loan.waivedReason}"`, req);
+  logAuditAction('FINE_WAIVED', 'fine', loan.id, `Waived late fee of MVR ${previousFee.toFixed(2)} on "${loan.bookTitle}" for ${loan.userName}. Reason: "${loan.waivedReason}"`, req);
 
   res.json({
     success: true,
     loan,
     waivedAmount: previousFee,
-    message: `Late fee of $${previousFee.toFixed(2)} for "${loan.bookTitle}" has been waived by ${waivedBy}. Reason: "${loan.waivedReason}".`
+    message: `Late fee of MVR ${previousFee.toFixed(2)} for "${loan.bookTitle}" has been waived by ${waivedBy}. Reason: "${loan.waivedReason}".`
   });
 };
 
-app.post('/api/circulation/waive-fine', requireRole(['admin', 'librarian']), waiveFineHandler);
-app.post('/api/fines/waive', requireRole(['admin', 'librarian']), waiveFineHandler);
+app.post('/api/circulation/waive-fine', requireRole(['super_admin']), waiveFineHandler);
+app.post('/api/fines/waive', requireRole(['super_admin']), waiveFineHandler);
 
-// 12b. System Audit Logs API (Librarian/Admin only)
-app.get('/api/audit-logs', requireRole(['admin', 'librarian']), (req, res) => {
-  const limit = parseInt((req.query.limit as string) || '50', 10);
+// 12b. Immutable System Audit Logs API (Super Admin read, Desk/Admin append-only write)
+app.get('/api/audit-logs', requireRole(['super_admin']), (req, res) => {
+  const limit = parseInt((req.query.limit as string) || '150', 10);
   res.json({
     logs: serverAuditLogs.slice(0, limit),
-    total: serverAuditLogs.length
+    total: serverAuditLogs.length,
+    immutable: true,
   });
 });
 
-// 13. Fines & Overdue Loans Overview API
+app.post('/api/audit-logs', requireRole(['super_admin', 'desk_assistant']), (req, res) => {
+  const { action, targetType, targetId, details, performedBy, performedById, accessRole, integrityHash, timestamp } = req.body || {};
+  if (!action || !targetId || !details) {
+    return res.status(400).json({ error: 'action, targetId, and details are required.' });
+  }
+  const entry: AuditLogEntry = {
+    id: `aud-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    action,
+    targetType: targetType || 'inventory',
+    targetId: String(targetId),
+    details: String(details),
+    performedBy: performedBy || (req as any).user?.id || 'Staff',
+    performedById: performedById || undefined,
+    userRole: (req as any).user?.role || 'admin',
+    accessRole: accessRole || (req as any).user?.accessRole || 'super_admin',
+    timestamp: timestamp || new Date().toISOString(),
+    integrityHash: integrityHash || undefined,
+    immutable: true,
+  };
+  serverAuditLogs.unshift(entry);
+  if (serverAuditLogs.length > 500) serverAuditLogs.pop();
+  res.status(201).json({ success: true, entry });
+});
+
+// 13. Fines & Overdue Loans Overview + MVR Financial Ledger API
+let serverLedger: any[] = [...sampleLedgerTransactions];
+
 app.get('/api/fines', (req, res) => {
   const overdueOrUnpaidLoans = serverLoans.filter(
     (l) => (!l.feePaid && (l.lateFee || 0) > 0) || l.status === 'overdue'
@@ -1083,6 +2149,57 @@ app.get('/api/fines', (req, res) => {
     overdueLoans: overdueOrUnpaidLoans,
     recentWaivers: fineWaiverAuditLog.slice(0, 20)
   });
+});
+
+app.get('/api/ledger', (req, res) => {
+  const totalCollectedMvr = serverLedger
+    .filter((tx) => tx.type === 'payment' || tx.type === 'partial_payment' || tx.type === 'lost_replacement')
+    .reduce((sum, tx) => sum + (tx.amountMvr || 0), 0);
+  const totalWaivedMvr = serverLedger
+    .filter((tx) => tx.type === 'waiver')
+    .reduce((sum, tx) => sum + (tx.amountMvr || 0), 0);
+
+  res.json({
+    transactions: serverLedger,
+    summary: {
+      totalCollectedMvr,
+      totalWaivedMvr,
+      count: serverLedger.length
+    }
+  });
+});
+
+app.post('/api/ledger', requireRole(['super_admin', 'desk_assistant']), (req, res) => {
+  const { loanId, userId, userName, bookTitle, type, amountMvr, notes, processedBy } = req.body;
+  const callerAccessRole = (req as any).user?.accessRole;
+
+  if ((type === 'waiver' || type === 'balance_edit') && callerAccessRole !== 'super_admin') {
+    return res.status(403).json({
+      error: 'Forbidden (RBAC): Only Super Admins may record fine waivers or balance overrides.',
+    });
+  }
+
+  const tx = {
+    id: `ledg-${Date.now()}`,
+    loanId,
+    userId: userId || 'unknown',
+    userName: userName || 'Patron',
+    bookTitle: bookTitle || 'Library Account Settlement',
+    type: type || 'payment',
+    amountMvr: Number(amountMvr) || 0,
+    date: new Date().toISOString().split('T')[0],
+    notes: notes || '',
+    processedBy: processedBy || 'Head Librarian'
+  };
+  serverLedger.unshift(tx);
+  logAuditAction(
+    type === 'waiver' ? 'FINE_WAIVED' : 'FINE_SETTLED',
+    'fine',
+    tx.id,
+    `Ledger entry [${tx.type}] MVR ${tx.amountMvr.toFixed(2)} for ${tx.userName}`,
+    req
+  );
+  res.status(201).json({ success: true, transaction: tx });
 });
 
 // 14. Reservations & Offline Batch Sync API

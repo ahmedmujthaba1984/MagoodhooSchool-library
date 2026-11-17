@@ -33,14 +33,19 @@
         "dhivehiName": { "type": "string" },
         "gender": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "student", "parent", "staff"] },
+        "accessRole": { "type": "string", "enum": ["super_admin", "desk_assistant", "teacher", "student_guest"] },
         "parentId": { "type": "string" },
         "childrenIds": { "type": "array" },
         "grade": { "type": "string" },
+        "schoolHouse": { "type": "string" },
         "studentIdCode": { "type": "string" },
         "staffIdCode": { "type": "string" },
         "staffDepartment": { "type": "string" },
         "phone": { "type": "string" },
         "memberBarcodeUrl": { "type": "string" },
+        "readingStreakDays": { "type": "number" },
+        "booksCompletedCount": { "type": "number" },
+        "earnedBadgeIds": { "type": "array" },
         "createdAt": { "type": "string" }
       },
       "required": ["name", "role", "email"]
@@ -59,6 +64,8 @@
         "issueDate": { "type": "string" },
         "dueDate": { "type": "string" },
         "returnDate": { "type": "string" },
+        "issuedAtTimestamp": { "type": "string" },
+        "returnedAtTimestamp": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "returned", "overdue"] },
         "renewalCount": { "type": "number" },
         "lateFee": { "type": "number" },
@@ -110,8 +117,59 @@
         "alertEmail": { "type": "string" },
         "alertSmsNumber": { "type": "string" },
         "enableAutoDueDateAlerts": { "type": "boolean" },
-        "notifyParentOnOverdue": { "type": "boolean" }
+        "notifyParentOnOverdue": { "type": "boolean" },
+        "annualAcquisitionsBudgetsMvr": { "type": "object" },
+        "notificationTemplates": { "type": "object" }
       }
+    },
+    "AcquisitionRequest": {
+      "title": "AcquisitionRequest",
+      "description": "Patron purchase suggestion, procurement order, or book-drive donation record",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "isbn": { "type": "string" },
+        "bookLanguage": { "type": "string" },
+        "budgetCategory": { "type": "string" },
+        "curriculumJustification": { "type": "string" },
+        "requestedByUserId": { "type": "string" },
+        "requestedByName": { "type": "string" },
+        "requestedByRole": { "type": "string" },
+        "requestedDate": { "type": "string" },
+        "upvoterIds": { "type": "array" },
+        "stage": { "type": "string", "enum": ["Requested", "Approved", "Ordered", "Received & Cataloged", "Declined"] },
+        "quantity": { "type": "number" },
+        "unitPriceMvr": { "type": "number" },
+        "vendorName": { "type": "string" },
+        "vendorQuoteRef": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "isDonation": { "type": "boolean" },
+        "donorName": { "type": "string" },
+        "catalogedBookId": { "type": "string" },
+        "receivedDate": { "type": "string" },
+        "patronNotifiedAt": { "type": "string" }
+      },
+      "required": ["title", "author", "budgetCategory", "requestedByUserId", "stage", "quantity", "unitPriceMvr"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable activity and security audit trail entry",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "performedById": { "type": "string" },
+        "userRole": { "type": "string" },
+        "accessRole": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "integrityHash": { "type": "string" },
+        "immutable": { "type": "boolean" }
+      },
+      "required": ["action", "targetType", "targetId", "details", "performedBy", "timestamp", "integrityHash", "immutable"]
     }
   },
   "firestore": {
@@ -134,6 +192,14 @@
     "/settings/{settingId}": {
       "schema": "LibrarySettings",
       "description": "System circulation configurations and fine rules"
+    },
+    "/acquisitions/{requestId}": {
+      "schema": "AcquisitionRequest",
+      "description": "Purchase suggestions, vendor procurement orders, and book drive donations"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable security & financial audit log trail"
     }
   }
 }

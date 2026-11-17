@@ -190,7 +190,7 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
             {studentUsers.length === 0 ? (
               <p className="text-slate-400 text-[11px]">No student accounts currently in database.</p>
             ) : (
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pe-1">
                 {studentUsers.map(student => {
                   const isSelected = selectedStudentIds.includes(student.id);
                   return (
@@ -198,7 +198,7 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
                       key={student.id}
                       type="button"
                       onClick={() => toggleSelectStudent(student.id)}
-                      className={`w-full text-left p-2.5 rounded-xl border text-xs flex items-center justify-between transition ${
+                      className={`w-full text-start p-2.5 rounded-xl border text-xs flex items-center justify-between transition ${
                         isSelected
                           ? 'bg-purple-600/30 border-purple-400 text-white font-bold'
                           : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'
