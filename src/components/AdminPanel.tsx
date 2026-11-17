@@ -3,7 +3,7 @@ import {
   Shield, Plus, Edit2, Trash2, Printer, DollarSign, Settings, Users,
   BookOpen, CheckCircle, QrCode, FileSpreadsheet, Mail, Send,
   Smartphone, BellRing, Zap, Database, Activity, RefreshCw, Download,
-  Eye, Layers, X, Calendar, FileText, CreditCard
+  Eye, Layers, X, Calendar, FileText, CreditCard, ShieldCheck
 } from 'lucide-react';
 import {
   AuditLogEntry, Book, BookCopy, UserProfile, Loan, LibrarySettings, LedgerTransaction,
@@ -15,6 +15,7 @@ import { usePermission } from '../hooks/usePermission';
 import { testFirestoreConnection, resetQuotaStatus } from '../lib/firebase';
 import { generateCode128Bars, generateQrMatrix } from '../lib/barcodeSvg';
 import { DEFAULT_MALDIVES_SCHOOL_HOLIDAYS } from '../lib/schoolCalendar';
+import { analyzeCatalogHealth } from '../lib/catalogHealth';
 import { BookCoverFallback } from './BookCoverFallback';
 import {
   printBarcodeStickerSheet,
@@ -46,6 +47,7 @@ interface AdminPanelProps {
   onOpenImportModal?: (type?: 'books' | 'parents') => void;
   onOpenReportCardSyncModal?: () => void;
   onOpenSecuritySuite?: () => void;
+  onOpenCatalogHealth?: () => void;
 }
 
 const SvgSpineBarcode: React.FC<{ code: string }> = ({ code }) => {
@@ -103,7 +105,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenAddParentModal,
   onOpenImportModal,
   onOpenReportCardSyncModal,
-  onOpenSecuritySuite
+  onOpenSecuritySuite,
+  onOpenCatalogHealth
 }) => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -662,18 +665,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     toast.success('Updated physical copy metadata.', 'Copy Inventory');
   };
 
+  const catalogHealthScore = useMemo(() => analyzeCatalogHealth(books).healthScore, [books]);
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-white rounded-2xl p-6 text-slate-900 border border-slate-200 shadow-sm no-print flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 shadow-sm no-print flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="max-w-3xl space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider">
-            <Shield className="w-3.5 h-3.5 text-amber-600" /> {t.adminInventory}
+          <div className="inline-flex items-center gap-1.5 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider">
+            <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> {t.adminInventory}
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             {t.adminInventory}
           </h2>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
             {language === 'dv'
               ? 'ފޮތްތައް އިތުރުކުރުމާއި، ބާކޯޑް ޕްރިންޓްކުރުމާއި، MVR ޖޫރިމަނާ ލެޖަރ އަދި ލައިބްރަރީ އުޞޫލުތައް ބެލެހެއްޓެވުން.'
               : 'Manage MARC catalog inventory, print Code-128 spine labels, reconcile MVR financial ledgers, and set school circulation policies.'}
@@ -684,7 +689,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             type="button"
             onClick={onOpenSecuritySuite}
-            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer border border-slate-700"
           >
             <Shield className="w-4 h-4 text-emerald-400" />
             <span>{language === 'dv' ? 'RBAC، ނޯޓިސް & ބެކަޕް' : 'RBAC, Notices & Backup Suite'}</span>
@@ -693,11 +698,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Admin Tab Switcher */}
-      <div className="flex bg-white rounded-2xl border border-slate-200 p-1.5 shadow-sm overflow-x-auto scrollbar-none no-print">
+      <div className="flex bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-1.5 shadow-sm overflow-x-auto scrollbar-none no-print">
         <button
           onClick={() => setActiveTab('inventory')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeTab === 'inventory' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            activeTab === 'inventory' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           id="admin-inventory-tab"
         >
@@ -707,7 +712,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <button
           onClick={() => setActiveTab('late-fees')}
           className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeTab === 'late-fees' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            activeTab === 'late-fees' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           id="admin-late-fees-tab"
         >
@@ -717,7 +722,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <button
           onClick={() => setActiveTab('barcode-labels')}
           className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeTab === 'barcode-labels' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            activeTab === 'barcode-labels' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           id="admin-barcode-tab"
         >
@@ -727,7 +732,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <button
           onClick={() => setActiveTab('users')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeTab === 'users' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            activeTab === 'users' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           id="admin-users-tab"
         >
@@ -738,7 +743,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             onClick={() => setActiveTab('settings')}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'settings' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              activeTab === 'settings' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
             id="admin-settings-tab"
           >
@@ -753,7 +758,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               if (auditLogs.length === 0) fetchAuditLogs();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'audit-logs' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              activeTab === 'audit-logs' ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
             id="admin-audit-logs-tab"
           >
@@ -764,28 +769,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* TAB 1: INVENTORY MANAGEMENT */}
       {activeTab === 'inventory' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h3 className="text-base font-black text-slate-900">Manage Cataloged Books</h3>
-              <p className="text-xs text-slate-500 font-medium">Add, edit, bulk import, export CSV, or flag Reference-Only items</p>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Manage Cataloged Books</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Add, edit, bulk import, export CSV, or run AI catalog health audit</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {onOpenCatalogHealth && can('catalog:create_edit') && (
+                <button
+                  type="button"
+                  onClick={onOpenCatalogHealth}
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <span>Catalog Health (<bdi className="font-mono">{catalogHealthScore}%</bdi>)</span>
+                </button>
+              )}
               {can('data:import_export') && (
                 <button
                   onClick={() => handleExportCsv(books)}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer"
+                  className="bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" /> Export CSV
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Export CSV
                 </button>
               )}
               {can('data:import_export') && onOpenImportModal && (
                 <button
                   onClick={() => onOpenImportModal('books')}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-slate-300 cursor-pointer"
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-slate-300 dark:border-slate-700 cursor-pointer"
                   id="admin-import-books-btn"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-slate-700" /> Import CSV
+                  <FileSpreadsheet className="w-4 h-4 text-slate-700 dark:text-slate-300" /> Import CSV
                 </button>
               )}
               {can('catalog:create_edit') && (
@@ -801,9 +816,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {selectedBookIds.length > 0 && (
-            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-amber-950 font-mono tabular-nums">
+                <span className="text-xs font-bold text-amber-950 dark:text-amber-200 font-mono tabular-nums">
                   {selectedBookIds.length} book(s) selected
                 </span>
                 <button
@@ -811,7 +826,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     setSelectedBookIds([]);
                     setConfirmBulkDeleteBooks(false);
                   }}
-                  className="text-[11px] text-amber-800 underline font-semibold hover:text-amber-950 cursor-pointer"
+                  className="text-[11px] text-amber-800 dark:text-amber-300 underline font-semibold hover:text-amber-950 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -819,9 +834,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => handleExportCsv(books.filter(b => selectedBookIds.includes(b.id)))}
-                  className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 rounded-lg text-xs font-bold hover:bg-amber-100 transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 rounded-lg text-xs font-bold hover:bg-amber-100 transition flex items-center gap-1.5 cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Selected
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> Export Selected
                 </button>
                 <button
                   onClick={() => handleBulkToggleReference(true)}
@@ -843,8 +858,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <Trash2 className="w-3.5 h-3.5" /> Delete Selected
                   </button>
                 ) : (
-                  <div className="flex items-center gap-1.5 bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-300">
-                    <span className="text-[11px] font-bold text-rose-900">Confirm?</span>
+                  <div className="flex items-center gap-1.5 bg-rose-100 dark:bg-rose-950/60 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800">
+                    <span className="text-[11px] font-bold text-rose-900 dark:text-rose-200">Confirm?</span>
                     <button
                       onClick={handleBulkDeleteBooks}
                       className="px-2 py-0.5 bg-rose-700 text-white rounded text-[11px] font-bold cursor-pointer"
@@ -853,7 +868,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </button>
                     <button
                       onClick={() => setConfirmBulkDeleteBooks(false)}
-                      className="px-2 py-0.5 bg-white text-slate-700 rounded text-[11px] font-bold cursor-pointer"
+                      className="px-2 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded text-[11px] font-bold cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -863,11 +878,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          <div className="overflow-x-auto max-h-[600px] border border-slate-200 rounded-xl bg-white scrollbar-thin">
-            <table className="w-full text-start text-xs text-slate-700">
-              <thead className="sticky top-0 z-20 bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+          <div className="overflow-x-auto max-h-[600px] border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 scrollbar-thin">
+            <table className="w-full text-start text-xs text-slate-700 dark:text-slate-300">
+              <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="p-3 w-10 text-center border-e border-slate-200">
+                  <th className="p-3 w-10 text-center border-e border-slate-200 dark:border-slate-700">
                     <input
                       type="checkbox"
                       checked={selectedBookIds.length === books.length && books.length > 0}
@@ -878,21 +893,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="w-4 h-4 rounded accent-emerald-700 cursor-pointer"
                     />
                   </th>
-                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title / Author'}</th>
-                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބައި' : 'Category'}</th>
-                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބާވަތް' : 'Type'}</th>
-                  <th className="p-3 border-e border-slate-200">{language === 'dv' ? 'ބާކޯޑު' : 'Barcode'}</th>
-                  <th className="p-3 border-e border-slate-200">{t.shelfLocation}</th>
-                  <th className="p-3 border-e border-slate-200">{t.copiesLabel}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Book Title / Author'}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{language === 'dv' ? 'ބައި' : 'Category'}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{language === 'dv' ? 'ބާވަތް' : 'Type'}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{language === 'dv' ? 'ބާކޯޑު' : 'Barcode'}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{t.shelfLocation}</th>
+                  <th className="p-3 border-e border-slate-200 dark:border-slate-700">{t.copiesLabel}</th>
                   <th className="p-3 text-end">{language === 'dv' ? 'ޢަމަލުތައް' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {books.map(book => {
                   const isChecked = selectedBookIds.includes(book.id);
                   return (
-                    <tr key={book.id} className={`hover:bg-slate-50 transition ${isChecked ? 'bg-amber-50/50' : ''}`}>
-                      <td className="p-3 w-10 text-center border-e border-slate-100">
+                    <tr key={book.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${isChecked ? 'bg-amber-50/50 dark:bg-amber-950/30' : ''}`}>
+                      <td className="p-3 w-10 text-center border-e border-slate-100 dark:border-slate-800">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -904,44 +919,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           className="w-4 h-4 rounded accent-emerald-700 cursor-pointer"
                         />
                       </td>
-                      <td className="p-3 border-e border-slate-100">
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-3">
                           <BookCoverFallback
                             src={book.coverUrl}
                             alt={book.title}
                             title={book.title}
-                            className="w-8 h-11 object-cover rounded border border-slate-200 shrink-0"
+                            className="w-8 h-11 object-cover rounded border border-slate-200 dark:border-slate-700 shrink-0"
                           />
                           <div>
-                            <div className="font-extrabold text-slate-900"><bdi>{book.title}</bdi></div>
-                            <div className="text-[11px] text-slate-500 font-medium">{t.byAuthor} <bdi>{book.author}</bdi></div>
+                            <div className="font-extrabold text-slate-900 dark:text-white"><bdi>{book.title}</bdi></div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{t.byAuthor} <bdi>{book.author}</bdi></div>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3 border-e border-slate-100 font-bold text-slate-700">{book.category}</td>
-                      <td className="p-3 border-e border-slate-100">
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300">{book.category}</td>
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800">
                         {book.isReferenceOnly ? (
-                          <span className="bg-sky-100 text-sky-900 font-bold text-[10px] px-2 py-0.5 rounded-md border border-sky-200">
+                          <span className="bg-sky-100 dark:bg-sky-950/60 text-sky-900 dark:text-sky-300 font-bold text-[10px] px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800">
                             {t.statusReferenceOnly}
                           </span>
                         ) : (
-                          <span className="bg-emerald-100 text-emerald-900 font-bold text-[10px] px-2 py-0.5 rounded-md border border-emerald-200">
+                          <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 font-bold text-[10px] px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
                             {t.circulating}
                           </span>
                         )}
                       </td>
-                      <td className="p-3 border-e border-slate-100 font-mono tabular-nums text-[11px] text-slate-700 font-bold">
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800 font-mono tabular-nums text-[11px] text-slate-700 dark:text-slate-300 font-bold">
                         <bdi>{book.barcode}</bdi>
                       </td>
-                      <td className="p-3 border-e border-slate-100 font-bold text-slate-700"><bdi>{book.shelfLocation}</bdi></td>
-                      <td className="p-3 border-e border-slate-100 font-mono tabular-nums font-extrabold text-slate-900">
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300"><bdi>{book.shelfLocation}</bdi></td>
+                      <td className="p-3 border-e border-slate-100 dark:border-slate-800 font-mono tabular-nums font-extrabold text-slate-900 dark:text-white">
                         <bdi>{book.availableCopies} / {book.totalCopies}</bdi>
                       </td>
                       <td className="p-3 text-end">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setInspectedBookId(book.id)}
-                            className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                            className="p-1.5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition cursor-pointer"
                             title={t.copyDetailsDrawer}
                           >
                             <Eye className="w-4 h-4" />
@@ -949,7 +964,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {can('catalog:create_edit') && (
                             <button
                               onClick={() => openEditBookModal(book)}
-                              className="p-1.5 text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
                               title={t.editBook}
                             >
                               <Edit2 className="w-4 h-4" />
@@ -958,7 +973,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {can('catalog:delete') && (
                             <button
                               onClick={() => onDeleteBook(book.id)}
-                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition cursor-pointer"
                               title={t.deleteBook}
                             >
                               <Trash2 className="w-4 h-4" />

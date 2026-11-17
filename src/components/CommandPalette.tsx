@@ -14,7 +14,8 @@ import {
   Bookmark,
   Mic,
   MicOff,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from 'lucide-react';
 import { Book, UserProfile, PersonalItem } from '../types';
 import { useLanguage } from '../lib/i18n';
@@ -32,6 +33,7 @@ interface CommandPaletteProps {
   onSelectUser: (user: UserProfile) => void;
   onNavigateTab: (tab: string) => void;
   onOpenScanner: () => void;
+  onOpenCatalogHealth?: () => void;
 }
 
 interface PaletteItem {
@@ -53,7 +55,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectBook,
   onSelectUser,
   onNavigateTab,
-  onOpenScanner
+  onOpenScanner,
+  onOpenCatalogHealth
 }) => {
   const { t, language, isRtl } = useLanguage();
   const { toast } = useToast();
@@ -138,6 +141,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           onRun: () => { onNavigateTab('admin-panel'); onClose(); }
         }
       );
+      if (onOpenCatalogHealth) {
+        quickActions.push({
+          id: 'act-health',
+          group: 'action',
+          title: language === 'dv' ? 'ކެޓަލޮގް ހެލްތު އޮޑިޓް & ބަލްކް ފިކްސް' : 'Catalog Health Audit & Bulk Fix',
+          subtitle: language === 'dv' ? 'މަދުވާ DDC، ސައިނޮޕްސިސް އަދި ޑުޕްލިކޭޓް ޗެކް' : 'Scan missing DDCs, synopses & fix in one batch',
+          code: 'AUDIT',
+          onRun: () => { onClose(); onOpenCatalogHealth(); }
+        });
+      }
     }
 
     const filteredActions = q
@@ -230,15 +243,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const getIcon = (group: PaletteItem['group'], id: string) => {
-    if (group === 'book') return <BookOpen className="w-4 h-4 text-emerald-700" />;
-    if (group === 'patron') return <Users className="w-4 h-4 text-sky-700" />;
-    if (group === 'personal') return <Bookmark className="w-4 h-4 text-amber-700" />;
-    if (id.includes('desk')) return <RotateCcw className="w-4 h-4 text-emerald-700" />;
-    if (id.includes('dash')) return <LayoutDashboard className="w-4 h-4 text-slate-700" />;
-    if (id.includes('scanner')) return <QrCode className="w-4 h-4 text-slate-700" />;
-    if (id.includes('ai')) return <Sparkles className="w-4 h-4 text-slate-700" />;
-    if (id.includes('admin')) return <Shield className="w-4 h-4 text-slate-700" />;
-    return <Library className="w-4 h-4 text-slate-700" />;
+    if (group === 'book') return <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />;
+    if (group === 'patron') return <Users className="w-4 h-4 text-sky-700 dark:text-sky-400" />;
+    if (group === 'personal') return <Bookmark className="w-4 h-4 text-amber-700 dark:text-amber-400" />;
+    if (id.includes('desk')) return <RotateCcw className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />;
+    if (id.includes('dash')) return <LayoutDashboard className="w-4 h-4 text-slate-700 dark:text-slate-300" />;
+    if (id.includes('scanner')) return <QrCode className="w-4 h-4 text-slate-700 dark:text-slate-300" />;
+    if (id.includes('ai')) return <Sparkles className="w-4 h-4 text-slate-700 dark:text-slate-300" />;
+    if (id.includes('health')) return <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />;
+    if (id.includes('admin')) return <Shield className="w-4 h-4 text-slate-700 dark:text-slate-300" />;
+    return <Library className="w-4 h-4 text-slate-700 dark:text-slate-300" />;
   };
 
   return (
@@ -246,9 +260,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-start justify-center pt-[10vh] px-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
             type="text"
@@ -260,7 +274,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 ? 'ފޮތް، ބާކޯޑް، ދަރިވަރުގެ އައި.ޑީ، ނުވަތަ އެޑްމިން ކޮމާންޑް ލިޔުއްވާ...'
                 : 'Jump to book, ISBN, copy barcode, student ID, or module...'
             }
-            className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
           />
           <button
             type="button"
@@ -268,8 +282,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             disabled={isTranscribing}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap ${
               isRecording
-                ? 'bg-rose-600 text-white animate-pulse'
-                : 'bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200'
+                ? 'bg-rose-600 text-white ring-2 ring-rose-300 dark:ring-rose-800'
+                : 'bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-700 dark:text-slate-200 hover:text-emerald-800 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-700'
             }`}
             title={t.voiceAssistant}
           >
@@ -278,7 +292,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             ) : isRecording ? (
               <MicOff className="w-3.5 h-3.5" />
             ) : (
-              <Mic className="w-3.5 h-3.5 text-emerald-700" />
+              <Mic className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
             )}
             <span className="hidden sm:inline">
               {isTranscribing ? '...' : isRecording ? t.voiceListening : t.voiceAssistant}
@@ -287,7 +301,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             aria-label="Close Command Palette"
           >
             <X className="w-4 h-4" />
@@ -295,9 +309,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Results */}
-        <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
+        <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
           {items.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-500">
+            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
               {language === 'dv' ? 'އެއްވެސް ނަތީޖާއެއް ނުފެނުނު' : `No catalog items, patrons, or commands match "${query}"`}
             </div>
           ) : (
@@ -310,18 +324,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={item.onRun}
                   className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-start transition-colors cursor-pointer ${
-                    isSelected ? 'bg-emerald-50/80' : 'hover:bg-slate-50'
+                    isSelected
+                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40'
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0">
                       {getIcon(item.group, item.id)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-900 truncate">
+                      <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                         <bdi>{item.title}</bdi>
                       </div>
-                      <div className="text-[11px] text-slate-500 truncate">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                         <bdi>{item.subtitle}</bdi>
                       </div>
                     </div>
@@ -329,7 +345,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     {item.code && (
-                      <span className="text-[11px] font-mono tabular-nums text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                      <span className="text-[11px] font-mono tabular-nums text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
                         <bdi>{item.code}</bdi>
                       </span>
                     )}
@@ -342,11 +358,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Keyboard Hints Footer */}
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/70 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
-            <span><kbd className="font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-[10px]">↑↓</kbd> Navigate</span>
-            <span><kbd className="font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-[10px]">↵</kbd> Open</span>
-            <span><kbd className="font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd> Close</span>
+            <span><kbd className="font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded text-[10px]">↑↓</kbd> Navigate</span>
+            <span><kbd className="font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded text-[10px]">↵</kbd> Open</span>
+            <span><kbd className="font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd> Close</span>
           </div>
           <span className="font-mono tabular-nums">{items.length} matches</span>
         </div>

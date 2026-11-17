@@ -56,6 +56,8 @@ import { ReadingEngagementView } from './components/ReadingEngagementView';
 import { AcquisitionsBoardView } from './components/AcquisitionsBoardView';
 import { PatronSuggestionModal } from './components/PatronSuggestionModal';
 import { SecurityBackupSuiteView } from './components/SecurityBackupSuiteView';
+import { CatalogHealthModal } from './components/CatalogHealthModal';
+import { SyncOutboxModal } from './components/SyncOutboxModal';
 import { convertAcquisitionToCatalogBook } from './lib/acquisitions';
 import { evaluateBadgesOnReturn } from './lib/readingEngagement';
 import { createImmutableAuditEntry } from './lib/auditLogger';
@@ -196,8 +198,10 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Global Cmd/Ctrl + K Command Palette shortcut
+  // Global Cmd/Ctrl + K Command Palette & Audit / Outbox Modals
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isCatalogHealthOpen, setIsCatalogHealthOpen] = useState<boolean>(false);
+  const [isSyncOutboxOpen, setIsSyncOutboxOpen] = useState<boolean>(false);
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -1460,6 +1464,35 @@ export default function App() {
     }
   };
 
+  const handleBulkUpdateBooks = async (updates: Array<{ id: string; data: Partial<Book> }>) => {
+    if (!can('catalog:create_edit')) {
+      toast.error(cannotReason('catalog:create_edit'), 'RBAC Restricted');
+      return;
+    }
+    if (updates.length === 0) return;
+
+    const patchMap = new Map(updates.map((u) => [u.id, u.data]));
+    setBooks((prev) =>
+      prev.map((b) => {
+        const patch = patchMap.get(b.id);
+        return patch ? { ...b, ...patch } : b;
+      })
+    );
+
+    await Promise.all(
+      updates.map((u) =>
+        updateBook(u.id, u.data).catch(() => {})
+      )
+    );
+
+    void recordAuditEvent({
+      action: 'CATALOG_HEALTH_BULK_FIX',
+      targetType: 'book',
+      targetId: updates.slice(0, 5).map((u) => u.id).join(', '),
+      details: `Applied bulk catalog health metadata fixes across ${updates.length} title(s).`,
+    });
+  };
+
   const handleDeleteBook = async (id: string) => {
     if (!can('catalog:delete')) {
       toast.error(cannotReason('catalog:delete'), 'RBAC Restricted');
@@ -1792,6 +1825,7 @@ export default function App() {
                 currentUser={currentUser}
                 onNavigateTab={(tab) => setActiveTab(tab)}
                 onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+                onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
               />
             )}
 
@@ -1936,6 +1970,7 @@ export default function App() {
                 onOpenImportModal={handleOpenImportModal}
                 onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
                 onOpenSecuritySuite={() => setActiveTab('security-suite')}
+                onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
               />
             )}
 
@@ -2145,6 +2180,7 @@ export default function App() {
           setScannerCallback(null);
           setIsScannerOpen(true);
         }}
+        onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
       />
 
       <AddBookModal
@@ -2221,11 +2257,29 @@ export default function App() {
         onToggleUpvote={handleUpvoteAcquisition}
       />
 
+      <CatalogHealthModal
+        isOpen={isCatalogHealthOpen}
+        onClose={() => setIsCatalogHealthOpen(false)}
+        books={books}
+        onApplyBulkFixes={handleBulkUpdateBooks}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
+
+      <SyncOutboxModal
+        isOpen={isSyncOutboxOpen}
+        onClose={() => setIsSyncOutboxOpen(false)}
+        isOnline={isOnline}
+        syncState={syncState}
+        onRunSync={runOutboxSync}
+        onDismissConflict={(id) => offlineSyncEngine.dismissConflict(id)}
+        onClearAllConflicts={() => offlineSyncEngine.clearAllConflicts()}
+      />
+
       {/* PWA Offline Mode & Outbox Sync Indicator */}
       {(!isOnline || syncState.pendingCount > 0 || syncState.conflicts.length > 0) && (
         <div
           role="status"
-          className="fixed bottom-16 sm:bottom-6 start-4 z-50 flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-bold shadow-lg no-print max-w-md"
+          className="fixed bottom-16 sm:bottom-6 start-4 z-50 flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-bold shadow-lg no-print max-w-lg"
         >
           <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400' : 'bg-amber-400'}`} />
           <span>
@@ -2237,6 +2291,15 @@ export default function App() {
               ? `${syncState.pendingCount} pending outbox operation(s)`
               : `${syncState.conflicts.length} sync conflict notice(s) reconciled`}
           </span>
+          {(syncState.pendingCount > 0 || syncState.conflicts.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setIsSyncOutboxOpen(true)}
+              className="px-2 py-0.5 rounded-md bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-bold cursor-pointer"
+            >
+              Inspect Queue
+            </button>
+          )}
           {isOnline && syncState.pendingCount > 0 && (
             <button
               type="button"

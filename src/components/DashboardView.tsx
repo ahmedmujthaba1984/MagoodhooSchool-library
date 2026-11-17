@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   BookOpen, CheckCircle2, Clock, AlertTriangle, TrendingUp,
-  Plus, ArrowUpRight, Sparkles, DollarSign, Layers, RefreshCw, Library, GraduationCap, MessageSquare
+  Plus, ArrowUpRight, Sparkles, DollarSign, Layers, RefreshCw, Library, GraduationCap, MessageSquare, ShieldCheck
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -16,6 +16,7 @@ import {
   kpiPeriodTrends
 } from '../data/seedData';
 import { getPredictiveInsights, PredictiveInsightsResponse } from '../lib/aiService';
+import { analyzeCatalogHealth } from '../lib/catalogHealth';
 import { ReminderDraftModal, ReminderTarget } from './ReminderDraftModal';
 
 interface DashboardViewProps {
@@ -27,6 +28,7 @@ interface DashboardViewProps {
   currentUser: UserProfile;
   onNavigateTab: (tab: string) => void;
   onOpenAddBookModal: () => void;
+  onOpenCatalogHealth?: () => void;
 }
 
 const CHART_COLORS = ['#047857', '#0f172a', '#0284c7', '#d97706', '#64748b'];
@@ -47,7 +49,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ledgerTransactions = [],
   currentUser,
   onNavigateTab,
-  onOpenAddBookModal
+  onOpenAddBookModal,
+  onOpenCatalogHealth
 }) => {
   const { t, language } = useLanguage();
   const [insights, setInsights] = useState<PredictiveInsightsResponse | null>(null);
@@ -63,6 +66,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     intensity: number;
   } | null>(null);
 
+  const catalogHealth = useMemo(() => analyzeCatalogHealth(books), [books]);
   const totalBooks = useMemo(() => books.reduce((acc, b) => acc + (b.totalCopies || 1), 0), [books]);
   const availableBooks = useMemo(() => books.reduce((acc, b) => acc + (b.availableCopies ?? b.totalCopies ?? 1), 0), [books]);
   const activeLoans = useMemo(() => loans.filter(l => l.status === 'active'), [loans]);
@@ -259,8 +263,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4-Card Executive KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 5-Card Executive KPI Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* KPI 1: Total Collection (Titles / Copies) */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
@@ -273,7 +277,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums">
               <bdi>{totalBooks.toLocaleString()}</bdi>
             </span>
-            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
               <bdi>+{kpiPeriodTrends.collectionDeltaPct}%</bdi>
             </span>
           </div>
@@ -295,7 +299,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums">
               <bdi>{activeLoans.length + overdueLoans.length}</bdi>
             </span>
-            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
               <bdi>+{kpiPeriodTrends.circulationDeltaPct}%</bdi>
             </span>
           </div>
@@ -317,12 +321,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-3xl font-extrabold text-rose-700 dark:text-rose-400 font-mono tabular-nums">
               <bdi>{overdueRatePct}%</bdi>
             </span>
-            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+            <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
               <bdi>{kpiPeriodTrends.overdueDeltaPct}%</bdi> vs term
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span><strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>{overdueLoans.length}</bdi></strong> items · Sun–Thu cal</span>
+            <span><strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>{overdueLoans.length}</bdi></strong> items · Sun–Thu</span>
             <button onClick={() => onNavigateTab('admin-panel')} className="text-rose-700 dark:text-rose-400 hover:underline font-bold cursor-pointer">
               {language === 'dv' ? 'ބައްލަވާ →' : 'Review →'}
             </button>
@@ -338,15 +342,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
+            <span className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
               <bdi>MVR {collectedRevenueMvr.toFixed(2)}</bdi>
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span>{language === 'dv' ? 'ނުދައްކާ:' : 'Outstanding:'} <strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>MVR {unpaidFinesMvr.toFixed(2)}</bdi></strong></span>
+            <span>{language === 'dv' ? 'ނުދައްކާ:' : 'Due:'} <strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>MVR {unpaidFinesMvr.toFixed(2)}</bdi></strong></span>
             <button onClick={() => onNavigateTab('admin-panel')} className="text-slate-800 dark:text-slate-200 hover:underline font-bold cursor-pointer">
               {language === 'dv' ? 'ލެޖަރ →' : 'Ledger →'}
             </button>
+          </div>
+        </div>
+
+        {/* KPI 5: Catalog Health Score & AI Bulk Fix */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {language === 'dv' ? 'ކެޓަލޮގް ހެލްތު ސްކޯ' : 'Catalog Health Score'}
+            </span>
+            <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+          </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className={`text-3xl font-extrabold font-mono tabular-nums ${
+                catalogHealth.healthScore >= 85
+                  ? 'text-emerald-700 dark:text-emerald-400'
+                  : catalogHealth.healthScore >= 65
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              <bdi>{catalogHealth.healthScore}%</bdi>
+            </span>
+            <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400">
+              <bdi>{catalogHealth.proposals.length}</bdi> flagged
+            </span>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
+            <span><bdi className="font-mono font-bold text-slate-900 dark:text-white">{catalogHealth.healthyTitles}/{catalogHealth.totalTitles}</bdi> clean</span>
+            {onOpenCatalogHealth && (
+              <button
+                type="button"
+                onClick={onOpenCatalogHealth}
+                className="text-emerald-700 dark:text-emerald-400 hover:underline font-bold cursor-pointer"
+              >
+                {language === 'dv' ? 'އޮޑިޓް →' : 'Audit & Fix →'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -687,8 +729,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <bdi>{book.ddcCallNumber || 'DDC'}</bdi> · <bdi>{book.availableCopies}/{book.totalCopies}</bdi>
                         </div>
                       </div>
-                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md shrink-0">
-                        <bdi>{borrowCount}×</bdi>
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-[11px] shrink-0">
+                        <bdi>{borrowCount} loans</bdi>
                       </span>
                     </div>
                     <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -735,7 +777,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <bdi>{book.shelfLocation}</bdi> · <span className="font-mono"><bdi>{monthsOnShelf} mo idle</bdi></span>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md shrink-0">
+                    <span className="text-[11px] font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
                       0 loans
                     </span>
                   </div>

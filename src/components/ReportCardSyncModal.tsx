@@ -171,15 +171,15 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
           
           <div className="flex items-center gap-3 relative z-10">
             <div className="p-3 bg-indigo-500/20 border border-indigo-400/30 rounded-2xl text-indigo-300">
-              <Zap className="w-6 h-6 animate-pulse" />
+              <Zap className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg sm:text-xl font-black tracking-tight text-white">
                   {language === 'dv' ? 'މަގޫދޫ ސްކޫލް ރިޕޯޓް ކާޑު ޕޯޓަލް ލައިވް ސިންކް' : 'Magoodhoo School Report Card Live Sync'}
                 </h3>
-                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   Cloud Firestore
                 </span>
               </div>
@@ -210,7 +210,7 @@ export const ReportCardSyncModal: React.FC<ReportCardSyncModalProps> = ({ isOpen
         {/* Live Status Ribbon */}
         <div className="bg-indigo-50/80 px-5 sm:px-6 py-2.5 border-b border-indigo-100 flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <Radio className={`w-4 h-4 ${status.isLiveConnected ? 'text-emerald-600 animate-pulse' : 'text-indigo-600'}`} />
+            <Radio className={`w-4 h-4 ${status.isLiveConnected ? 'text-emerald-600' : 'text-indigo-600'}`} />
             <span className="font-bold text-slate-800">
               {language === 'dv' ? 'ސިންކް ޙާލަތު:' : 'Directory Sync Status:'}
             </span>

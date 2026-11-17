@@ -260,6 +260,7 @@ export type AuditActionType =
   | 'NOTIFICATION_DISPATCHED'
   | 'REMINDER_SCHEDULE_UPDATED'
   | 'REMINDER_BATCH_QUEUED'
+  | 'CATALOG_HEALTH_BULK_FIX'
   | 'SYSTEM_INIT';
 
 export type AuditTargetType =

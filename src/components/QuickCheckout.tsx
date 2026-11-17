@@ -716,7 +716,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     disabled={isTranscribing}
                     className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0 ${
                       isRecording
-                        ? 'bg-rose-600 text-white animate-pulse'
+                        ? 'bg-rose-600 text-white ring-2 ring-rose-300 dark:ring-rose-800'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
                     }`}
                     title={t.voiceAssistant}

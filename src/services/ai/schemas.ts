@@ -354,3 +354,65 @@ export function validateReminderDraftResult(raw: unknown): ReminderDraftResult |
     language,
   };
 }
+
+export interface CatalogHealthAiPatch {
+  bookId: string;
+  ddcCallNumber?: string;
+  targetGrade?: string;
+  bookLanguage?: 'English' | 'Dhivehi' | 'Arabic' | 'Other';
+  author?: string;
+  description?: string;
+  shelfLocation?: string;
+}
+
+export interface CatalogHealthAiResponse {
+  summary: string;
+  source: 'gemini' | 'deterministic_fallback';
+  patches: CatalogHealthAiPatch[];
+}
+
+export function validateCatalogHealthAiResponse(raw: unknown): CatalogHealthAiResponse | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const patches: CatalogHealthAiPatch[] = Array.isArray(obj.patches)
+    ? obj.patches
+        .filter((p): p is Record<string, unknown> => Boolean(p && typeof p === 'object'))
+        .map((p) => {
+          const langRaw = asString(p.bookLanguage).toLowerCase();
+          const bookLanguage: CatalogHealthAiPatch['bookLanguage'] =
+            langRaw.includes('dhivehi') || langRaw === 'dv'
+              ? 'Dhivehi'
+              : langRaw.includes('arabic') || langRaw === 'ar'
+              ? 'Arabic'
+              : langRaw.includes('english') || langRaw === 'en'
+              ? 'English'
+              : langRaw.includes('other')
+              ? 'Other'
+              : undefined;
+          const rawGrade = asString(p.targetGrade);
+          const cleanGradeMatch = rawGrade.match(/^(LKG|UKG|Grades?\s*\d{1,2}(?:\s*[-–]\s*\d{1,2})?|All Ages)/i);
+          const sanitizedTargetGrade = cleanGradeMatch
+            ? cleanGradeMatch[0]
+            : rawGrade.length <= 20
+            ? rawGrade
+            : undefined;
+          return {
+            bookId: asString(p.bookId),
+            ddcCallNumber: asString(p.ddcCallNumber) || undefined,
+            targetGrade: sanitizedTargetGrade || undefined,
+            bookLanguage,
+            author: asString(p.author) || undefined,
+            description: asString(p.description) || undefined,
+            shelfLocation: asString(p.shelfLocation) || undefined,
+          };
+        })
+        .filter((p) => Boolean(p.bookId))
+    : [];
+
+  return {
+    summary: asString(obj.summary, 'Catalog metadata audit suggestions prepared.'),
+    source: obj.source === 'gemini' ? 'gemini' : 'deterministic_fallback',
+    patches,
+  };
+}
+

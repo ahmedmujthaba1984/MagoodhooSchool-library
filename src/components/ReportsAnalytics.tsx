@@ -156,7 +156,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       id: `fee-${l.id}`,
       date: l.returnDate || l.issueDate,
       type: language === 'dv' ? 'ޖޫރިމަނާ ދެއްކެވި' : 'FINE_PAID',
-      description: language === 'dv' ? `ޖޫރިމަނާ $${(l.lateFee || 0).toFixed(2)} ދެއްކެވީ ${l.userName}` : `Late fee of $${(l.lateFee || 0).toFixed(2)} paid by ${l.userName}`,
+      description: language === 'dv' ? `ޖޫރިމަނާ MVR ${(l.lateFee || 0).toFixed(2)} ދެއްކެވީ ${l.userName}` : `Late fee of MVR ${(l.lateFee || 0).toFixed(2)} paid by ${l.userName}`,
       user: l.userName,
       status: language === 'dv' ? 'ދައްކާފައި' : 'Paid'
     }))
@@ -308,7 +308,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          <DollarSign className="w-4 h-4 text-teal-600" /> {language === 'dv' ? '6. ޖޫރިމަނާގެ ތަފްޞީލު' : '6. Fine Collection'} (${totalFinesAssessed.toFixed(2)})
+          <DollarSign className="w-4 h-4 text-teal-600" /> {language === 'dv' ? '6. ޖޫރިމަނާގެ ތަފްޞީލު' : '6. Fine Collection'} (MVR {totalFinesAssessed.toFixed(2)})
         </button>
 
         <button
@@ -355,8 +355,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <div className="text-xs text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
             <DollarSign className="w-4 h-4 text-teal-600" /> {language === 'dv' ? 'ލިބުނު ޖޫރިމަނާ' : 'Fine Collected'}
           </div>
-          <div className="text-2xl font-black text-slate-900">${totalFinesPaid.toFixed(2)}</div>
-          <p className="text-[11px] text-slate-500 font-medium">${totalFinesPending.toFixed(2)} {language === 'dv' ? 'ނުލިބިވާ ޖޫރިމަނާ' : 'outstanding balance'}</p>
+          <div className="text-2xl font-black text-slate-900 font-mono tabular-nums">MVR {totalFinesPaid.toFixed(2)}</div>
+          <p className="text-[11px] text-slate-500 font-medium font-mono tabular-nums">MVR {totalFinesPending.toFixed(2)} {language === 'dv' ? 'ނުލިބިވާ ޖޫރިމަނާ' : 'outstanding balance'}</p>
         </div>
       </div>
 
@@ -650,9 +650,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td className="p-3.5 text-emerald-700 font-bold">{loan.returnDate || 'Returned'}</td>
                     <td className="p-3.5 text-slate-800 font-bold">
                       {(loan.lateFee || 0) > 0 ? (
-                        <span className="text-emerald-700 font-extrabold">${(loan.lateFee || 0).toFixed(2)}</span>
+                        <span className="text-emerald-700 font-extrabold font-mono tabular-nums">MVR {(loan.lateFee || 0).toFixed(2)}</span>
                       ) : (
-                        <span className="text-slate-400">$0.00</span>
+                        <span className="text-slate-400 font-mono tabular-nums">MVR 0.00</span>
                       )}
                     </td>
                   </tr>
@@ -698,7 +698,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               <button
                 onClick={() => exportToCSV('Overdue_Books_Report',
                   ['Book Title', 'Borrower', 'Due Date', 'Accumulated Fee', 'Status'],
-                  filteredOverdueRows.map(l => [l.bookTitle, l.userName, l.dueDate, `$${(l.lateFee || 0).toFixed(2)}`, l.status])
+                  filteredOverdueRows.map(l => [l.bookTitle, l.userName, l.dueDate, `MVR ${(l.lateFee || 0).toFixed(2)}`, l.status])
                 )}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
@@ -724,7 +724,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td className="p-3.5 font-bold text-slate-900">{loan.bookTitle}</td>
                     <td className="p-3.5 text-slate-700">{loan.userName}</td>
                     <td className="p-3.5 text-amber-700 font-bold">{loan.dueDate}</td>
-                    <td className="p-3.5 text-amber-800 font-black">${(loan.lateFee || 0).toFixed(2)}</td>
+                    <td className="p-3.5 text-amber-800 font-black font-mono tabular-nums">MVR {(loan.lateFee || 0).toFixed(2)}</td>
                     <td className="p-3.5">
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
                         {language === 'dv' ? 'މުއްދަތު ހަމަވެފައި' : 'OVERDUE'}
@@ -773,7 +773,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               <button
                 onClick={() => exportToCSV('Active_Members_Report',
                   ['Name', 'Email', 'Role', 'Grade/ID', 'Active Borrows', 'Total Borrows', 'Unpaid Fines'],
-                  filteredMemberRows.map(m => [m.user.name, m.user.email, m.user.role, m.user.studentIdCode || m.user.grade || 'N/A', m.activeBorrows, m.totalBorrows, `$${m.unpaidFines.toFixed(2)}`])
+                  filteredMemberRows.map(m => [m.user.name, m.user.email, m.user.role, m.user.studentIdCode || m.user.grade || 'N/A', m.activeBorrows, m.totalBorrows, `MVR ${m.unpaidFines.toFixed(2)}`])
                 )}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
@@ -812,9 +812,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td className="p-3.5 font-bold text-slate-900">{item.activeBorrows}</td>
                     <td className="p-3.5 font-black text-slate-800">
                       {item.unpaidFines > 0 ? (
-                        <span className="text-amber-700">${item.unpaidFines.toFixed(2)}</span>
+                        <span className="text-amber-700 font-mono tabular-nums">MVR {item.unpaidFines.toFixed(2)}</span>
                       ) : (
-                        <span className="text-slate-400">$0.00</span>
+                        <span className="text-slate-400 font-mono tabular-nums">MVR 0.00</span>
                       )}
                     </td>
                   </tr>
@@ -934,7 +934,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               <button
                 onClick={() => exportToCSV('Fine_Collection_Report',
                   ['Borrower', 'Book Title', 'Due Date', 'Fine Amount', 'Paid Status'],
-                  filteredFineRows.map(l => [l.userName, l.bookTitle, l.dueDate, `$${(l.lateFee || 0).toFixed(2)}`, l.feePaid ? 'Paid' : 'Pending'])
+                  filteredFineRows.map(l => [l.userName, l.bookTitle, l.dueDate, `MVR ${(l.lateFee || 0).toFixed(2)}`, l.feePaid ? 'Paid' : 'Pending'])
                 )}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-bold transition whitespace-nowrap cursor-pointer"
               >
@@ -960,7 +960,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td className="p-3.5 font-bold text-slate-900">{loan.userName}</td>
                     <td className="p-3.5 text-slate-700">{loan.bookTitle}</td>
                     <td className="p-3.5 text-slate-500">{loan.dueDate}</td>
-                    <td className="p-3.5 font-black text-amber-700">${(loan.lateFee || 0).toFixed(2)}</td>
+                    <td className="p-3.5 font-black text-amber-700 font-mono tabular-nums">MVR {(loan.lateFee || 0).toFixed(2)}</td>
                     <td className="p-3.5">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                         loan.feePaid ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-900 border border-rose-300'

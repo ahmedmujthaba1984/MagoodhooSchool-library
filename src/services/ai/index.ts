@@ -4,3 +4,5 @@ export * from './opacCopilotService';
 export * from './catalogVisionService';
 export * from './insightsService';
 export * from './voiceService';
+export * from './catalogHealthService';
+

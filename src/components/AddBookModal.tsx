@@ -536,7 +536,7 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
               disabled={isVoiceTranscribing}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer shrink-0 ${
                 isVoiceDictating
-                  ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
+                  ? 'bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300'
                   : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-300'
               }`}
               title={language === 'dv' ? 'އަޑުން ފޮތުގެ ނަން ކިޔާލާ' : 'Voice Dictate Title or ISBN'}

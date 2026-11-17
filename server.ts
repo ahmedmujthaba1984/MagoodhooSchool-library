@@ -1117,6 +1117,127 @@ app.post('/api/ai/transcribe', async (req, res) => {
   }
 });
 
+// 3e-2. AI Catalog Health Audit & Bulk Metadata Enrichment
+app.post('/api/ai/catalog-health', async (req, res) => {
+  const { books } = req.body || {};
+  if (!Array.isArray(books) || books.length === 0) {
+    return res.status(400).json({ error: 'An array of flagged catalog books is required.' });
+  }
+
+  const boundedBooks = books.slice(0, 25);
+  const buildFallbackPatches = () =>
+    boundedBooks.map((b: any) => {
+      const title = String(b.title || 'School Library Title');
+      const author = String(b.author || 'School Author').trim();
+      const category = String(b.category || 'General');
+      const hasThaana = /[\u0780-\u07B1]/.test(title);
+      const bookLanguage =
+        b.bookLanguage ||
+        (hasThaana || /dhivehi/i.test(category) ? 'Dhivehi' : /arabic|quran/i.test(title) ? 'Arabic' : 'English');
+      let ddcCallNumber = b.ddcCallNumber;
+      if (!ddcCallNumber) {
+        if (bookLanguage === 'Dhivehi') ddcCallNumber = 'DDC 891.49';
+        else if (/islam|quran|fiqh/i.test(`${title} ${category}`)) ddcCallNumber = 'DDC 297';
+        else if (/coral|reef|marine|ocean/i.test(`${title} ${category}`)) ddcCallNumber = 'DDC 577.789';
+        else if (/science|bio|chem|physics/i.test(`${title} ${category}`)) ddcCallNumber = 'DDC 500';
+        else if (/math|algebra|geo/i.test(`${title} ${category}`)) ddcCallNumber = 'DDC 510';
+        else if (/maldives|history/i.test(`${title} ${category}`)) ddcCallNumber = 'DDC 954.95';
+        else ddcCallNumber = 'DDC 823';
+      }
+      const targetGrade = b.targetGrade || (/grade\s*(\d+)/i.test(title) ? `Grade ${title.match(/grade\s*(\d+)/i)?.[1]}` : 'Grades 4-7');
+      const description =
+        b.description && String(b.description).trim().length >= 25
+          ? b.description
+          : bookLanguage === 'Dhivehi'
+          ? `"${title}" އަކީ ${author} ލިޔުއްވާފައިވާ ${category} ދާއިރާގެ ފޮތެކެވެ. މިއީ ${targetGrade} ގެ ދަރިވަރުންގެ ކިޔުމުގެ ހުނަރު ތަރައްޤީކުރުމަށް އެހީތެރިވާނެ ފޮތެކެވެ.`
+          : `"${title}" by ${author} is a ${category} volume recommended for ${targetGrade} students at Magoodhoo School Library.`;
+
+      return {
+        bookId: String(b.id),
+        ddcCallNumber,
+        targetGrade,
+        bookLanguage,
+        author,
+        description,
+      };
+    });
+
+  try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      const patches = buildFallbackPatches();
+      return res.json({
+        summary: `Prepared structured metadata enrichment for ${patches.length} flagged title(s).`,
+        source: 'deterministic_fallback',
+        patches,
+      });
+    }
+
+    const prompt = `You are a school library metadata cataloger for Magoodhoo School Library (Maldives, bilingual English + Dhivehi Thaana, Dewey Decimal Classification).
+Review these flagged catalog records and return concise, accurate bibliographic fixes ONLY where fields are missing, generic, or inconsistently formatted:
+${JSON.stringify(boundedBooks)}
+
+Rules:
+- "targetGrade": MUST be ONLY a short grade label such as "LKG", "UKG", "Grades 1-3", "Grades 4-7", "Grades 8-10", or "Grade 6" (never put synopsis text in targetGrade).
+- "description": MUST be a concise 2-sentence catalog synopsis in the book's primary language (English or Dhivehi Thaana).
+- "author": Properly capitalized author name (preserve Dhivehi Thaana script as-is).
+
+Return valid JSON matching the schema.`;
+
+    const response = await callGeminiWithFallback(ai, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: { type: Type.STRING },
+            patches: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  bookId: { type: Type.STRING },
+                  ddcCallNumber: { type: Type.STRING },
+                  targetGrade: { type: Type.STRING, description: 'Short grade label only, e.g. Grades 4-7' },
+                  bookLanguage: { type: Type.STRING },
+                  author: { type: Type.STRING },
+                  description: { type: Type.STRING, description: '2-sentence catalog synopsis' },
+                },
+                required: ['bookId', 'ddcCallNumber', 'targetGrade', 'bookLanguage', 'description'],
+              },
+            },
+          },
+          required: ['summary', 'patches'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    if (Array.isArray(parsed.patches) && parsed.patches.length > 0) {
+      return res.json({
+        summary: parsed.summary || `AI audit prepared ${parsed.patches.length} bibliographic fix proposal(s).`,
+        source: 'gemini',
+        patches: parsed.patches,
+      });
+    }
+    const fallback = buildFallbackPatches();
+    return res.json({
+      summary: `Prepared structured metadata enrichment for ${fallback.length} flagged title(s).`,
+      source: 'deterministic_fallback',
+      patches: fallback,
+    });
+  } catch (error: any) {
+    console.warn('[Catalog Health AI Notice]:', error?.message?.slice(0, 120));
+    const patches = buildFallbackPatches();
+    return res.json({
+      summary: `Prepared structured metadata enrichment for ${patches.length} flagged title(s).`,
+      source: 'deterministic_fallback',
+      patches,
+    });
+  }
+});
+
 // 3f. Multi-Source ISBN / UPC Lookup Proxy (Google Books + Open Library + Crossref)
 app.get('/api/catalog/lookup', async (req, res) => {
   const isbn = ((req.query.isbn as string) || '').replace(/[^0-9Xx]/g, '').trim();

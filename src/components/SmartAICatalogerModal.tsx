@@ -326,7 +326,7 @@ export const SmartAICatalogerModal: React.FC<SmartAICatalogerModalProps> = ({
         }
       }}
     >
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl max-sm:rounded-b-none max-w-4xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 dark:border-slate-700 shadow-2xl p-5 sm:p-6 space-y-5">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl max-sm:rounded-b-none max-w-6xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 dark:border-slate-700 shadow-2xl p-5 sm:p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-3">
@@ -388,318 +388,335 @@ export const SmartAICatalogerModal: React.FC<SmartAICatalogerModalProps> = ({
           </div>
         )}
 
-        {/* Dual Image Capture Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Slot 1: Front Cover */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4 text-emerald-700" />
-                1. Front Cover Photo *
-              </span>
-              {coverDataUrl && (
+        {/* Side-by-Side Capture Preview (Left) & Verification Form (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT PANE: Sticky Image Previews & Vision Extraction Trigger */}
+          <div className="lg:col-span-5 lg:sticky lg:top-0 space-y-4">
+            {/* Slot 1: Front Cover */}
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  1. Front Cover Photo *
+                </span>
+                {coverDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCoverDataUrl('')}
+                    className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {coverDataUrl ? (
+                <img
+                  src={coverDataUrl}
+                  alt="Book Front Cover Preview"
+                  className="w-full h-52 object-contain rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                />
+              ) : (
+                <div className="h-44 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-xs text-slate-500 dark:text-slate-400 p-4 text-center">
+                  <Camera className="w-7 h-7 text-slate-400 mb-1.5" />
+                  <span>Snap or upload front cover (Dhivehi, English, or Arabic)</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-emerald-600 text-xs font-bold flex items-center justify-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                  <span>Upload / Snap</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => handleFileChange('cover', e)}
+                    className="hidden"
+                  />
+                </label>
                 <button
                   type="button"
-                  onClick={() => setCoverDataUrl('')}
-                  className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                  onClick={() => void startLiveCamera('cover')}
+                  className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
-                  Clear
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Live Cam</span>
                 </button>
-              )}
+              </div>
             </div>
 
-            {coverDataUrl ? (
-              <img
-                src={coverDataUrl}
-                alt="Book Front Cover Preview"
-                className="w-full h-40 object-contain rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
-              />
-            ) : (
-              <div className="h-40 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-xs text-slate-500 dark:text-slate-400 p-4 text-center">
-                <Camera className="w-7 h-7 text-slate-400 mb-1.5" />
-                <span>Snap or upload front cover (Dhivehi, English, or Arabic)</span>
+            {/* Slot 2: Copyright / Title Page */}
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                  2. Copyright / Title Page (Optional)
+                </span>
+                {titlePageDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setTitlePageDataUrl('')}
+                    className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
-            )}
 
-            <div className="flex items-center gap-2">
-              <label className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-emerald-600 text-xs font-bold flex items-center justify-center gap-1.5">
-                <Upload className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Upload / Snap</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => handleFileChange('cover', e)}
-                  className="hidden"
+              {titlePageDataUrl ? (
+                <img
+                  src={titlePageDataUrl}
+                  alt="Copyright Title Page Preview"
+                  className="w-full h-44 object-contain rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                 />
-              </label>
+              ) : (
+                <div className="h-32 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-xs text-slate-500 dark:text-slate-400 p-3 text-center">
+                  <FileText className="w-6 h-6 text-slate-400 mb-1" />
+                  <span>Optional inner page for publisher, year & NIE credits</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-sky-600 text-xs font-bold flex items-center justify-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                  <span>Upload / Snap</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => handleFileChange('titlePage', e)}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void startLiveCamera('titlePage')}
+                  className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Live Cam</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Extract Trigger Bar */}
+            <div className="p-4 rounded-2xl bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white space-y-3">
+              <div className="text-xs space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-400">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Side-by-Side Vision OCR Extraction</span>
+                </div>
+                <div className="text-[11px] text-slate-300 leading-relaxed">
+                  {ocrResult
+                    ? `Extracted via ${ocrResult.source === 'gemini_vision' ? 'Gemini Vision' : 'Offline Fallback'} · Compare source photos against the editable fields on the right before saving.`
+                    : 'Extracts Thaana/English titles, DDC call number, grade level (LKG–Grade 10), tags, and 2-sentence synopsis.'}
+                </div>
+              </div>
+
               <button
                 type="button"
-                onClick={() => void startLiveCamera('cover')}
-                className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                onClick={handleExtractMetadata}
+                disabled={isAnalyzing || !coverDataUrl}
+                className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Video className="w-3.5 h-3.5" />
-                <span>Live Cam</span>
+                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                <span>{isAnalyzing ? 'Analyzing Cover Images...' : 'Extract Metadata JSON'}</span>
               </button>
             </div>
           </div>
 
-          {/* Slot 2: Copyright / Title Page */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-sky-600" />
-                2. Copyright / Title Page (Optional)
-              </span>
-              {titlePageDataUrl && (
-                <button
-                  type="button"
-                  onClick={() => setTitlePageDataUrl('')}
-                  className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {titlePageDataUrl ? (
-              <img
-                src={titlePageDataUrl}
-                alt="Copyright Title Page Preview"
-                className="w-full h-40 object-contain rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
-              />
-            ) : (
-              <div className="h-40 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-xs text-slate-500 dark:text-slate-400 p-4 text-center">
-                <FileText className="w-7 h-7 text-slate-400 mb-1.5" />
-                <span>Optional inner page for publisher, year & NIE curriculum credits</span>
+          {/* RIGHT PANE: Editable Human-in-the-Loop Verification Form */}
+          <div className="lg:col-span-7 space-y-4">
+            {extractError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{extractError}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-2">
-              <label className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:border-sky-600 text-xs font-bold flex items-center justify-center gap-1.5">
-                <Upload className="w-3.5 h-3.5 text-sky-600" />
-                <span>Upload / Snap</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => handleFileChange('titlePage', e)}
-                  className="hidden"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => void startLiveCamera('titlePage')}
-                className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-              >
-                <Video className="w-3.5 h-3.5" />
-                <span>Live Cam</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Extract Trigger Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900 text-white">
-          <div className="text-xs">
-            <div className="font-bold flex items-center gap-1.5 text-emerald-400">
-              <Sparkles className="w-4 h-4" />
-              <span>Multimodal Vision Metadata Extraction</span>
-            </div>
-            <div className="text-[11px] text-slate-300">
-              {ocrResult
-                ? `Extracted (${ocrResult.source === 'gemini_vision' ? 'Gemini Vision' : 'Offline Fallback'}) · Verify fields below`
-                : 'Extracts Thaana/English titles, DDC call number, grade level (LKG–Grade 10), tags, and 2-sentence synopsis.'}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleExtractMetadata}
-            disabled={isAnalyzing || !coverDataUrl}
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold flex items-center gap-2 cursor-pointer"
-          >
-            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            <span>{isAnalyzing ? 'Analyzing Images...' : 'Extract Metadata JSON'}</span>
-          </button>
-        </div>
-
-        {extractError && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{extractError}</span>
-          </div>
-        )}
-
-        {/* Verification Form */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              English Title (`title_en`)
-            </label>
-            <input
-              type="text"
-              value={titleEn}
-              onChange={(e) => setTitleEn(e.target.value)}
-              placeholder="e.g. Coral Reefs of the Maldives"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Dhivehi Title (`title_dv` — Thaana)
-            </label>
-            <input
-              type="text"
-              dir="rtl"
-              value={titleDv}
-              onChange={(e) => setTitleDv(e.target.value)}
-              placeholder="މިސާލު: ދިވެހި ބަސް - ގްރޭޑް 7"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Author(s)
-            </label>
-            <input
-              type="text"
-              value={authorsText}
-              onChange={(e) => setAuthorsText(e.target.value)}
-              placeholder="Author 1, Author 2"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Publisher</label>
-              <input
-                type="text"
-                value={publisher}
-                onChange={(e) => setPublisher(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Year</label>
-              <input
-                type="number"
-                value={publicationYear}
-                onChange={(e) => setPublicationYear(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono tabular-nums font-bold"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Language</label>
-              <select
-                value={bookLang}
-                onChange={(e) => setBookLang(e.target.value as any)}
-                className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-              >
-                <option value="dv">Dhivehi (ދިވެހި)</option>
-                <option value="en">English</option>
-                <option value="ar">Arabic</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">DDC Code</label>
-              <input
-                type="text"
-                value={ddcCode}
-                onChange={(e) => setDdcCode(e.target.value)}
-                className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Grade Level</label>
-              <select
-                value={gradeLevel}
-                onChange={(e) => setGradeLevel(e.target.value as SchoolGradeLevel)}
-                className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-              >
-                {SCHOOL_GRADE_LEVELS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
-              <input
-                list="ai-cataloger-categories"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-              />
-              <datalist id="ai-cataloger-categories">
-                {DEFAULT_CATEGORIES.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Subject Tags (3–5)</label>
-              <input
-                type="text"
-                value={subjectsText}
-                onChange={(e) => setSubjectsText(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium"
-              />
-            </div>
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">2-Sentence Synopsis</label>
-            <textarea
-              rows={2}
-              value={synopsis}
-              onChange={(e) => setSynopsis(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium"
-            />
-          </div>
-
-          {mode === 'catalog' && (
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Barcode ID</label>
-                <input
-                  type="text"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold"
-                />
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Extracted Bibliographic Review
+                </h3>
+                {ocrResult && (
+                  <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                    {ocrResult.source === 'gemini_vision' ? 'Gemini Vision JSON' : 'Offline Draft'}
+                  </span>
+                )}
               </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shelf Location</label>
-                <input
-                  type="text"
-                  value={shelfLocation}
-                  onChange={(e) => setShelfLocation(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Copies</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={40}
-                  value={totalCopies}
-                  onChange={(e) => setTotalCopies(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono tabular-nums font-bold"
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    English Title (`title_en`)
+                  </label>
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder="e.g. Coral Reefs of the Maldives"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Dhivehi Title (`title_dv` — Thaana)
+                  </label>
+                  <input
+                    type="text"
+                    dir="rtl"
+                    value={titleDv}
+                    onChange={(e) => setTitleDv(e.target.value)}
+                    placeholder="މިސާލު: ދިވެހި ބަސް - ގްރޭޑް 7"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Author(s)
+                  </label>
+                  <input
+                    type="text"
+                    value={authorsText}
+                    onChange={(e) => setAuthorsText(e.target.value)}
+                    placeholder="Author 1, Author 2"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Publisher</label>
+                    <input
+                      type="text"
+                      value={publisher}
+                      onChange={(e) => setPublisher(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Year</label>
+                    <input
+                      type="number"
+                      value={publicationYear}
+                      onChange={(e) => setPublicationYear(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono tabular-nums font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Language</label>
+                    <select
+                      value={bookLang}
+                      onChange={(e) => setBookLang(e.target.value as any)}
+                      className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                    >
+                      <option value="dv">Dhivehi (ދިވެހި)</option>
+                      <option value="en">English</option>
+                      <option value="ar">Arabic</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">DDC Code</label>
+                    <input
+                      type="text"
+                      value={ddcCode}
+                      onChange={(e) => setDdcCode(e.target.value)}
+                      className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Grade Level</label>
+                    <select
+                      value={gradeLevel}
+                      onChange={(e) => setGradeLevel(e.target.value as SchoolGradeLevel)}
+                      className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                    >
+                      {SCHOOL_GRADE_LEVELS.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                  <input
+                    list="ai-cataloger-categories"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                  />
+                  <datalist id="ai-cataloger-categories">
+                    {DEFAULT_CATEGORIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Subject Tags (3–5)</label>
+                  <input
+                    type="text"
+                    value={subjectsText}
+                    onChange={(e) => setSubjectsText(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">2-Sentence Synopsis</label>
+                  <textarea
+                    rows={3}
+                    value={synopsis}
+                    onChange={(e) => setSynopsis(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium"
+                  />
+                </div>
+
+                {mode === 'catalog' && (
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Barcode ID</label>
+                      <input
+                        type="text"
+                        value={barcode}
+                        onChange={(e) => setBarcode(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shelf Location</label>
+                      <input
+                        type="text"
+                        value={shelfLocation}
+                        onChange={(e) => setShelfLocation(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Copies</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={40}
+                        value={totalCopies}
+                        onChange={(e) => setTotalCopies(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono tabular-nums font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer Actions */}
