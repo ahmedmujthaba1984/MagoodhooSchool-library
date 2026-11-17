@@ -1,15 +1,17 @@
 import { Language } from './i18n';
 
-export type CatalogViewMode = 'grid' | 'list';
+export type CatalogViewMode = 'grid' | 'table' | 'shelf';
 
 export interface CatalogUrlFilters {
   q?: string;
   cat?: string;
   media?: string;
   type?: 'all' | 'circulating' | 'reference';
-  status?: 'all' | 'available' | 'checked-out';
+  status?: string;
   grade?: string;
   blang?: string;
+  sort?: string;
+  page?: number;
   view?: CatalogViewMode;
 }
 
@@ -51,8 +53,9 @@ const PATH_TO_TAB: Record<string, string> = Object.entries(TAB_TO_PATH).reduce(
 
 export function normalizeCatalogView(raw: string | null): CatalogViewMode | undefined {
   if (!raw) return undefined;
-  const v = raw.toLowerCase();
-  if (v === 'table' || v === 'list') return 'list';
+  const v = raw.toLowerCase().trim();
+  if (v === 'table' || v === 'list') return 'table';
+  if (v === 'shelf' || v === 'shelves') return 'shelf';
   if (v === 'grid') return 'grid';
   return undefined;
 }
@@ -88,11 +91,8 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
       ? rawType
       : undefined;
 
-  const rawStatus = params.get('status');
-  const status =
-    rawStatus === 'available' || rawStatus === 'checked-out' || rawStatus === 'all'
-      ? rawStatus
-      : undefined;
+  const rawPage = Number(params.get('page'));
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : undefined;
 
   return {
     tab,
@@ -104,9 +104,11 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
       cat: params.get('cat') || undefined,
       media: params.get('media') || undefined,
       type,
-      status,
+      status: params.get('status') || undefined,
       grade: params.get('grade') || undefined,
       blang: params.get('blang') || undefined,
+      sort: params.get('sort') || undefined,
+      page,
       view: normalizeCatalogView(params.get('view')),
     },
   };
@@ -121,9 +123,7 @@ export function buildUrlFromState(input: {
 }): string {
   let pathname = TAB_TO_PATH[input.tab] || '/catalog';
 
-  if (input.tab === 'catalog' && input.bookId) {
-    pathname = `/catalog/book/${encodeURIComponent(input.bookId)}`;
-  } else if (input.tab === 'students' && input.patronId) {
+  if (input.tab === 'students' && input.patronId) {
     pathname = `/patrons/${encodeURIComponent(input.patronId)}`;
   }
 
@@ -132,10 +132,9 @@ export function buildUrlFromState(input: {
     params.set('lang', input.lang);
   }
 
-  if (input.tab === 'catalog' && input.catalogFilters) {
+  if ((input.tab === 'catalog' || input.tab === 'add-book') && input.catalogFilters) {
     const f = input.catalogFilters;
-    if (f.view === 'list') params.set('view', 'table');
-    else if (f.view === 'grid') params.set('view', 'grid');
+    if (f.view) params.set('view', f.view);
     if (f.q && f.q.trim()) params.set('q', f.q.trim());
     if (f.cat && f.cat !== 'all') params.set('cat', f.cat);
     if (f.media && f.media !== 'all') params.set('media', f.media);
@@ -143,6 +142,12 @@ export function buildUrlFromState(input: {
     if (f.status && f.status !== 'all') params.set('status', f.status);
     if (f.grade && f.grade !== 'all') params.set('grade', f.grade);
     if (f.blang && f.blang !== 'all') params.set('blang', f.blang);
+    if (f.sort && f.sort !== 'title-asc') params.set('sort', f.sort);
+    if (f.page && f.page > 1) params.set('page', String(f.page));
+  }
+
+  if ((input.tab === 'catalog' || input.tab === 'add-book') && input.bookId) {
+    params.set('book', input.bookId);
   }
 
   const qs = params.toString();

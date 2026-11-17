@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   initializeDatabaseIfEmpty,
   subscribeBooks,
@@ -160,21 +160,40 @@ export default function App() {
     offlineDb.savePersonalItems(personalItems).catch(() => {});
   }, [personalItems]);
 
-  // Hydrate catalog & personal shelf from IndexedDB for instant offline availability
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
+
+  // Hydrate catalog & personal shelf from IndexedDB (<50ms) before clearing initial loading state
   useEffect(() => {
     let active = true;
-    offlineDb.getCatalogBooks().then((cachedBooks) => {
-      if (active && cachedBooks && cachedBooks.length > 0) {
-        setBooks((prev) => (prev === sampleBooks ? cachedBooks : prev));
-      }
-    }).catch(() => {});
-    offlineDb.getPersonalItems().then((cachedPersonal) => {
-      if (active && cachedPersonal && cachedPersonal.length > 0) {
-        setPersonalItems((prev) => (prev === samplePersonalItems ? cachedPersonal : prev));
-      }
-    }).catch(() => {});
+    const safetyTimer = setTimeout(() => {
+      if (active) setIsLoadingCatalog(false);
+    }, 800);
+
+    Promise.all([
+      offlineDb
+        .getCatalogBooks()
+        .then((cachedBooks) => {
+          if (active && cachedBooks && cachedBooks.length > 0) {
+            setBooks((prev) => (prev === sampleBooks ? cachedBooks : prev));
+          }
+        })
+        .catch(() => {}),
+      offlineDb
+        .getPersonalItems()
+        .then((cachedPersonal) => {
+          if (active && cachedPersonal && cachedPersonal.length > 0) {
+            setPersonalItems((prev) => (prev === samplePersonalItems ? cachedPersonal : prev));
+          }
+        })
+        .catch(() => {}),
+    ]).finally(() => {
+      clearTimeout(safetyTimer);
+      if (active) setIsLoadingCatalog(false);
+    });
+
     return () => {
       active = false;
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -339,18 +358,21 @@ export default function App() {
     syncBrowserHistory(nextUrl, { replace: false });
   }, [activeTab, selectedUrlBookId, selectedUrlPatronId, language]);
 
-  const handleCatalogFiltersChange = (filters: CatalogUrlFilters) => {
-    liveCatalogFiltersRef.current = filters;
-    if (activeTab !== 'catalog' && activeTab !== 'add-book') return;
-    const nextUrl = buildUrlFromState({
-      tab: activeTab,
-      bookId: selectedUrlBookId,
-      patronId: selectedUrlPatronId,
-      lang: language,
-      catalogFilters: filters,
-    });
-    syncBrowserHistory(nextUrl, { replace: true });
-  };
+  const handleCatalogFiltersChange = useCallback(
+    (filters: CatalogUrlFilters) => {
+      liveCatalogFiltersRef.current = filters;
+      if (activeTab !== 'catalog' && activeTab !== 'add-book') return;
+      const nextUrl = buildUrlFromState({
+        tab: activeTab,
+        bookId: selectedUrlBookId,
+        patronId: selectedUrlPatronId,
+        lang: language,
+        catalogFilters: filters,
+      });
+      syncBrowserHistory(nextUrl, { replace: true });
+    },
+    [activeTab, selectedUrlBookId, selectedUrlPatronId, language]
+  );
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -370,7 +392,6 @@ export default function App() {
   const [isReportCardSyncModalOpen, setIsReportCardSyncModalOpen] = useState<boolean>(false);
   const [importDefaultType, setImportDefaultType] = useState<'books' | 'parents' | 'staff'>('books');
   const [isSuggestBookModalOpen, setIsSuggestBookModalOpen] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isQuotaExhausted, setIsQuotaExhausted] = useState<boolean>(false);
 
   useEffect(() => {
@@ -402,9 +423,9 @@ export default function App() {
       unsubscribeBooks = subscribeBooks(
         (data) => {
           if (data && data.length > 0) setBooks(data);
-          setIsLoading(false);
+          setIsLoadingCatalog(false);
         },
-        () => setIsLoading(false)
+        () => setIsLoadingCatalog(false)
       );
 
       unsubscribeUsers = subscribeUsers(
@@ -1887,7 +1908,7 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100 dark:bg-slate-950 relative z-10 safe-bottom">
           <div className="max-w-[1440px] mx-auto space-y-6">
             {activeTab === 'login' && (
-              <ErrorBoundary key="err-login" areaNameEn="Sign-In & Account" areaNameDv="ލޮގިން އަދި އެކައުންޓް" language={language}>
+              <ErrorBoundary key="err-login" areaNameEn="Sign-In & Account" areaNameDv="ލޮގިން އަދި އެކައުންޓް" language={language} isAdmin={isSuperAdmin}>
                 <LoginPage
                   currentUser={currentUser}
                   allUsers={users}
@@ -1899,13 +1920,13 @@ export default function App() {
             )}
 
             {activeTab === 'reference' && (
-              <ErrorBoundary key="err-reference" areaNameEn="Reference Section" areaNameDv="ރެފަރެންސް ބައި" language={language}>
+              <ErrorBoundary key="err-reference" areaNameEn="Reference Section" areaNameDv="ރެފަރެންސް ބައި" language={language} isAdmin={isSuperAdmin}>
                 <ReferenceSection books={books} />
               </ErrorBoundary>
             )}
 
             {activeTab === 'dashboard' && (
-              <ErrorBoundary key="err-dashboard" areaNameEn="Operations Dashboard" areaNameDv="ލައިބްރަރީ ޑޭޝްބޯޑް" language={language}>
+              <ErrorBoundary key="err-dashboard" areaNameEn="Operations Dashboard" areaNameDv="ލައިބްރަރީ ޑޭޝްބޯޑް" language={language} isAdmin={isSuperAdmin}>
                 <DashboardView
                   books={books}
                   users={users}
@@ -1926,6 +1947,7 @@ export default function App() {
                 areaNameEn="OPAC Book Catalog"
                 areaNameDv="ފޮތްތަކުގެ ކެޓަލޮގް"
                 language={language}
+                isAdmin={isSuperAdmin}
                 onRecover={() => setSelectedUrlBookId(null)}
               >
                 <BookCatalog
@@ -1936,7 +1958,7 @@ export default function App() {
                   users={users}
                   loans={loans}
                   settings={settings}
-                  isLoading={isLoading}
+                  isLoading={isLoadingCatalog}
                   initialUrlFilters={urlCatalogFilters}
                   initialSelectedBookId={selectedUrlBookId}
                   onSelectedBookChange={(bookId) => setSelectedUrlBookId(bookId)}
@@ -1965,8 +1987,8 @@ export default function App() {
             )}
 
             {(activeTab === 'borrow-book' || activeTab === 'return-book' || activeTab === 'issued-books' || activeTab === 'late-returns' || activeTab === 'checkout-hub') && (
-              <ErrorBoundary key="err-circulation" areaNameEn="Circulation Desk" areaNameDv="ފޮތް ދޫކުރާ ޑެސްކް" language={language}>
-                {isLoading && books.length === 0 ? (
+              <ErrorBoundary key="err-circulation" areaNameEn="Circulation Desk" areaNameDv="ފޮތް ދޫކުރާ ޑެސްކް" language={language} isAdmin={isSuperAdmin}>
+                {isLoadingCatalog && books.length === 0 ? (
                   <CirculationDeskSkeleton />
                 ) : (
                   <QuickCheckout
@@ -1995,6 +2017,7 @@ export default function App() {
                 areaNameEn="Members Directory"
                 areaNameDv="މެންބަރުންގެ ލިސްޓު"
                 language={language}
+                isAdmin={isSuperAdmin}
                 onRecover={() => setSelectedUrlPatronId(null)}
               >
                 <MemberDirectory
@@ -2017,7 +2040,7 @@ export default function App() {
             )}
 
             {activeTab === 'personal-library' && (
-              <ErrorBoundary key="err-personal" areaNameEn="Personal Library" areaNameDv="ޕާސަނަލް ލައިބްރަރީ" language={language}>
+              <ErrorBoundary key="err-personal" areaNameEn="Personal Library" areaNameDv="ޕާސަނަލް ލައިބްރަރީ" language={language} isAdmin={isSuperAdmin}>
                 <PersonalLibrary
                   items={personalItems}
                   currentUser={currentUser}
@@ -2038,7 +2061,7 @@ export default function App() {
             )}
 
             {activeTab === 'parent-portal' && (
-              <ErrorBoundary key="err-parent" areaNameEn="Parent Portal" areaNameDv="ބެލެނިވެރިންގެ ޕޯޓަލް" language={language}>
+              <ErrorBoundary key="err-parent" areaNameEn="Parent Portal" areaNameDv="ބެލެނިވެރިންގެ ޕޯޓަލް" language={language} isAdmin={isSuperAdmin}>
                 <ParentDashboard
                   parentUser={currentUser}
                   allUsers={users}
@@ -2072,7 +2095,7 @@ export default function App() {
             )}
 
             {(activeTab === 'manage-students' || activeTab === 'admin-panel') && (
-              <ErrorBoundary key="err-admin" areaNameEn="Admin & MVR Ledger" areaNameDv="އެޑްމިން އަދި ލެޖަރ" language={language}>
+              <ErrorBoundary key="err-admin" areaNameEn="Admin & MVR Ledger" areaNameDv="އެޑްމިން އަދި ލެޖަރ" language={language} isAdmin={isSuperAdmin}>
                 <AdminPanel
                   books={books}
                   users={users}
@@ -2101,7 +2124,7 @@ export default function App() {
             )}
 
             {activeTab === 'security-suite' && (
-              <ErrorBoundary key="err-security" areaNameEn="Security & Backups" areaNameDv="ސެކިއުރިޓީ އަދި ބެކަޕް" language={language}>
+              <ErrorBoundary key="err-security" areaNameEn="Security & Backups" areaNameDv="ސެކިއުރިޓީ އަދި ބެކަޕް" language={language} isAdmin={isSuperAdmin}>
                 <SecurityBackupSuiteView
                   currentUser={currentUser}
                   users={users}
@@ -2123,7 +2146,7 @@ export default function App() {
             )}
 
             {activeTab === 'ai-assistant' && (
-              <ErrorBoundary key="err-ai" areaNameEn="Libby AI Assistant" areaNameDv="ލިބީ އޭއައި އެސިސްޓަންޓް" language={language}>
+              <ErrorBoundary key="err-ai" areaNameEn="Libby AI Assistant" areaNameDv="ލިބީ އޭއައި އެސިސްޓަންޓް" language={language} isAdmin={isSuperAdmin}>
                 <AIAssistant
                   books={books}
                   loans={loans}
@@ -2142,13 +2165,13 @@ export default function App() {
             )}
 
             {activeTab === 'reports' && (
-              <ErrorBoundary key="err-reports" areaNameEn="Analytics & Reports" areaNameDv="ތަފާސްހިސާބު" language={language}>
+              <ErrorBoundary key="err-reports" areaNameEn="Analytics & Reports" areaNameDv="ތަފާސްހިސާބު" language={language} isAdmin={isSuperAdmin}>
                 <ReportsAnalytics books={books} loans={loans} users={users} />
               </ErrorBoundary>
             )}
 
             {activeTab === 'stocktaking' && (
-              <ErrorBoundary key="err-stocktaking" areaNameEn="Stocktake & Weeding" areaNameDv="ސްޓޮކްޓޭކް އަދި ވީޑިންގ" language={language}>
+              <ErrorBoundary key="err-stocktaking" areaNameEn="Stocktake & Weeding" areaNameDv="ސްޓޮކްޓޭކް އަދި ވީޑިންގ" language={language} isAdmin={isSuperAdmin}>
                 <InventoryAuditView
                   books={books}
                   loans={loans}
@@ -2160,7 +2183,7 @@ export default function App() {
             )}
 
             {activeTab === 'acquisitions' && (
-              <ErrorBoundary key="err-acquisitions" areaNameEn="Acquisitions & Budgets" areaNameDv="ފޮތް ހޯދުމާއި ބަޖެޓް" language={language}>
+              <ErrorBoundary key="err-acquisitions" areaNameEn="Acquisitions & Budgets" areaNameDv="ފޮތް ހޯދުމާއި ބަޖެޓް" language={language} isAdmin={isSuperAdmin}>
                 <AcquisitionsBoardView
                   requests={acquisitions}
                   books={books}
@@ -2177,7 +2200,7 @@ export default function App() {
             )}
 
             {activeTab === 'reading-challenges' && (
-              <ErrorBoundary key="err-challenges" areaNameEn="Reading Challenges" areaNameDv="ކިޔުމުގެ ޗެލެންޖް" language={language}>
+              <ErrorBoundary key="err-challenges" areaNameEn="Reading Challenges" areaNameDv="ކިޔުމުގެ ޗެލެންޖް" language={language} isAdmin={isSuperAdmin}>
                 <ReadingEngagementView
                   currentUser={currentUser}
                   users={users}
@@ -2188,13 +2211,13 @@ export default function App() {
             )}
 
             {(activeTab === 'my-borrowings' || activeTab === 'my-loans') && (
-              <ErrorBoundary key="err-my-loans" areaNameEn="My Borrowed Books" areaNameDv="އަޅުގަނޑު ގެންގުޅޭ ފޮތްތައް" language={language}>
+              <ErrorBoundary key="err-my-loans" areaNameEn="My Borrowed Books" areaNameDv="އަޅުގަނޑު ގެންގުޅޭ ފޮތްތައް" language={language} isAdmin={isSuperAdmin}>
                 <MyBorrowings
                   currentUser={currentUser}
                   loans={loans}
                   reservations={reservations}
                   books={books}
-                  isLoading={isLoading}
+                  isLoading={isLoadingCatalog}
                   onRenewLoan={handleRenewLoan}
                   onCancelReservation={handleCancelReservation}
                   onOpenChallenges={() => setActiveTab('reading-challenges')}
@@ -2203,7 +2226,7 @@ export default function App() {
             )}
 
             {activeTab === 'faq' && (
-              <ErrorBoundary key="err-faq" areaNameEn="Help & Guide" areaNameDv="އެހީތެރިކަމާއި ގައިޑް" language={language}>
+              <ErrorBoundary key="err-faq" areaNameEn="Help & Guide" areaNameDv="އެހީތެރިކަމާއި ގައިޑް" language={language} isAdmin={isSuperAdmin}>
                 <FaqHelpView />
               </ErrorBoundary>
             )}
@@ -2241,8 +2264,8 @@ export default function App() {
             <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider">School Contact</h4>
             <ul className="space-y-1.5 text-slate-400 font-medium">
               <li className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-emerald-400" /> F. Magoodhoo, Republic of Maldives</li>
-              <li className="flex items-center gap-2 font-mono tabular-nums"><Phone className="w-3.5 h-3.5 text-emerald-400" /> <bdi>+960 6740018</bdi></li>
-              <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-emerald-400" /> <bdi>admin@magoodhooschool.edu.mv</bdi></li>
+              <li className="flex items-center gap-2 font-mono tabular-nums"><Phone className="w-3.5 h-3.5 text-emerald-400" /> <bdi dir="ltr">+960 6740018</bdi></li>
+              <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-emerald-400" /> <bdi dir="ltr">admin@magoodhooschool.edu.mv</bdi></li>
             </ul>
           </div>
         </div>
@@ -2306,7 +2329,7 @@ export default function App() {
       </div>
 
       {/* MODALS */}
-      <ErrorBoundary compact areaNameEn="Command Palette" areaNameDv="ކޮމާންޑް ޕެލެޓް" language={language} onRecover={() => setIsCommandPaletteOpen(false)}>
+      <ErrorBoundary compact areaNameEn="Command Palette" areaNameDv="ކޮމާންޑް ޕެލެޓް" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsCommandPaletteOpen(false)}>
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
@@ -2341,7 +2364,7 @@ export default function App() {
         }}
       />
 
-      <ErrorBoundary compact areaNameEn="AI Cataloger" areaNameDv="އޭއައި ކެޓަލޮގަރ" language={language} onRecover={() => setIsSmartCatalogerOpen(false)}>
+      <ErrorBoundary compact areaNameEn="AI Cataloger" areaNameDv="އޭއައި ކެޓަލޮގަރ" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsSmartCatalogerOpen(false)}>
         <SmartAICatalogerModal
           isOpen={isSmartCatalogerOpen}
           onClose={() => setIsSmartCatalogerOpen(false)}
@@ -2352,7 +2375,7 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <ErrorBoundary compact areaNameEn="Barcode Scanner" areaNameDv="ބާކޯޑް ސްކޭނަރ" language={language} onRecover={() => setIsScannerOpen(false)}>
+      <ErrorBoundary compact areaNameEn="Barcode Scanner" areaNameDv="ބާކޯޑް ސްކޭނަރ" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsScannerOpen(false)}>
         <BarcodeScannerModal
           isOpen={isScannerOpen}
           onClose={() => {
@@ -2386,7 +2409,7 @@ export default function App() {
         onCreateParentAccount={handleCreateParentAccount}
       />
 
-      <ErrorBoundary compact areaNameEn="Bulk Import" areaNameDv="އިމްޕޯޓް މޯޑަލް" language={language} onRecover={() => setIsImportModalOpen(false)}>
+      <ErrorBoundary compact areaNameEn="Bulk Import" areaNameDv="އިމްޕޯޓް މޯޑަލް" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsImportModalOpen(false)}>
         <ImportModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
@@ -2397,7 +2420,7 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <ErrorBoundary compact areaNameEn="Report Card Sync" areaNameDv="ރިޕޯޓް ކާޑް ސިންކް" language={language} onRecover={() => setIsReportCardSyncModalOpen(false)}>
+      <ErrorBoundary compact areaNameEn="Report Card Sync" areaNameDv="ރިޕޯޓް ކާޑް ސިންކް" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsReportCardSyncModalOpen(false)}>
         <ReportCardSyncModal
           isOpen={isReportCardSyncModalOpen}
           onClose={() => setIsReportCardSyncModalOpen(false)}
@@ -2413,7 +2436,7 @@ export default function App() {
         onToggleUpvote={handleUpvoteAcquisition}
       />
 
-      <ErrorBoundary compact areaNameEn="AI Catalog Health" areaNameDv="ކެޓަލޮގް ހެލްތް އޮޑިޓް" language={language} onRecover={() => setIsCatalogHealthOpen(false)}>
+      <ErrorBoundary compact areaNameEn="AI Catalog Health" areaNameDv="ކެޓަލޮގް ހެލްތް އޮޑިޓް" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsCatalogHealthOpen(false)}>
         <CatalogHealthModal
           isOpen={isCatalogHealthOpen}
           onClose={() => setIsCatalogHealthOpen(false)}
@@ -2423,7 +2446,7 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <ErrorBoundary compact areaNameEn="Offline Sync Outbox" areaNameDv="ސިންކް އައުޓްބޮކްސް" language={language} onRecover={() => setIsSyncOutboxOpen(false)}>
+      <ErrorBoundary compact areaNameEn="Offline Sync Outbox" areaNameDv="ސިންކް އައުޓްބޮކްސް" language={language} isAdmin={isSuperAdmin} onRecover={() => setIsSyncOutboxOpen(false)}>
         <SyncOutboxModal
           isOpen={isSyncOutboxOpen}
           onClose={() => setIsSyncOutboxOpen(false)}

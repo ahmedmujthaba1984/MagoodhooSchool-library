@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const SCHOOL_GRADE_LEVELS = [
   'LKG',
   'UKG',
@@ -15,6 +17,145 @@ export const SCHOOL_GRADE_LEVELS = [
 ] as const;
 
 export type SchoolGradeLevel = (typeof SCHOOL_GRADE_LEVELS)[number];
+
+export const CoverOcrZodSchema = z
+  .object({
+    title_en: z.string().optional().nullable(),
+    title_dv: z.string().optional().nullable(),
+    title: z.string().optional().nullable(),
+    authors: z.array(z.string()).optional().nullable(),
+    author: z.string().optional().nullable(),
+    publisher: z.string().optional().nullable(),
+    publication_year: z.union([z.number(), z.string()]).optional().nullable(),
+    publicationYear: z.union([z.number(), z.string()]).optional().nullable(),
+    language: z.string().optional().nullable(),
+    bookLanguage: z.string().optional().nullable(),
+    ddc_code: z.string().optional().nullable(),
+    ddcCallNumber: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    grade_level: z.string().optional().nullable(),
+    subjects: z.array(z.string()).optional().nullable(),
+    tags: z.array(z.string()).optional().nullable(),
+    synopsis: z.string().optional().nullable(),
+    description: z.string().optional().nullable(),
+    source: z.string().optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      Boolean(
+        (data.title_en && data.title_en.trim()) ||
+          (data.title_dv && data.title_dv.trim()) ||
+          (data.title && data.title.trim())
+      ),
+    { message: 'At least one title field must be non-empty' }
+  );
+
+export const OpacSearchZodSchema = z.object({
+  intent: z.string().optional(),
+  answer: z.string().min(1),
+  filterPredicates: z.record(z.string(), z.unknown()).optional().nullable(),
+  matchedBookIds: z.array(z.string()).optional().nullable(),
+  matchedLoanIds: z.array(z.string()).optional().nullable(),
+  analyticsBreakdown: z
+    .array(
+      z.object({
+        label: z.string().optional(),
+        count: z.union([z.number(), z.string()]).optional(),
+        note: z.string().optional().nullable(),
+      })
+    )
+    .optional()
+    .nullable(),
+});
+
+export const CurriculumMatchZodSchema = z
+  .object({
+    summary: z.string().optional().nullable(),
+    text: z.string().optional().nullable(),
+    matches: z
+      .array(
+        z.object({
+          bookId: z.string().optional(),
+          title: z.string().optional(),
+          author: z.string().optional(),
+          mediaType: z.string().optional(),
+          ddcCallNumber: z.string().optional(),
+          shelfLocation: z.string().optional(),
+          availableCopies: z.union([z.number(), z.string()]).optional(),
+          relevanceReason: z.string().optional(),
+        })
+      )
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (d) =>
+      Boolean(
+        (d.summary && d.summary.trim()) ||
+          (d.text && d.text.trim()) ||
+          (Array.isArray(d.matches) && d.matches.length > 0)
+      ),
+    { message: 'Curriculum match must contain summary, text, or matches' }
+  );
+
+export const PredictiveInsightsZodSchema = z.object({
+  executiveSummary: z.string().min(1),
+  highRiskLoans: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        userId: z.string().optional().nullable(),
+        bookTitle: z.string().optional(),
+        userName: z.string().optional(),
+        userGrade: z.string().optional().nullable(),
+        dueDate: z.string().optional(),
+        daysOverdue: z.union([z.number(), z.string()]).optional(),
+        lateFeeMvr: z.union([z.number(), z.string()]).optional(),
+        riskScore: z.union([z.number(), z.string()]).optional(),
+        riskLevel: z.string().optional(),
+        riskFactors: z.string().optional(),
+      })
+    )
+    .optional()
+    .nullable(),
+  weedingOrPromoCandidates: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        title: z.string().optional(),
+        ddcCallNumber: z.string().optional().nullable(),
+        shelfLocation: z.string().optional().nullable(),
+      })
+    )
+    .optional()
+    .nullable(),
+});
+
+export const ReminderDraftZodSchema = z.object({
+  subject: z.string().optional().nullable(),
+  messageBody: z.string().min(1),
+  channel: z.string().optional().nullable(),
+  language: z.string().optional().nullable(),
+});
+
+export const CatalogHealthAiZodSchema = z.object({
+  summary: z.string().optional().nullable(),
+  source: z.string().optional().nullable(),
+  patches: z
+    .array(
+      z.object({
+        bookId: z.string().min(1),
+        ddcCallNumber: z.string().optional().nullable(),
+        targetGrade: z.string().optional().nullable(),
+        bookLanguage: z.string().optional().nullable(),
+        author: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+        shelfLocation: z.string().optional().nullable(),
+      })
+    )
+    .optional()
+    .nullable(),
+});
 
 export interface AiServiceStatus {
   configured: boolean;
@@ -158,8 +299,9 @@ export function validateCoverOcrResult(
   raw: unknown,
   fallbackLanguage: 'en' | 'dv' = 'en'
 ): CoverOcrResult | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = CoverOcrZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
 
   const rawLang = asString(obj.language || obj.bookLanguage, fallbackLanguage).toLowerCase();
   const normLang: 'dv' | 'en' | 'ar' | 'other' =
@@ -227,8 +369,9 @@ export function validateCoverOcrResult(
 }
 
 export function validateOpacSearchResponse(raw: unknown): OpacSearchResponse | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = OpacSearchZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
   const answer = asString(obj.answer);
   if (!answer) return null;
 
@@ -270,8 +413,9 @@ export function validateOpacSearchResponse(raw: unknown): OpacSearchResponse | n
 }
 
 export function validateCurriculumMatchResult(raw: unknown): CurriculumMatchResult | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = CurriculumMatchZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
   const matches: CurriculumResourceMatch[] = Array.isArray(obj.matches)
     ? obj.matches
         .filter((m): m is Record<string, unknown> => Boolean(m && typeof m === 'object'))
@@ -300,8 +444,9 @@ export function validateCurriculumMatchResult(raw: unknown): CurriculumMatchResu
 }
 
 export function validatePredictiveInsightsResponse(raw: unknown): PredictiveInsightsResponse | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = PredictiveInsightsZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
   const executiveSummary = asString(obj.executiveSummary);
   if (!executiveSummary) return null;
 
@@ -338,8 +483,9 @@ export function validatePredictiveInsightsResponse(raw: unknown): PredictiveInsi
 }
 
 export function validateReminderDraftResult(raw: unknown): ReminderDraftResult | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = ReminderDraftZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
   const messageBody = asString(obj.messageBody);
   if (!messageBody) return null;
 
@@ -372,8 +518,9 @@ export interface CatalogHealthAiResponse {
 }
 
 export function validateCatalogHealthAiResponse(raw: unknown): CatalogHealthAiResponse | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const parsed = CatalogHealthAiZodSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const obj = parsed.data as Record<string, unknown>;
   const patches: CatalogHealthAiPatch[] = Array.isArray(obj.patches)
     ? obj.patches
         .filter((p): p is Record<string, unknown> => Boolean(p && typeof p === 'object'))

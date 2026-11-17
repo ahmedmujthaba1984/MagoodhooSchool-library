@@ -86,12 +86,23 @@
   [dir="rtl"] b,
   .font-faruma,
   .thaana-text,
-  .thaana-body {
+  .thaana-body,
+  .thaana-safe {
     font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
-    line-height: var(--thaana-line-height);
-    padding-top: max(0px, 0.08em);
-    padding-bottom: max(0px, 0.08em);
+    line-height: 1.85;
+    padding-top: max(0.125rem, 0.12em);
+    padding-bottom: max(0.125rem, 0.12em);
+  }
+
+  /* Guarantee generous vertical clearance for Dhivehi pills, inputs, table cells, and selects */
+  [dir="rtl"] input:not([type="checkbox"]):not([type="radio"]),
+  [dir="rtl"] select,
+  [dir="rtl"] td,
+  [dir="rtl"] th {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    line-height: 1.85;
   }
 
   [dir="rtl"] h1,
@@ -103,19 +114,23 @@
   .thaana-heading {
     font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
-    line-height: 1.65;
-    padding-top: 0.15em;
-    padding-bottom: 0.15em;
+    line-height: 1.8;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
   }
 
-  /* Mixed-language text isolation (BDI): keep Latin/names crisp in sans-serif while codes use JetBrains Mono */
-  bdi,
+  /* Mixed-language text isolation: bare <bdi> auto-detects direction cleanly without breaking RTL Dhivehi titles, while <bdi dir="ltr"> and .font-mono enforce LTR */
+  bdi {
+    unicode-bidi: isolate;
+  }
+
+  bdi[dir="ltr"],
   .bdi-isolate,
   .bdi-isolated {
     unicode-bidi: isolate;
     direction: ltr;
     display: inline-block;
-    text-align: left;
+    text-align: start;
   }
 
   .font-mono,
@@ -128,7 +143,7 @@
     unicode-bidi: isolate;
     direction: ltr;
     display: inline-block;
-    text-align: left;
+    text-align: start;
     font-family: var(--font-mono) !important;
     font-variant-numeric: tabular-nums;
   }

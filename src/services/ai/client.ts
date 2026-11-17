@@ -4,10 +4,12 @@ export interface AiFetchOptions {
   method?: 'POST' | 'GET';
   retries?: number;
   baseDelayMs?: number;
+  timeoutMs?: number;
   validator?: (raw: unknown) => any;
 }
 
 const TRANSIENT_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const DEFAULT_AI_TIMEOUT_MS = 12000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,17 +25,26 @@ export async function safeAiJsonFetch<T = any>(
   const method = opts.method || 'POST';
   const retries = opts.retries ?? 2;
   const baseDelayMs = opts.baseDelayMs ?? 450;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS;
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return null;
   }
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller
+      ? setTimeout(() => {
+          controller.abort();
+        }, timeoutMs)
+      : null;
+
     try {
       const res = await fetch(url, {
         method,
         headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
         body: method === 'POST' ? JSON.stringify(bodyData) : undefined,
+        signal: controller?.signal,
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -65,6 +76,8 @@ export async function safeAiJsonFetch<T = any>(
         continue;
       }
       console.warn(`Network fetch note for ${url}:`, err);
+    } finally {
+      if (timeoutId !== null) clearTimeout(timeoutId);
     }
   }
   return null;
