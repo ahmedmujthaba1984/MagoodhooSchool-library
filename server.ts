@@ -34,7 +34,7 @@ const GEMINI_TEXT_MODELS = [
   'gemini-3.1-flash-lite',
 ];
 
-// Helper to call Gemini with retries and model fallbacks
+// Helper to call Gemini with retries, bounded timeout, and model fallbacks
 async function callGeminiWithFallback(
   ai: GoogleGenAI,
   requestParams: {
@@ -43,15 +43,22 @@ async function callGeminiWithFallback(
   }
 ) {
   let lastError: any = null;
+  const PER_ATTEMPT_TIMEOUT_MS = 6500;
 
   for (const model of GEMINI_TEXT_MODELS) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: requestParams.contents,
-          config: requestParams.config,
-        });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Gemini timeout after ${PER_ATTEMPT_TIMEOUT_MS}ms`)), PER_ATTEMPT_TIMEOUT_MS)
+        );
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model,
+            contents: requestParams.contents,
+            config: requestParams.config,
+          }),
+          timeoutPromise,
+        ]);
 
         if (response && response.text) {
           return response;
@@ -972,16 +979,25 @@ app.post('/api/ai/draft-reminder', async (req, res) => {
     lateFeeMvr = 0,
     channel = 'whatsapp',
     language = 'en',
+    historicalContext = '',
+    isPreventive = false,
   } = req.body || {};
   const isDhivehi = language === 'dv';
+  const preventiveTone = Boolean(isPreventive) && Number(daysOverdue) <= 0;
 
   const buildFallbackReminder = () => {
     if (isDhivehi) {
       return {
-        subject: `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ހަނދާންކޮށްދިނުން — ${bookTitle}`,
+        subject: preventiveTone
+          ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ތާރީޚު ކައިރިވަމުންދޭ — ${bookTitle}`
+          : `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ހަނދާންކޮށްދިނުން — ${bookTitle}`,
         messageBody:
           channel === 'sms'
-            ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ގެ މުއްދަތު ${dueDate} ގައި ހަމަވެފައިވާތީ ލައިބްރަރީއަށް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.${lateFeeMvr > 0 ? ` ޖޫރިމަނާ: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''}`
+            ? preventiveTone
+              ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ޙަވާލުކުރަންޖެހޭ ތާރީޚަކީ ${dueDate} އެވެ. ސުންގަޑީގެ ކުރިން ފޮތް ޙަވާލުކޮށްދެއްވުން ނުވަތަ މުއްދަތު އިތުރުކޮށްދެއްވުން އެދެމެވެ.`
+              : `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ގެ މުއްދަތު ${dueDate} ގައި ހަމަވެފައިވާތީ ލައިބްރަރީއަށް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.${lateFeeMvr > 0 ? ` ޖޫރިމަނާ: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''}`
+            : preventiveTone
+            ? `އައްސަލާމް ޢަލައިކުމް،\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީން ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" މި ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ތާރީޚު (${dueDate}) ކައިރިވަމުންދާތީ ކުރިއާލާ ހަނދާންކޮށްދެމެވެ.\n\nޖޫރިމަނާއަކާ ނުލައި މުއްދަތު ހަމަވުމުގެ ކުރިން ލައިބްރަރީ ކައުންޓަރަށް ފޮތް ޙަވާލުކޮށްދެއްވުން ނުވަތަ ރިނިއު ކޮށްދެއްވުން އެދެމެވެ. ޝުކުރިއްޔާ!\n— މަގޫދޫ ސްކޫލް ލައިބްރަރީ`
             : `އައްސަލާމް ޢަލައިކުމް،\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީން ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" މި ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ސުންގަޑި (${dueDate}) ވަނީ ${daysOverdue > 0 ? `${daysOverdue} ދުވަސް ފަހަނައަޅައި ގޮސްފައެވެ` : 'ހަމަވާން ކައިރިވެފައެވެ'}.\n${lateFeeMvr > 0 ? `މިހާތަނަށް އަރާފައިވާ ޖޫރިމަނާ: MVR ${Number(lateFeeMvr).toFixed(2)}\n` : ''}\nވީމާ ސްކޫލް ގަޑީގައި ލައިބްރަރީ ކައުންޓަރަށް ފޮތް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ. ޝުކުރިއްޔާ!\n— މަގޫދޫ ސްކޫލް ލައިބްރަރީ`,
         channel,
         language,
@@ -989,10 +1005,16 @@ app.post('/api/ai/draft-reminder', async (req, res) => {
     }
 
     return {
-      subject: `F. Magoodhoo School Library Reminder: "${bookTitle}"`,
+      subject: preventiveTone
+        ? `F. Magoodhoo School Library Heads-Up: "${bookTitle}" Due ${dueDate}`
+        : `F. Magoodhoo School Library Reminder: "${bookTitle}"`,
       messageBody:
         channel === 'sms'
-          ? `Magoodhoo School Library: Reminder for ${userName}${userGrade ? ` (${userGrade})` : ''} to return "${bookTitle}" (Due: ${dueDate}${daysOverdue > 0 ? `, ${daysOverdue}d overdue` : ''}).${lateFeeMvr > 0 ? ` Fee: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''} Thank you.`
+          ? preventiveTone
+            ? `Magoodhoo School Library: Friendly heads-up for ${userName}${userGrade ? ` (${userGrade})` : ''} — "${bookTitle}" is due on ${dueDate}. Return or renew on time to avoid overdue fees.`
+            : `Magoodhoo School Library: Reminder for ${userName}${userGrade ? ` (${userGrade})` : ''} to return "${bookTitle}" (Due: ${dueDate}${daysOverdue > 0 ? `, ${daysOverdue}d overdue` : ''}).${lateFeeMvr > 0 ? ` Fee: MVR ${Number(lateFeeMvr).toFixed(2)}.` : ''} Thank you.`
+          : preventiveTone
+          ? `Assalaamu Alaikum,\n\nThis is a proactive reminder from F. Magoodhoo School Library that "${bookTitle}" borrowed by ${userName}${userGrade ? ` (${userGrade})` : ''} is scheduled for return on ${dueDate}.\n\nKindly return or renew the book at the library desk during school hours (Sun–Thu) before the due date to keep the borrowing record clear and avoid overdue fees.\n\nWarm regards,\nF. Magoodhoo School Library Desk`
           : `Assalaamu Alaikum,\n\nThis is a friendly reminder from F. Magoodhoo School Library regarding "${bookTitle}" borrowed by ${userName}${userGrade ? ` (${userGrade})` : ''}.\n\nDue Date: ${dueDate}${daysOverdue > 0 ? ` (${daysOverdue} day(s) overdue)` : ''}${lateFeeMvr > 0 ? `\nCurrent Fine Balance: MVR ${Number(lateFeeMvr).toFixed(2)}` : ''}\n\nKindly return or renew the book at the library desk during school hours (Sun–Thu). Thank you!\n\nWarm regards,\nF. Magoodhoo School Library Desk`,
       channel,
       language,
@@ -1002,14 +1024,15 @@ app.post('/api/ai/draft-reminder', async (req, res) => {
   try {
     const ai = getGeminiClient();
     if (ai) {
-      const prompt = `Draft a polite, respectful school library return reminder for a parent or staff member at F. Magoodhoo School (Maldives).
+      const prompt = `Draft a polite, respectful school library return reminder for a parent, student, or staff member at F. Magoodhoo School (Maldives).
+Reminder Mode: ${preventiveTone ? 'PROACTIVE PRE-DUE NUDGE (book is not overdue yet; encourage on-time return or renewal gracefully without sounding accusatory)' : 'OVERDUE / DUE-WINDOW RETURN NOTICE'}
 Channel: ${channel.toUpperCase()} (${channel === 'sms' ? 'keep under 240 characters' : 'well-formatted message'})
 Language: ${isDhivehi ? 'Natural polite Dhivehi (Thaana script)' : 'Polite clear English'}
 Patron: ${userName} (${userGrade || 'Member'})
 Book Title: "${bookTitle}"
 Due Date: ${dueDate}
 Days Overdue: ${daysOverdue}
-Late Fee (MVR): ${Number(lateFeeMvr).toFixed(2)}`;
+Late Fee (MVR): ${Number(lateFeeMvr).toFixed(2)}${historicalContext ? `\nInternal Risk Context (use tactfully to adjust helpfulness without shaming): ${historicalContext}` : ''}`;
 
       const response = await callGeminiWithFallback(ai, {
         contents: prompt,

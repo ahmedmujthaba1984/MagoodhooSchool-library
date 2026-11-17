@@ -421,6 +421,26 @@ export default function App() {
     };
     setLedgerTransactions(prev => [optimisticTx, ...prev]);
 
+    if (!navigator.onLine) {
+      await offlineSyncEngine.enqueueOperation({
+        action: txInput.type === 'waiver' ? 'fee_waiver' : 'fine_payment',
+        endpoint: '/api/ledger',
+        payload: {
+          ...txInput,
+          userRole: currentUser.role || 'admin',
+          accessRole,
+          librarianId: currentUser.name,
+        },
+      });
+      toast.info(
+        language === 'dv'
+          ? `އޮފްލައިން މޯޑް: MVR ${txInput.amountMvr.toFixed(2)} ރެކޯޑް އައުޓްބޮކްސްގައި ރައްކާކުރެވިއްޖެ.`
+          : `Offline Mode: Recorded MVR ${txInput.amountMvr.toFixed(2)} (${txInput.type.replace('_', ' ')}) in IndexedDB Outbox for sync.`,
+        'Financial Ledger (Offline)'
+      );
+      return;
+    }
+
     try {
       const res = await fetch('/api/ledger', {
         method: 'POST',
@@ -472,6 +492,8 @@ export default function App() {
           userName: actingUser.name,
           userGrade: actingUser.grade,
           requestDate: newRes.requestDate,
+          userRole: actingUser.role || 'student',
+          accessRole,
         },
       });
       offlineQueue.enqueue({
@@ -637,6 +659,7 @@ export default function App() {
           librarianId: currentUser.name,
           copyBarcode: assignedCopy?.barcode || copyBarcode,
           userRole: currentUser.role || 'admin',
+          accessRole,
         },
       });
       toast.info(
@@ -747,6 +770,7 @@ export default function App() {
           copyBarcode: loan.copyBarcode,
           calculatedFee,
           userRole: currentUser.role || 'admin',
+          accessRole,
         },
       });
     } else {
@@ -878,6 +902,7 @@ export default function App() {
           loanId: loan.id,
           extensionDays: settings.maxBorrowDays,
           userRole: currentUser.role || 'admin',
+          accessRole,
         },
       });
     } else {

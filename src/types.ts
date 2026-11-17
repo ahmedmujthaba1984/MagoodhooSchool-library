@@ -215,6 +215,24 @@ export interface LibrarySettings {
   patronTierRules?: Record<'student' | 'teacher' | 'staff' | 'external', PatronTierPolicy>;
   annualAcquisitionsBudgetsMvr?: Record<string, number>;
   notificationTemplates?: Record<NotificationTemplateType, NotificationTemplatePair>;
+  reminderScheduler?: ReminderScheduleConfig;
+}
+
+export type ReminderCadence =
+  | 'daily_school_morning'
+  | 'twice_weekly_sun_wed'
+  | 'before_due_2d';
+
+export interface ReminderScheduleConfig {
+  enabled: boolean;
+  cadence: ReminderCadence;
+  runTimeLocal: string; // HH:mm e.g. "08:30"
+  riskThresholdPct: number; // e.g. 40, 50, 65, 75
+  defaultChannel: 'whatsapp' | 'sms' | 'email';
+  includeBilingual: boolean;
+  notifyParentsForStudents: boolean;
+  skipMaldivianHolidays: boolean;
+  lastAutoRunAt?: string;
 }
 
 export type NotificationTemplateType = 'overdue_notice' | 'hold_ready';
@@ -239,6 +257,9 @@ export type AuditActionType =
   | 'BACKUP_EXPORTED'
   | 'BACKUP_RESTORED'
   | 'NOTIFICATION_SENT'
+  | 'NOTIFICATION_DISPATCHED'
+  | 'REMINDER_SCHEDULE_UPDATED'
+  | 'REMINDER_BATCH_QUEUED'
   | 'SYSTEM_INIT';
 
 export type AuditTargetType =

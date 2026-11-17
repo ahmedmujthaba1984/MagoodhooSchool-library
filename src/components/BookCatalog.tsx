@@ -1054,7 +1054,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       </div>
 
                       {/* Title & Author on Cover bottom */}
-                      <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
+                      <div className="absolute bottom-3 inset-x-3.5 text-white">
                         <h3 className="font-bold text-sm line-clamp-1 group-hover:text-emerald-300 transition">
                           <bdi>{book.title}</bdi>
                         </h3>
@@ -1223,7 +1223,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           </div>
 
                           {/* Title & Author on bottom */}
-                          <div className="absolute bottom-3 left-3 right-3 text-white">
+                          <div className="absolute bottom-3 inset-x-3 text-white">
                             <h3 className="font-black text-base line-clamp-1">
                               <bdi>{book.title}</bdi>
                             </h3>

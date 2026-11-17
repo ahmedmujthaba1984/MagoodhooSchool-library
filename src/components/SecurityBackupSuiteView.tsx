@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Archive,
+  CalendarClock,
   Check,
   CheckCircle2,
   Copy,
@@ -20,6 +21,7 @@ import {
   Upload,
   UserCog,
 } from 'lucide-react';
+import { ReminderSchedulerPanel } from './ReminderSchedulerPanel';
 import {
   AccessRole,
   AcquisitionRequest,
@@ -81,7 +83,7 @@ interface SecurityBackupSuiteViewProps {
   }) => Promise<void> | void;
 }
 
-type SuiteSubTab = 'rbac' | 'notifications' | 'audit' | 'backup';
+type SuiteSubTab = 'rbac' | 'notifications' | 'scheduler' | 'audit' | 'backup';
 
 const PLACEHOLDER_TOKENS = [
   '{{patron_name}}',
@@ -99,6 +101,9 @@ const AUDIT_FILTER_OPTIONS: Array<{ id: string; label: string }> = [
   { id: 'BOOK_DELETED', label: 'Book Deleted' },
   { id: 'ROLE_CHANGED', label: 'Role Changed' },
   { id: 'POLICY_UPDATED', label: 'Policy Updated' },
+  { id: 'REMINDER_SCHEDULE_UPDATED', label: 'Schedule Updated' },
+  { id: 'REMINDER_BATCH_QUEUED', label: 'Reminder Batch' },
+  { id: 'NOTIFICATION_SENT', label: 'Notification Sent' },
   { id: 'BACKUP_EXPORTED', label: 'Backup Exported' },
   { id: 'BACKUP_RESTORED', label: 'Backup Restored' },
   { id: 'LOAN_ISSUED', label: 'Loan Issued' },
@@ -473,6 +478,22 @@ export const SecurityBackupSuiteView: React.FC<SecurityBackupSuiteViewProps> = (
           >
             <MessageSquare className="w-4 h-4 shrink-0" />
             <span>{isDv ? 'ދިވެހި/އިނގިރޭސި ނޯޓިސް' : 'Bilingual Notices (EN / DV)'}</span>
+          </button>
+        )}
+
+        {can('notifications:send') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('scheduler')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              activeSubTab === 'scheduler'
+                ? 'bg-slate-900 dark:bg-emerald-700 text-white'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+            id="security-tab-scheduler"
+          >
+            <CalendarClock className="w-4 h-4 shrink-0" />
+            <span>{isDv ? 'ރިމައިންޑަރ ޝެޑިއުލަރ' : 'Automated Reminder Scheduler'}</span>
           </button>
         )}
 
@@ -1064,6 +1085,21 @@ export const SecurityBackupSuiteView: React.FC<SecurityBackupSuiteViewProps> = (
             </div>
           )}
         </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 2B: AUTOMATED PREDICTIVE REMINDER SCHEDULER              */}
+      {/* ============================================================ */}
+      {activeSubTab === 'scheduler' && can('notifications:send') && (
+        <ReminderSchedulerPanel
+          books={books}
+          loans={loans}
+          users={users}
+          settings={settings}
+          canEditPolicy={can('policies:edit')}
+          onUpdateSettings={onUpdateSettings}
+          onRecordAuditEvent={onRecordAuditEvent}
+        />
       )}
 
       {/* ============================================================ */}

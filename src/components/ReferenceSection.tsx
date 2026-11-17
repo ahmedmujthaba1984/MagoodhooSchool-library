@@ -92,9 +92,10 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({ books }) => 
               <img
                 src={book.coverUrl}
                 alt={book.title}
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover group-hover:scale-105 transition"
               />
-              <span className="absolute top-2 left-2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">
+              <span className="absolute top-2 start-2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">
                 REF ONLY
               </span>
             </div>

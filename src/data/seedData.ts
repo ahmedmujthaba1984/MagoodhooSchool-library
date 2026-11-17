@@ -81,6 +81,16 @@ export const initialSettings: LibrarySettings = {
       dv: 'އައްސަލާމް ޢަލައިކުމް {{patron_name}}، ތިޔަ ބޭފުޅާ ނަންނޯޓު ކުރައްވާފައިވާ "{{book_title}}" މި ފޮތް މިހާރު ލައިބްރަރީ ކައުންޓަރުން ލިބެން އެބަހުއްޓެވެ. {{due_date}} ގެ ކުރިން ފޮތް ގެންދެވުން އެދެމެވެ. އެކައުންޓް ބެލެންސް: MVR {{fine_mvr}}.',
     },
   },
+  reminderScheduler: {
+    enabled: true,
+    cadence: 'daily_school_morning',
+    runTimeLocal: '08:30',
+    riskThresholdPct: 50,
+    defaultChannel: 'whatsapp',
+    includeBilingual: true,
+    notifyParentsForStudents: true,
+    skipMaldivianHolidays: true,
+  },
 };
 
 export const sampleUsers: UserProfile[] = [
@@ -1095,7 +1105,7 @@ export const samplePersonalItems: PersonalItem[] = [
     isbn: "9789991550015",
     mediaType: "Periodical",
     language: "English",
-    coverUrl: "/covers/islamic_history.jpg",
+    coverUrl: "/covers/islamic_studies.jpg",
     publisher: "Atoll Press",
     publicationYear: 2021,
     pageCount: 164,

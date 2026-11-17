@@ -118,6 +118,8 @@ export async function draftOverdueReminder(params: {
   lateFeeMvr?: number;
   channel: ReminderChannel;
   language: 'en' | 'dv';
+  historicalContext?: string;
+  isPreventive?: boolean;
 }): Promise<ReminderDraftResult> {
   const res = await safeAiJsonFetch<ReminderDraftResult>('/api/ai/draft-reminder', params, {
     method: 'POST',
@@ -126,13 +128,31 @@ export async function draftOverdueReminder(params: {
   });
   if (res) return res;
 
-  const { bookTitle, userName, userGrade, dueDate, daysOverdue = 0, lateFeeMvr = 0, channel, language } = params;
+  const {
+    bookTitle,
+    userName,
+    userGrade,
+    dueDate,
+    daysOverdue = 0,
+    lateFeeMvr = 0,
+    channel,
+    language,
+    isPreventive = false,
+  } = params;
+  const preventiveTone = Boolean(isPreventive) && daysOverdue <= 0;
+
   if (language === 'dv') {
     return {
-      subject: `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ހަނދާންކޮށްދިނުން — ${bookTitle}`,
+      subject: preventiveTone
+        ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ތާރީޚު ކައިރިވަމުންދޭ — ${bookTitle}`
+        : `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ހަނދާންކޮށްދިނުން — ${bookTitle}`,
       messageBody:
         channel === 'sms'
-          ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ގެ މުއްދަތު (${dueDate}) ހަމަވެފައިވާތީ ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.${lateFeeMvr > 0 ? ` ޖޫރިމަނާ: MVR ${lateFeeMvr.toFixed(2)}.` : ''}`
+          ? preventiveTone
+            ? `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ޙަވާލުކުރަންޖެހޭ ތާރީޚަކީ ${dueDate} އެވެ. ސުންގަޑީގެ ކުރިން ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.`
+            : `މަގޫދޫ ސްކޫލް ލައިބްރަރީ: ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ގެ މުއްދަތު (${dueDate}) ހަމަވެފައިވާތީ ޙަވާލުކޮށްދެއްވުން އެދެމެވެ.${lateFeeMvr > 0 ? ` ޖޫރިމަނާ: MVR ${lateFeeMvr.toFixed(2)}.` : ''}`
+          : preventiveTone
+          ? `އައްސަލާމް ޢަލައިކުމް،\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީން ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ތާރީޚު (${dueDate}) ކައިރިވަމުންދާތީ ކުރިއާލާ ހަނދާންކޮށްދެމެވެ.\n\nޖޫރިމަނާއަކާ ނުލައި ސުންގަޑީގެ ކުރިން ލައިބްރަރީ ކައުންޓަރަށް ފޮތް ޙަވާލުކޮށްދެއްވުން ނުވަތަ ރިނިއު ކޮށްދެއްވުން އެދެމެވެ. ޝުކުރިއްޔާ!`
           : `އައްސަލާމް ޢަލައިކުމް،\n\nމަގޫދޫ ސްކޫލް ލައިބްރަރީން ${userName}${userGrade ? ` (${userGrade})` : ''} ނަންގަވާފައިވާ "${bookTitle}" ފޮތް އަނބުރާ ޙަވާލުކުރުމުގެ ސުންގަޑި (${dueDate}) ވަނީ ${daysOverdue > 0 ? `${daysOverdue} ދުވަސް ފަހަނައަޅައި ގޮސްފައެވެ` : 'ހަމަވާން ކައިރިވެފައެވެ'}.\n${lateFeeMvr > 0 ? `މިހާތަނަށް އަރާފައިވާ ޖޫރިމަނާ: MVR ${lateFeeMvr.toFixed(2)}\n` : ''}\nސްކޫލް ގަޑީގައި ލައިބްރަރީ ކައުންޓަރަށް ފޮތް ޙަވާލުކޮށްދެއްވުން އެދެމެވެ. ޝުކުރިއްޔާ!`,
       channel,
       language,
@@ -140,10 +160,16 @@ export async function draftOverdueReminder(params: {
   }
 
   return {
-    subject: `F. Magoodhoo School Library Reminder: "${bookTitle}"`,
+    subject: preventiveTone
+      ? `F. Magoodhoo School Library Heads-Up: "${bookTitle}" Due ${dueDate}`
+      : `F. Magoodhoo School Library Reminder: "${bookTitle}"`,
     messageBody:
       channel === 'sms'
-        ? `Magoodhoo School Library: Reminder for ${userName}${userGrade ? ` (${userGrade})` : ''} to return "${bookTitle}" (Due: ${dueDate}${daysOverdue > 0 ? `, ${daysOverdue}d overdue` : ''}).${lateFeeMvr > 0 ? ` Fee: MVR ${lateFeeMvr.toFixed(2)}.` : ''}`
+        ? preventiveTone
+          ? `Magoodhoo School Library: Friendly heads-up for ${userName}${userGrade ? ` (${userGrade})` : ''} — "${bookTitle}" is due ${dueDate}. Return or renew on time to avoid overdue fees.`
+          : `Magoodhoo School Library: Reminder for ${userName}${userGrade ? ` (${userGrade})` : ''} to return "${bookTitle}" (Due: ${dueDate}${daysOverdue > 0 ? `, ${daysOverdue}d overdue` : ''}).${lateFeeMvr > 0 ? ` Fee: MVR ${lateFeeMvr.toFixed(2)}.` : ''}`
+        : preventiveTone
+        ? `Assalaamu Alaikum,\n\nThis is a proactive reminder from F. Magoodhoo School Library that "${bookTitle}" borrowed by ${userName}${userGrade ? ` (${userGrade})` : ''} is due on ${dueDate}.\n\nKindly return or renew the book at the library desk during school hours (Sun–Thu) before the due date to avoid late fees. Thank you!\n— F. Magoodhoo School Library`
         : `Assalaamu Alaikum,\n\nThis is a friendly reminder from F. Magoodhoo School Library regarding "${bookTitle}" borrowed by ${userName}${userGrade ? ` (${userGrade})` : ''}.\n\nDue Date: ${dueDate}${daysOverdue > 0 ? ` (${daysOverdue} day(s) overdue)` : ''}${lateFeeMvr > 0 ? `\nFine Balance: MVR ${lateFeeMvr.toFixed(2)}` : ''}\n\nKindly return or renew the book at the library desk during school hours (Sun–Thu). Thank you!\n— F. Magoodhoo School Library`,
     channel,
     language,

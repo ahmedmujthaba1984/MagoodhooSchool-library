@@ -217,6 +217,17 @@ class OfflineOutboxSyncEngine {
           status: 'pending',
           notes: 'Queued offline — awaiting sync',
         });
+      } else if (entry.action === 'fine_payment' || entry.action === 'fee_waiver') {
+        await offlineDb.putFinancialLedgerEntry({
+          entry_id: entry.outbox_id,
+          patron_id: entry.payload.userId || 'unknown',
+          loan_id: entry.payload.loanId || null,
+          type: entry.action === 'fee_waiver' ? 'fee_waived' : 'payment_received',
+          amount_mvr: Number(entry.payload.amountMvr) || 0,
+          reason_note: entry.payload.notes || 'Logged offline — awaiting sync',
+          processed_by: entry.payload.processedBy || 'Offline Desk',
+          timestamp: entry.client_timestamp,
+        });
       }
     } catch {}
   }
@@ -312,6 +323,7 @@ class OfflineOutboxSyncEngine {
             'Content-Type': 'application/json',
             'x-idempotency-key': entry.idempotency_key,
             'x-user-role': entry.payload.userRole || 'admin',
+            'x-access-role': entry.payload.accessRole || 'super_admin',
             'x-user-id': entry.payload.librarianId || 'offline-sync-engine',
           },
           body: JSON.stringify({
