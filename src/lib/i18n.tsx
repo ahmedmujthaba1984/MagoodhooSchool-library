@@ -665,9 +665,30 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const ThemeLocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('app_lang') : null;
-    return saved === 'dv' || saved === 'en' ? saved : 'en';
+    if (typeof window !== 'undefined') {
+      const urlLang = new URLSearchParams(window.location.search).get('lang');
+      if (urlLang === 'dv' || urlLang === 'en') {
+        localStorage.setItem('app_lang', urlLang);
+        return urlLang;
+      }
+      const saved = localStorage.getItem('app_lang');
+      if (saved === 'dv' || saved === 'en') return saved;
+    }
+    return 'en';
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const urlLang = new URLSearchParams(window.location.search).get('lang');
+      if (urlLang === 'dv' || urlLang === 'en') {
+        setLanguageState(urlLang);
+        localStorage.setItem('app_lang', urlLang);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('app_theme') : null;

@@ -20,6 +20,8 @@ interface MemberDirectoryProps {
   onOpenReportCardSyncModal?: () => void;
   onSelectMemberForCheckout?: (memberId: string) => void;
   onDeleteUser?: (userId: string) => void;
+  initialSelectedMemberId?: string | null;
+  onSelectedMemberChange?: (memberId: string | null) => void;
 }
 
 const SvgBarcode: React.FC<{ code: string; height?: number }> = ({ code, height = 46 }) => {
@@ -47,18 +49,52 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
   onOpenImportModal,
   onOpenReportCardSyncModal,
   onSelectMemberForCheckout,
-  onDeleteUser
+  onDeleteUser,
+  initialSelectedMemberId = null,
+  onSelectedMemberChange
 }) => {
   const { t, language, isRtl } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [tierFilter, setTierFilter] = useState<'all' | PatronTier>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
+  const [selectedMember, setSelectedMemberState] = useState<UserProfile | null>(() => {
+    if (!initialSelectedMemberId) return null;
+    return (
+      allUsers.find(
+        (u) =>
+          u.id === initialSelectedMemberId ||
+          u.studentIdCode === initialSelectedMemberId ||
+          u.staffIdCode === initialSelectedMemberId
+      ) || null
+    );
+  });
   const [showLibraryCardModal, setShowLibraryCardModal] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusState>(portalSyncManager.getStatus());
   const [isSyncingDirectory, setIsSyncingDirectory] = useState(false);
+
+  const setSelectedMember = (member: UserProfile | null) => {
+    setSelectedMemberState(member);
+    if (onSelectedMemberChange) {
+      onSelectedMemberChange(member ? member.id : null);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialSelectedMemberId) {
+      setSelectedMemberState(null);
+      return;
+    }
+    const found =
+      allUsers.find(
+        (u) =>
+          u.id === initialSelectedMemberId ||
+          u.studentIdCode === initialSelectedMemberId ||
+          u.staffIdCode === initialSelectedMemberId
+      ) || null;
+    if (found) setSelectedMemberState(found);
+  }, [initialSelectedMemberId, allUsers]);
 
   useEffect(() => {
     const unsub = portalSyncManager.subscribeStatus((st) => setSyncStatus(st));

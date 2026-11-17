@@ -18,6 +18,7 @@ import {
 import { getPredictiveInsights, PredictiveInsightsResponse } from '../lib/aiService';
 import { analyzeCatalogHealth } from '../lib/catalogHealth';
 import { ReminderDraftModal, ReminderTarget } from './ReminderDraftModal';
+import { AnalyticsDashboardSkeleton } from './Skeletons';
 
 interface DashboardViewProps {
   books: Book[];
@@ -645,7 +646,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          {insights ? (
+          {loadingInsights && !insights ? (
+            <AnalyticsDashboardSkeleton panels={3} />
+          ) : insights ? (
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
                 {insights.executiveSummary}
@@ -700,7 +703,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           ) : (
             <div className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-              {loadingInsights ? 'Analyzing circulation trends...' : 'Click refresh to compute predictive insights.'}
+              Click refresh to compute predictive insights.
             </div>
           )}
 

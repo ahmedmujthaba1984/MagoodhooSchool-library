@@ -14,6 +14,7 @@ import { printBarcodeStickerSheet } from '../lib/printableLabels';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
 import { useLanguage } from '../lib/i18n';
 import { useToast } from '../lib/toast';
+import { AiPanelSkeleton } from './Skeletons';
 
 interface SmartAICatalogerModalProps {
   isOpen: boolean;
@@ -535,7 +536,9 @@ export const SmartAICatalogerModal: React.FC<SmartAICatalogerModalProps> = ({
               </div>
             )}
 
-            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 space-y-4">
+            {isAnalyzing && <AiPanelSkeleton rows={4} />}
+
+            <div className={`p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 space-y-4 ${isAnalyzing ? 'opacity-60 pointer-events-none' : ''}`}>
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Extracted Bibliographic Review

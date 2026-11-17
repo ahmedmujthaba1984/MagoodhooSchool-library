@@ -1,9 +1,33 @@
 {
   "version": 2,
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/((?!api/|assets/|covers/|fonts/|sw\\.js|workbox-.*\\.js|manifest\\.json|offline\\.html|icon\\.svg|favicon\\.ico|apple-touch-icon\\.png|pwa-.*\\.png|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ]
 }

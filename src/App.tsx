@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   initializeDatabaseIfEmpty,
   subscribeBooks,
@@ -58,6 +58,14 @@ import { PatronSuggestionModal } from './components/PatronSuggestionModal';
 import { SecurityBackupSuiteView } from './components/SecurityBackupSuiteView';
 import { CatalogHealthModal } from './components/CatalogHealthModal';
 import { SyncOutboxModal } from './components/SyncOutboxModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { CirculationDeskSkeleton } from './components/Skeletons';
+import {
+  parseUrlState,
+  buildUrlFromState,
+  syncBrowserHistory,
+  CatalogUrlFilters
+} from './lib/urlState';
 import { convertAcquisitionToCatalogBook } from './lib/acquisitions';
 import { evaluateBadgesOnReturn } from './lib/readingEngagement';
 import { createImmutableAuditEntry } from './lib/auditLogger';
@@ -268,7 +276,82 @@ export default function App() {
     isDeskAssistant,
     isTeacher,
   } = usePermission(currentUser);
-  const [activeTab, setActiveTab] = useState<string>('catalog');
+  const initialUrl = useMemo(
+    () =>
+      typeof window !== 'undefined'
+        ? parseUrlState(window.location.pathname, window.location.search)
+        : { tab: 'catalog', bookId: null, patronId: null, lang: null, catalogFilters: {} as CatalogUrlFilters },
+    []
+  );
+
+  const [activeTab, setActiveTabState] = useState<string>(initialUrl.tab);
+  const [selectedUrlBookId, setSelectedUrlBookId] = useState<string | null>(initialUrl.bookId);
+  const [selectedUrlPatronId, setSelectedUrlPatronId] = useState<string | null>(initialUrl.patronId);
+  const [urlCatalogFilters, setUrlCatalogFilters] = useState<CatalogUrlFilters>(initialUrl.catalogFilters);
+  const [catalogPopSeq, setCatalogPopSeq] = useState<number>(0);
+  const liveCatalogFiltersRef = useRef<CatalogUrlFilters>(initialUrl.catalogFilters);
+  const isPopStateSyncRef = useRef<boolean>(false);
+  const hasMountedUrlSyncRef = useRef<boolean>(false);
+
+  const setActiveTab = (nextTab: string) => {
+    setActiveTabState(nextTab);
+    if (nextTab !== 'catalog' && nextTab !== 'add-book') {
+      setSelectedUrlBookId(null);
+    }
+    if (nextTab !== 'students') {
+      setSelectedUrlPatronId(null);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const parsed = parseUrlState(window.location.pathname, window.location.search);
+      isPopStateSyncRef.current = true;
+      setActiveTabState(parsed.tab);
+      setSelectedUrlBookId(parsed.bookId);
+      setSelectedUrlPatronId(parsed.patronId);
+      setUrlCatalogFilters(parsed.catalogFilters);
+      liveCatalogFiltersRef.current = parsed.catalogFilters;
+      setCatalogPopSeq((prev) => prev + 1);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (isPopStateSyncRef.current) {
+      isPopStateSyncRef.current = false;
+      return;
+    }
+    const nextUrl = buildUrlFromState({
+      tab: activeTab,
+      bookId: selectedUrlBookId,
+      patronId: selectedUrlPatronId,
+      lang: language,
+      catalogFilters:
+        activeTab === 'catalog' || activeTab === 'add-book' ? liveCatalogFiltersRef.current : undefined,
+    });
+    if (!hasMountedUrlSyncRef.current) {
+      hasMountedUrlSyncRef.current = true;
+      syncBrowserHistory(nextUrl, { replace: true });
+      return;
+    }
+    syncBrowserHistory(nextUrl, { replace: false });
+  }, [activeTab, selectedUrlBookId, selectedUrlPatronId, language]);
+
+  const handleCatalogFiltersChange = (filters: CatalogUrlFilters) => {
+    liveCatalogFiltersRef.current = filters;
+    if (activeTab !== 'catalog' && activeTab !== 'add-book') return;
+    const nextUrl = buildUrlFromState({
+      tab: activeTab,
+      bookId: selectedUrlBookId,
+      patronId: selectedUrlPatronId,
+      lang: language,
+      catalogFilters: filters,
+    });
+    syncBrowserHistory(nextUrl, { replace: true });
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
@@ -1804,263 +1887,326 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100 dark:bg-slate-950 relative z-10 safe-bottom">
           <div className="max-w-[1440px] mx-auto space-y-6">
             {activeTab === 'login' && (
-              <LoginPage
-                currentUser={currentUser}
-                allUsers={users}
-                onLoginSuccess={(user) => setCurrentUser(user)}
-                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                onNavigateTab={(tab) => setActiveTab(tab)}
-              />
+              <ErrorBoundary key="err-login" areaNameEn="Sign-In & Account" areaNameDv="ލޮގިން އަދި އެކައުންޓް" language={language}>
+                <LoginPage
+                  currentUser={currentUser}
+                  allUsers={users}
+                  onLoginSuccess={(user) => setCurrentUser(user)}
+                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              </ErrorBoundary>
             )}
 
-            {activeTab === 'reference' && <ReferenceSection books={books} />}
+            {activeTab === 'reference' && (
+              <ErrorBoundary key="err-reference" areaNameEn="Reference Section" areaNameDv="ރެފަރެންސް ބައި" language={language}>
+                <ReferenceSection books={books} />
+              </ErrorBoundary>
+            )}
 
             {activeTab === 'dashboard' && (
-              <DashboardView
-                books={books}
-                users={users}
-                loans={loans}
-                reservations={reservations}
-                ledgerTransactions={ledgerTransactions}
-                currentUser={currentUser}
-                onNavigateTab={(tab) => setActiveTab(tab)}
-                onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
-                onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
-              />
+              <ErrorBoundary key="err-dashboard" areaNameEn="Operations Dashboard" areaNameDv="ލައިބްރަރީ ޑޭޝްބޯޑް" language={language}>
+                <DashboardView
+                  books={books}
+                  users={users}
+                  loans={loans}
+                  reservations={reservations}
+                  ledgerTransactions={ledgerTransactions}
+                  currentUser={currentUser}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+                  onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
+                />
+              </ErrorBoundary>
             )}
 
             {(activeTab === 'catalog' || activeTab === 'add-book') && (
-              <BookCatalog
-                books={books}
-                currentUser={currentUser}
-                reservations={reservations}
-                users={users}
-                loans={loans}
-                settings={settings}
-                isLoading={isLoading}
-                onReserveBook={handleReserveBook}
-                onOpenCheckoutForBook={(book) => {
-                  setPreselectedCheckoutBook(book);
-                  setActiveTab('checkout-hub');
-                }}
-                onViewReferenceOnly={() => setActiveTab('reference')}
-                onOpenLogin={() => setActiveTab('login')}
-                onAddBook={handleAddBook}
-                onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
-                onOpenSmartCataloger={() => {
-                  setSmartCatalogerMode('catalog');
-                  setIsSmartCatalogerOpen(true);
-                }}
-                onEditBook={() => setIsAddBookModalOpen(true)}
-                onDeleteBook={handleDeleteBook}
-                onOpenImportModal={handleOpenImportModal}
-                onCancelReservation={handleCancelReservation}
-                onOpenChallenges={() => setActiveTab('reading-challenges')}
-                onOpenSuggestBook={() => setIsSuggestBookModalOpen(true)}
-              />
+              <ErrorBoundary
+                key={`err-catalog-${catalogPopSeq}`}
+                areaNameEn="OPAC Book Catalog"
+                areaNameDv="ފޮތްތަކުގެ ކެޓަލޮގް"
+                language={language}
+                onRecover={() => setSelectedUrlBookId(null)}
+              >
+                <BookCatalog
+                  key={`catalog-view-${catalogPopSeq}`}
+                  books={books}
+                  currentUser={currentUser}
+                  reservations={reservations}
+                  users={users}
+                  loans={loans}
+                  settings={settings}
+                  isLoading={isLoading}
+                  initialUrlFilters={urlCatalogFilters}
+                  initialSelectedBookId={selectedUrlBookId}
+                  onSelectedBookChange={(bookId) => setSelectedUrlBookId(bookId)}
+                  onFiltersChange={handleCatalogFiltersChange}
+                  onReserveBook={handleReserveBook}
+                  onOpenCheckoutForBook={(book) => {
+                    setPreselectedCheckoutBook(book);
+                    setActiveTab('checkout-hub');
+                  }}
+                  onViewReferenceOnly={() => setActiveTab('reference')}
+                  onOpenLogin={() => setActiveTab('login')}
+                  onAddBook={handleAddBook}
+                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+                  onOpenSmartCataloger={() => {
+                    setSmartCatalogerMode('catalog');
+                    setIsSmartCatalogerOpen(true);
+                  }}
+                  onEditBook={() => setIsAddBookModalOpen(true)}
+                  onDeleteBook={handleDeleteBook}
+                  onOpenImportModal={handleOpenImportModal}
+                  onCancelReservation={handleCancelReservation}
+                  onOpenChallenges={() => setActiveTab('reading-challenges')}
+                  onOpenSuggestBook={() => setIsSuggestBookModalOpen(true)}
+                />
+              </ErrorBoundary>
             )}
 
             {(activeTab === 'borrow-book' || activeTab === 'return-book' || activeTab === 'issued-books' || activeTab === 'late-returns' || activeTab === 'checkout-hub') && (
-              <QuickCheckout
-                books={books}
-                users={users}
-                loans={loans}
-                reservations={reservations}
-                settings={settings}
-                onProcessCheckout={handleProcessCheckout}
-                onProcessReturn={handleProcessReturn}
-                onRenewLoan={handleRenewLoan}
-                onOpenScanner={() => {
-                  setScannerCallback(null);
-                  setIsScannerOpen(true);
-                }}
-                preselectedBook={preselectedCheckoutBook}
-                preselectedMemberId={preselectedMemberCode}
-              />
+              <ErrorBoundary key="err-circulation" areaNameEn="Circulation Desk" areaNameDv="ފޮތް ދޫކުރާ ޑެސްކް" language={language}>
+                {isLoading && books.length === 0 ? (
+                  <CirculationDeskSkeleton />
+                ) : (
+                  <QuickCheckout
+                    books={books}
+                    users={users}
+                    loans={loans}
+                    reservations={reservations}
+                    settings={settings}
+                    onProcessCheckout={handleProcessCheckout}
+                    onProcessReturn={handleProcessReturn}
+                    onRenewLoan={handleRenewLoan}
+                    onOpenScanner={() => {
+                      setScannerCallback(null);
+                      setIsScannerOpen(true);
+                    }}
+                    preselectedBook={preselectedCheckoutBook}
+                    preselectedMemberId={preselectedMemberCode}
+                  />
+                )}
+              </ErrorBoundary>
             )}
 
             {activeTab === 'students' && (
-              <MemberDirectory
-                allUsers={users}
-                loans={loans}
-                books={books}
-                currentUserRole={currentUser.role}
-                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                onOpenImportModal={handleOpenImportModal}
-                onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                onSelectMemberForCheckout={(memberCode) => {
-                  setPreselectedMemberCode(memberCode);
-                  setActiveTab('checkout-hub');
-                }}
-                onDeleteUser={handleDeleteUser}
-              />
+              <ErrorBoundary
+                key="err-patrons"
+                areaNameEn="Members Directory"
+                areaNameDv="މެންބަރުންގެ ލިސްޓު"
+                language={language}
+                onRecover={() => setSelectedUrlPatronId(null)}
+              >
+                <MemberDirectory
+                  allUsers={users}
+                  loans={loans}
+                  books={books}
+                  currentUserRole={currentUser.role}
+                  initialSelectedMemberId={selectedUrlPatronId}
+                  onSelectedMemberChange={(memberId) => setSelectedUrlPatronId(memberId)}
+                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                  onOpenImportModal={handleOpenImportModal}
+                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                  onSelectMemberForCheckout={(memberCode) => {
+                    setPreselectedMemberCode(memberCode);
+                    setActiveTab('checkout-hub');
+                  }}
+                  onDeleteUser={handleDeleteUser}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'personal-library' && (
-              <PersonalLibrary
-                items={personalItems}
-                currentUser={currentUser}
-                onAddItem={handleAddPersonalItem}
-                onUpdateItem={handleUpdatePersonalItem}
-                onDeleteItem={handleDeletePersonalItem}
-                onImportItems={handleImportPersonalItems}
-                onOpenScanner={(cb) => {
-                  setScannerCallback(() => cb || null);
-                  setIsScannerOpen(true);
-                }}
-                onOpenSmartCataloger={() => {
-                  setSmartCatalogerMode('personal');
-                  setIsSmartCatalogerOpen(true);
-                }}
-              />
+              <ErrorBoundary key="err-personal" areaNameEn="Personal Library" areaNameDv="ޕާސަނަލް ލައިބްރަރީ" language={language}>
+                <PersonalLibrary
+                  items={personalItems}
+                  currentUser={currentUser}
+                  onAddItem={handleAddPersonalItem}
+                  onUpdateItem={handleUpdatePersonalItem}
+                  onDeleteItem={handleDeletePersonalItem}
+                  onImportItems={handleImportPersonalItems}
+                  onOpenScanner={(cb) => {
+                    setScannerCallback(() => cb || null);
+                    setIsScannerOpen(true);
+                  }}
+                  onOpenSmartCataloger={() => {
+                    setSmartCatalogerMode('personal');
+                    setIsSmartCatalogerOpen(true);
+                  }}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'parent-portal' && (
-              <ParentDashboard
-                parentUser={currentUser}
-                allUsers={users}
-                loans={loans}
-                reservations={reservations}
-                books={books}
-                onRenewLoan={handleRenewLoan}
-                onDeleteUser={handleDeleteUser}
-                onCancelReservation={handleCancelReservation}
-                onAddChildToParent={async (name, grade, studentIdCode) => {
-                  const childProfile: Omit<UserProfile, 'id'> = {
-                    name,
-                    grade,
-                    studentIdCode,
-                    role: 'student',
-                    patronTier: 'student',
-                    parentId: currentUser.id,
-                    email: `${name.toLowerCase().replace(/\s+/g, '.')}@fmagoodhooschool.edu.mv`,
-                    createdAt: new Date().toISOString().split('T')[0]
-                  };
-                  const newChildId = await createUserProfile(childProfile);
-                  const existingChildren = currentUser.childrenIds || [];
-                  await updateUserProfile(currentUser.id, {
-                    childrenIds: [...existingChildren, newChildId]
-                  });
-                  toast.success(`Added student account for ${name}.`, 'Child Linked');
-                }}
-                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-              />
+              <ErrorBoundary key="err-parent" areaNameEn="Parent Portal" areaNameDv="ބެލެނިވެރިންގެ ޕޯޓަލް" language={language}>
+                <ParentDashboard
+                  parentUser={currentUser}
+                  allUsers={users}
+                  loans={loans}
+                  reservations={reservations}
+                  books={books}
+                  onRenewLoan={handleRenewLoan}
+                  onDeleteUser={handleDeleteUser}
+                  onCancelReservation={handleCancelReservation}
+                  onAddChildToParent={async (name, grade, studentIdCode) => {
+                    const childProfile: Omit<UserProfile, 'id'> = {
+                      name,
+                      grade,
+                      studentIdCode,
+                      role: 'student',
+                      patronTier: 'student',
+                      parentId: currentUser.id,
+                      email: `${name.toLowerCase().replace(/\s+/g, '.')}@fmagoodhooschool.edu.mv`,
+                      createdAt: new Date().toISOString().split('T')[0]
+                    };
+                    const newChildId = await createUserProfile(childProfile);
+                    const existingChildren = currentUser.childrenIds || [];
+                    await updateUserProfile(currentUser.id, {
+                      childrenIds: [...existingChildren, newChildId]
+                    });
+                    toast.success(`Added student account for ${name}.`, 'Child Linked');
+                  }}
+                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                />
+              </ErrorBoundary>
             )}
 
             {(activeTab === 'manage-students' || activeTab === 'admin-panel') && (
-              <AdminPanel
-                books={books}
-                users={users}
-                loans={loans}
-                settings={settings}
-                ledgerTransactions={ledgerTransactions}
-                immutableAuditLogs={auditLogs}
-                currentUser={currentUser}
-                currentUserName={currentUser.name}
-                isQuotaExhausted={isQuotaExhausted}
-                onAddBook={handleAddBook}
-                onUpdateBook={handleUpdateBook}
-                onDeleteBook={handleDeleteBook}
-                onDeleteUser={handleDeleteUser}
-                onUpdateSettings={handleUpdateSettings}
-                onMarkFeePaid={handleMarkFeePaid}
-                onWaiveFee={handleWaiveFee}
-                onRecordLedgerTransaction={handleRecordLedgerTransaction}
-                onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                onOpenImportModal={handleOpenImportModal}
-                onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                onOpenSecuritySuite={() => setActiveTab('security-suite')}
-                onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
-              />
+              <ErrorBoundary key="err-admin" areaNameEn="Admin & MVR Ledger" areaNameDv="އެޑްމިން އަދި ލެޖަރ" language={language}>
+                <AdminPanel
+                  books={books}
+                  users={users}
+                  loans={loans}
+                  settings={settings}
+                  ledgerTransactions={ledgerTransactions}
+                  immutableAuditLogs={auditLogs}
+                  currentUser={currentUser}
+                  currentUserName={currentUser.name}
+                  isQuotaExhausted={isQuotaExhausted}
+                  onAddBook={handleAddBook}
+                  onUpdateBook={handleUpdateBook}
+                  onDeleteBook={handleDeleteBook}
+                  onDeleteUser={handleDeleteUser}
+                  onUpdateSettings={handleUpdateSettings}
+                  onMarkFeePaid={handleMarkFeePaid}
+                  onWaiveFee={handleWaiveFee}
+                  onRecordLedgerTransaction={handleRecordLedgerTransaction}
+                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                  onOpenImportModal={handleOpenImportModal}
+                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                  onOpenSecuritySuite={() => setActiveTab('security-suite')}
+                  onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'security-suite' && (
-              <SecurityBackupSuiteView
-                currentUser={currentUser}
-                users={users}
-                books={books}
-                loans={loans}
-                reservations={reservations}
-                ledgerTransactions={ledgerTransactions}
-                acquisitions={acquisitions}
-                personalItems={personalItems}
-                auditLogs={auditLogs}
-                settings={settings}
-                onUpdateSettings={handleUpdateSettings}
-                onUpdateUserRole={handleUpdateUserRole}
-                onExportBackup={handleExportBackup}
-                onRestoreBackup={handleRestoreBackup}
-                onRecordAuditEvent={recordAuditEvent}
-              />
+              <ErrorBoundary key="err-security" areaNameEn="Security & Backups" areaNameDv="ސެކިއުރިޓީ އަދި ބެކަޕް" language={language}>
+                <SecurityBackupSuiteView
+                  currentUser={currentUser}
+                  users={users}
+                  books={books}
+                  loans={loans}
+                  reservations={reservations}
+                  ledgerTransactions={ledgerTransactions}
+                  acquisitions={acquisitions}
+                  personalItems={personalItems}
+                  auditLogs={auditLogs}
+                  settings={settings}
+                  onUpdateSettings={handleUpdateSettings}
+                  onUpdateUserRole={handleUpdateUserRole}
+                  onExportBackup={handleExportBackup}
+                  onRestoreBackup={handleRestoreBackup}
+                  onRecordAuditEvent={recordAuditEvent}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'ai-assistant' && (
-              <AIAssistant
-                books={books}
-                loans={loans}
-                currentUser={currentUser}
-                onSelectBook={(book) => {
-                  setPreselectedCheckoutBook(book);
-                  setActiveTab('catalog');
-                }}
-                onNavigateTab={(tab) => setActiveTab(tab)}
-                onOpenSmartCataloger={() => {
-                  setSmartCatalogerMode(currentUser.role === 'admin' ? 'catalog' : 'personal');
-                  setIsSmartCatalogerOpen(true);
-                }}
-              />
+              <ErrorBoundary key="err-ai" areaNameEn="Libby AI Assistant" areaNameDv="ލިބީ އޭއައި އެސިސްޓަންޓް" language={language}>
+                <AIAssistant
+                  books={books}
+                  loans={loans}
+                  currentUser={currentUser}
+                  onSelectBook={(book) => {
+                    setPreselectedCheckoutBook(book);
+                    setActiveTab('catalog');
+                  }}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                  onOpenSmartCataloger={() => {
+                    setSmartCatalogerMode(currentUser.role === 'admin' ? 'catalog' : 'personal');
+                    setIsSmartCatalogerOpen(true);
+                  }}
+                />
+              </ErrorBoundary>
             )}
 
-            {activeTab === 'reports' && <ReportsAnalytics books={books} loans={loans} users={users} />}
+            {activeTab === 'reports' && (
+              <ErrorBoundary key="err-reports" areaNameEn="Analytics & Reports" areaNameDv="ތަފާސްހިސާބު" language={language}>
+                <ReportsAnalytics books={books} loans={loans} users={users} />
+              </ErrorBoundary>
+            )}
 
             {activeTab === 'stocktaking' && (
-              <InventoryAuditView
-                books={books}
-                loans={loans}
-                onAutoCheckIn={(loan) => handleProcessReturn(loan, 0)}
-                onUpdateBook={handleUpdateBook}
-                onDeleteBook={handleDeleteBook}
-              />
+              <ErrorBoundary key="err-stocktaking" areaNameEn="Stocktake & Weeding" areaNameDv="ސްޓޮކްޓޭކް އަދި ވީޑިންގ" language={language}>
+                <InventoryAuditView
+                  books={books}
+                  loans={loans}
+                  onAutoCheckIn={(loan) => handleProcessReturn(loan, 0)}
+                  onUpdateBook={handleUpdateBook}
+                  onDeleteBook={handleDeleteBook}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'acquisitions' && (
-              <AcquisitionsBoardView
-                requests={acquisitions}
-                books={books}
-                settings={settings}
-                onCreateRequest={handleCreateAcquisition}
-                onUpdateRequest={handleUpdateAcquisition}
-                onDeleteRequest={handleDeleteAcquisition}
-                onToggleUpvote={handleUpvoteAcquisition}
-                onReceiveAndCatalog={handleReceiveAndCatalogAcquisition}
-                onUpdateSettings={handleUpdateSettings}
-                onOpenSuggestionPortal={() => setIsSuggestBookModalOpen(true)}
-              />
+              <ErrorBoundary key="err-acquisitions" areaNameEn="Acquisitions & Budgets" areaNameDv="ފޮތް ހޯދުމާއި ބަޖެޓް" language={language}>
+                <AcquisitionsBoardView
+                  requests={acquisitions}
+                  books={books}
+                  settings={settings}
+                  onCreateRequest={handleCreateAcquisition}
+                  onUpdateRequest={handleUpdateAcquisition}
+                  onDeleteRequest={handleDeleteAcquisition}
+                  onToggleUpvote={handleUpvoteAcquisition}
+                  onReceiveAndCatalog={handleReceiveAndCatalogAcquisition}
+                  onUpdateSettings={handleUpdateSettings}
+                  onOpenSuggestionPortal={() => setIsSuggestBookModalOpen(true)}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'reading-challenges' && (
-              <ReadingEngagementView
-                currentUser={currentUser}
-                users={users}
-                loans={loans}
-                books={books}
-              />
+              <ErrorBoundary key="err-challenges" areaNameEn="Reading Challenges" areaNameDv="ކިޔުމުގެ ޗެލެންޖް" language={language}>
+                <ReadingEngagementView
+                  currentUser={currentUser}
+                  users={users}
+                  loans={loans}
+                  books={books}
+                />
+              </ErrorBoundary>
             )}
 
             {(activeTab === 'my-borrowings' || activeTab === 'my-loans') && (
-              <MyBorrowings
-                currentUser={currentUser}
-                loans={loans}
-                reservations={reservations}
-                books={books}
-                isLoading={isLoading}
-                onRenewLoan={handleRenewLoan}
-                onCancelReservation={handleCancelReservation}
-                onOpenChallenges={() => setActiveTab('reading-challenges')}
-              />
+              <ErrorBoundary key="err-my-loans" areaNameEn="My Borrowed Books" areaNameDv="އަޅުގަނޑު ގެންގުޅޭ ފޮތްތައް" language={language}>
+                <MyBorrowings
+                  currentUser={currentUser}
+                  loans={loans}
+                  reservations={reservations}
+                  books={books}
+                  isLoading={isLoading}
+                  onRenewLoan={handleRenewLoan}
+                  onCancelReservation={handleCancelReservation}
+                  onOpenChallenges={() => setActiveTab('reading-challenges')}
+                />
+              </ErrorBoundary>
             )}
 
-            {activeTab === 'faq' && <FaqHelpView />}
+            {activeTab === 'faq' && (
+              <ErrorBoundary key="err-faq" areaNameEn="Help & Guide" areaNameDv="އެހީތެރިކަމާއި ގައިޑް" language={language}>
+                <FaqHelpView />
+              </ErrorBoundary>
+            )}
           </div>
         </main>
       </div>
@@ -2160,28 +2306,30 @@ export default function App() {
       </div>
 
       {/* MODALS */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        books={books}
-        users={users}
-        personalItems={personalItems}
-        isAdmin={isSuperAdmin}
-        onSelectBook={(book) => {
-          setPreselectedCheckoutBook(book);
-          setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'catalog');
-        }}
-        onSelectUser={(user) => {
-          setPreselectedMemberCode(user.studentIdCode || user.staffIdCode || user.id);
-          setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'students');
-        }}
-        onNavigateTab={(tab) => setActiveTab(tab)}
-        onOpenScanner={() => {
-          setScannerCallback(null);
-          setIsScannerOpen(true);
-        }}
-        onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
-      />
+      <ErrorBoundary compact areaNameEn="Command Palette" areaNameDv="ކޮމާންޑް ޕެލެޓް" language={language} onRecover={() => setIsCommandPaletteOpen(false)}>
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
+          books={books}
+          users={users}
+          personalItems={personalItems}
+          isAdmin={isSuperAdmin}
+          onSelectBook={(book) => {
+            setPreselectedCheckoutBook(book);
+            setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'catalog');
+          }}
+          onSelectUser={(user) => {
+            setPreselectedMemberCode(user.studentIdCode || user.staffIdCode || user.id);
+            setActiveTab(can('circulation:checkout') ? 'checkout-hub' : 'students');
+          }}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+          onOpenScanner={() => {
+            setScannerCallback(null);
+            setIsScannerOpen(true);
+          }}
+          onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
+        />
+      </ErrorBoundary>
 
       <AddBookModal
         isOpen={isAddBookModalOpen}
@@ -2193,39 +2341,43 @@ export default function App() {
         }}
       />
 
-      <SmartAICatalogerModal
-        isOpen={isSmartCatalogerOpen}
-        onClose={() => setIsSmartCatalogerOpen(false)}
-        mode={smartCatalogerMode}
-        currentUserId={currentUser.id}
-        onSaveCatalogBook={handleAddBook}
-        onSavePersonalItem={handleAddPersonalItem}
-      />
+      <ErrorBoundary compact areaNameEn="AI Cataloger" areaNameDv="އޭއައި ކެޓަލޮގަރ" language={language} onRecover={() => setIsSmartCatalogerOpen(false)}>
+        <SmartAICatalogerModal
+          isOpen={isSmartCatalogerOpen}
+          onClose={() => setIsSmartCatalogerOpen(false)}
+          mode={smartCatalogerMode}
+          currentUserId={currentUser.id}
+          onSaveCatalogBook={handleAddBook}
+          onSavePersonalItem={handleAddPersonalItem}
+        />
+      </ErrorBoundary>
 
-      <BarcodeScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => {
-          setIsScannerOpen(false);
-          setScannerCallback(null);
-        }}
-        books={books}
-        users={users}
-        loans={loans}
-        settings={settings}
-        onProcessReturn={handleProcessReturn}
-        onScanResult={(scannedCode, matchedBook) => {
-          if (scannerCallback) {
-            scannerCallback(scannedCode);
-            setScannerCallback(null);
+      <ErrorBoundary compact areaNameEn="Barcode Scanner" areaNameDv="ބާކޯޑް ސްކޭނަރ" language={language} onRecover={() => setIsScannerOpen(false)}>
+        <BarcodeScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => {
             setIsScannerOpen(false);
-            return;
-          }
-          if (matchedBook) {
-            setPreselectedCheckoutBook(matchedBook);
-            setActiveTab(currentUser.role === 'admin' ? 'checkout-hub' : 'catalog');
-          }
-        }}
-      />
+            setScannerCallback(null);
+          }}
+          books={books}
+          users={users}
+          loans={loans}
+          settings={settings}
+          onProcessReturn={handleProcessReturn}
+          onScanResult={(scannedCode, matchedBook) => {
+            if (scannerCallback) {
+              scannerCallback(scannedCode);
+              setScannerCallback(null);
+              setIsScannerOpen(false);
+              return;
+            }
+            if (matchedBook) {
+              setPreselectedCheckoutBook(matchedBook);
+              setActiveTab(currentUser.role === 'admin' ? 'checkout-hub' : 'catalog');
+            }
+          }}
+        />
+      </ErrorBoundary>
 
       <AddParentModal
         isOpen={isAddParentModalOpen}
@@ -2234,19 +2386,23 @@ export default function App() {
         onCreateParentAccount={handleCreateParentAccount}
       />
 
-      <ImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        defaultType={importDefaultType}
-        onImportBooks={handleBulkImportBooks}
-        onImportParents={handleBulkImportParents}
-        onImportStaff={handleBulkImportStaff}
-      />
+      <ErrorBoundary compact areaNameEn="Bulk Import" areaNameDv="އިމްޕޯޓް މޯޑަލް" language={language} onRecover={() => setIsImportModalOpen(false)}>
+        <ImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          defaultType={importDefaultType}
+          onImportBooks={handleBulkImportBooks}
+          onImportParents={handleBulkImportParents}
+          onImportStaff={handleBulkImportStaff}
+        />
+      </ErrorBoundary>
 
-      <ReportCardSyncModal
-        isOpen={isReportCardSyncModalOpen}
-        onClose={() => setIsReportCardSyncModalOpen(false)}
-      />
+      <ErrorBoundary compact areaNameEn="Report Card Sync" areaNameDv="ރިޕޯޓް ކާޑް ސިންކް" language={language} onRecover={() => setIsReportCardSyncModalOpen(false)}>
+        <ReportCardSyncModal
+          isOpen={isReportCardSyncModalOpen}
+          onClose={() => setIsReportCardSyncModalOpen(false)}
+        />
+      </ErrorBoundary>
 
       <PatronSuggestionModal
         isOpen={isSuggestBookModalOpen}
@@ -2257,23 +2413,27 @@ export default function App() {
         onToggleUpvote={handleUpvoteAcquisition}
       />
 
-      <CatalogHealthModal
-        isOpen={isCatalogHealthOpen}
-        onClose={() => setIsCatalogHealthOpen(false)}
-        books={books}
-        onApplyBulkFixes={handleBulkUpdateBooks}
-        onNavigateTab={(tab) => setActiveTab(tab)}
-      />
+      <ErrorBoundary compact areaNameEn="AI Catalog Health" areaNameDv="ކެޓަލޮގް ހެލްތް އޮޑިޓް" language={language} onRecover={() => setIsCatalogHealthOpen(false)}>
+        <CatalogHealthModal
+          isOpen={isCatalogHealthOpen}
+          onClose={() => setIsCatalogHealthOpen(false)}
+          books={books}
+          onApplyBulkFixes={handleBulkUpdateBooks}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+        />
+      </ErrorBoundary>
 
-      <SyncOutboxModal
-        isOpen={isSyncOutboxOpen}
-        onClose={() => setIsSyncOutboxOpen(false)}
-        isOnline={isOnline}
-        syncState={syncState}
-        onRunSync={runOutboxSync}
-        onDismissConflict={(id) => offlineSyncEngine.dismissConflict(id)}
-        onClearAllConflicts={() => offlineSyncEngine.clearAllConflicts()}
-      />
+      <ErrorBoundary compact areaNameEn="Offline Sync Outbox" areaNameDv="ސިންކް އައުޓްބޮކްސް" language={language} onRecover={() => setIsSyncOutboxOpen(false)}>
+        <SyncOutboxModal
+          isOpen={isSyncOutboxOpen}
+          onClose={() => setIsSyncOutboxOpen(false)}
+          isOnline={isOnline}
+          syncState={syncState}
+          onRunSync={runOutboxSync}
+          onDismissConflict={(id) => offlineSyncEngine.dismissConflict(id)}
+          onClearAllConflicts={() => offlineSyncEngine.clearAllConflicts()}
+        />
+      </ErrorBoundary>
 
       {/* PWA Offline Mode & Outbox Sync Indicator */}
       {(!isOnline || syncState.pendingCount > 0 || syncState.conflicts.length > 0) && (

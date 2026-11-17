@@ -1,15 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search, Filter, BookOpen, BookMarked, CheckCircle, Clock,
   Bookmark, MapPin, Eye, Plus, FileSpreadsheet,
   User, Edit, Trash2, XCircle, Monitor, Sparkles,
-  Scan, CheckSquare, Square, Download, Layers, ChevronDown, ChevronUp, Camera, BookPlus
+  Scan, CheckSquare, Square, Download, Layers, ChevronDown, ChevronUp, Camera, BookPlus,
+  ArrowUpDown, Printer
 } from 'lucide-react';
 import { Book, UserProfile, Reservation, Loan, LibrarySettings, MediaType } from '../types';
 import { AddBookModal } from './AddBookModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { BookCoverFallback } from './BookCoverFallback';
-import { CatalogGridSkeleton } from './Skeletons';
+import { CatalogGridSkeleton, CatalogTableSkeleton } from './Skeletons';
 import { OpacKioskMode } from './OpacKioskMode';
 import { TopReadingClassesWidget } from './TopReadingClassesWidget';
 import { useLanguage } from '../lib/i18n';
@@ -17,6 +18,12 @@ import { useToast } from '../lib/toast';
 import { usePermission } from '../hooks/usePermission';
 import { offlineQueue } from '../lib/offlineQueue';
 import { exportToMarc21 } from '../lib/dataPortability';
+import { printBarcodeStickerSheet } from '../lib/printableLabels';
+import { CatalogUrlFilters } from '../lib/urlState';
+
+const VIEW_MODE_STORAGE_KEY = 'magoodhoo_catalog_view_mode';
+type SortField = 'title' | 'author' | 'ddc' | 'shelf' | 'total' | 'available';
+type SortDir = 'asc' | 'desc';
 
 const MEDIA_TYPES: MediaType[] = [
   'Book',
@@ -39,7 +46,7 @@ interface BookCatalogProps {
   onOpenCheckoutForBook: (book: Book) => void;
   onViewReferenceOnly: () => void;
   onOpenLogin?: () => void;
-  onAddBook?: (bookData: Omit<Book, 'id'>) => Promise<void>;
+  onAddBook?: (bookData: Omit<Book, 'id'>) => Promise<string | void> | void;
   onOpenAddBookModal?: () => void;
   onOpenSmartCataloger?: () => void;
   onEditBook?: (book: Book) => void;
@@ -49,6 +56,10 @@ interface BookCatalogProps {
   onOpenChallenges?: () => void;
   onOpenSuggestBook?: () => void;
   isLoading?: boolean;
+  initialUrlFilters?: CatalogUrlFilters;
+  initialSelectedBookId?: string | null;
+  onSelectedBookChange?: (bookId: string | null) => void;
+  onFiltersChange?: (filters: CatalogUrlFilters) => void;
 }
 
 export const BookCatalog: React.FC<BookCatalogProps> = ({
@@ -71,22 +82,27 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   onCancelReservation,
   onOpenChallenges,
   onOpenSuggestBook,
-  isLoading = false
+  isLoading = false,
+  initialUrlFilters,
+  initialSelectedBookId = null,
+  onSelectedBookChange,
+  onFiltersChange
 }) => {
   const { t, isRtl, language, localizeCategory } = useLanguage();
   const { toast } = useToast();
   const { can } = usePermission(currentUser);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialUrlFilters?.q || '');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(initialUrlFilters?.q || '');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isCatalogScannerOpen, setIsCatalogScannerOpen] = useState(false);
   const [isKioskOpen, setIsKioskOpen] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedMediaType, setSelectedMediaType] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<'all' | 'circulating' | 'reference'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'available' | 'checked-out'>('all');
-  const [selectedGrade, setSelectedGrade] = useState<string>('all');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialUrlFilters?.cat || 'all');
+  const [selectedMediaType, setSelectedMediaType] = useState<string>(initialUrlFilters?.media || 'all');
+  const [selectedType, setSelectedType] = useState<'all' | 'circulating' | 'reference'>(initialUrlFilters?.type || 'all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'available' | 'checked-out'>(initialUrlFilters?.status || 'all');
+  const [selectedGrade, setSelectedGrade] = useState<string>(initialUrlFilters?.grade || 'all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(initialUrlFilters?.blang || 'all');
   const [shelfGradeFilter, setShelfGradeFilter] = useState<'Primary' | 'Middle' | 'Secondary'>(() => {
     const num = parseInt((currentUser.grade || '').match(/\d+/)?.[0] || '0', 10);
     if (num >= 1 && num <= 5) return 'Primary';
@@ -99,14 +115,91 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   const [gradeCheckboxes, setGradeCheckboxes] = useState<string[]>([]);
   const [langCheckboxes, setLangCheckboxes] = useState<string[]>([]);
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
+    if (initialUrlFilters?.view === 'grid' || initialUrlFilters?.view === 'list') {
+      return initialUrlFilters.view;
+    }
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (saved === 'list' || saved === 'table') return 'list';
+      if (saved === 'grid') return 'grid';
+    }
+    return 'grid';
+  });
+
+  const setViewMode = (mode: 'grid' | 'list') => {
+    setViewModeState(mode);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+      } catch {}
+    }
+  };
+
+  // Sort & Bulk Table Selection State
+  const [sortField, setSortField] = useState<SortField>('title');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
+
   const [mobileSwipeMode, setMobileSwipeMode] = useState<'swipe' | 'stack'>('swipe');
   const [entriesPerPage, setEntriesPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedBook, setSelectedBookState] = useState<Book | null>(() => {
+    if (!initialSelectedBookId) return null;
+    return books.find((b) => b.id === initialSelectedBookId || b.isbn === initialSelectedBookId) || null;
+  });
   const [showMarcDetails, setShowMarcDetails] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+
+  const setSelectedBook = (book: Book | null) => {
+    setSelectedBookState(book);
+    if (onSelectedBookChange) {
+      onSelectedBookChange(book ? book.id : null);
+    }
+  };
+
+  // Sync deep-linked selectedBookId (e.g. from browser Back/Forward)
+  useEffect(() => {
+    if (!initialSelectedBookId) {
+      setSelectedBookState(null);
+      return;
+    }
+    const found = books.find((b) => b.id === initialSelectedBookId || b.isbn === initialSelectedBookId) || null;
+    if (found) setSelectedBookState(found);
+  }, [initialSelectedBookId, books]);
+
+  // 150ms debounced search for zero-lag typing & barcode scanning
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Sync active filters & viewMode back to URL search parameters
+  useEffect(() => {
+    if (!onFiltersChange) return;
+    onFiltersChange({
+      q: debouncedSearchQuery,
+      cat: selectedCategory,
+      media: selectedMediaType,
+      type: selectedType,
+      status: selectedStatus,
+      grade: selectedGrade,
+      blang: selectedLanguage,
+      view: viewMode,
+    });
+  }, [
+    debouncedSearchQuery,
+    selectedCategory,
+    selectedMediaType,
+    selectedType,
+    selectedStatus,
+    selectedGrade,
+    selectedLanguage,
+    viewMode,
+  ]);
 
   // Stats calculation
   const totalPhysicalCopies = useMemo(
@@ -174,12 +267,79 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     return list;
   }, [books, searchQuery]);
 
-  // High-performance multi-facet full text filtering
-  const filteredBooks = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+  // Live Facet Counts computed across current catalog
+  const facetCounts = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    const byMedia: Record<string, number> = {};
+    const byGrade: Record<string, number> = {
+      'Primary (Grades 1-5)': 0,
+      'Middle (Grades 6-8)': 0,
+      'Secondary (Grades 9-12)': 0,
+      'All Ages': 0,
+    };
+    const byLanguage: Record<string, number> = {
+      Dhivehi: 0,
+      English: 0,
+      Arabic: 0,
+    };
+    let available = 0;
+    let checkedOut = 0;
+    let reference = 0;
+    let circulating = 0;
 
-    return books.filter(book => {
-      // 1. Full text query match across Title, Author, ISBN, Barcode, Publisher, DDC, Shelf, Category
+    for (const b of books) {
+      if (b.category) byCategory[b.category] = (byCategory[b.category] || 0) + 1;
+      const mt = b.mediaType || 'Book';
+      byMedia[mt] = (byMedia[mt] || 0) + 1;
+
+      if (b.availableCopies > 0) available += 1;
+      else checkedOut += 1;
+
+      if (b.isReferenceOnly) reference += 1;
+      else circulating += 1;
+
+      const lang = (b.bookLanguage || 'English').toLowerCase();
+      if (lang === 'dhivehi') byLanguage.Dhivehi += 1;
+      else if (lang === 'arabic') byLanguage.Arabic += 1;
+      else byLanguage.English += 1;
+
+      if (b.targetGrade === 'All Ages') {
+        byGrade['All Ages'] += 1;
+        byGrade['Primary (Grades 1-5)'] += 1;
+        byGrade['Middle (Grades 6-8)'] += 1;
+        byGrade['Secondary (Grades 9-12)'] += 1;
+      } else if (b.targetGrade && byGrade[b.targetGrade] !== undefined) {
+        byGrade[b.targetGrade] += 1;
+      }
+    }
+
+    return {
+      byCategory,
+      byMedia,
+      byGrade,
+      byLanguage,
+      available,
+      checkedOut,
+      reference,
+      circulating,
+    };
+  }, [books]);
+
+  // Helper to evaluate a book against arbitrary filter configuration (powers live filtering + smart empty-state suggestions)
+  const filterBooksWithParams = (params: {
+    q: string;
+    cat: string;
+    media: string;
+    type: 'all' | 'circulating' | 'reference';
+    status: 'all' | 'available' | 'checked-out';
+    grade: string;
+    blang: string;
+    statusBoxes: string[];
+    gradeBoxes: string[];
+    langBoxes: string[];
+  }) => {
+    const q = params.q.trim().toLowerCase();
+    return books.filter((book) => {
       const matchesSearch =
         !q ||
         book.title.toLowerCase().includes(q) ||
@@ -189,59 +349,186 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         (book.publisher && book.publisher.toLowerCase().includes(q)) ||
         (book.ddcCallNumber && book.ddcCallNumber.toLowerCase().includes(q)) ||
         (book.shelfLocation && book.shelfLocation.toLowerCase().includes(q)) ||
-        book.category.toLowerCase().includes(q);
+        book.category.toLowerCase().includes(q) ||
+        Boolean(book.copies?.some((cp) => cp.barcode.toLowerCase().includes(q)));
 
-      // 2. Category match
-      const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
-
-      // 2b. Media type match
-      const matchesMediaType =
-        selectedMediaType === 'all' || (book.mediaType || 'Book') === selectedMediaType;
-
-      // 3. Circulating vs Reference Type
+      const matchesCategory = params.cat === 'all' || book.category === params.cat;
+      const matchesMediaType = params.media === 'all' || (book.mediaType || 'Book') === params.media;
       const matchesType =
-        selectedType === 'all' ||
-        (selectedType === 'reference' && book.isReferenceOnly) ||
-        (selectedType === 'circulating' && !book.isReferenceOnly);
+        params.type === 'all' ||
+        (params.type === 'reference' && book.isReferenceOnly) ||
+        (params.type === 'circulating' && !book.isReferenceOnly);
 
-      // 4. Availability Status
       let matchesStatus = true;
-      if (statusCheckboxes.length > 0) {
-        matchesStatus = statusCheckboxes.some(status => {
-          if (status === 'available') return book.availableCopies > 0;
-          if (status === 'checked-out') return book.availableCopies === 0;
-          if (status === 'reference') return book.isReferenceOnly;
+      if (params.statusBoxes.length > 0) {
+        matchesStatus = params.statusBoxes.some((st) => {
+          if (st === 'available') return book.availableCopies > 0;
+          if (st === 'checked-out') return book.availableCopies === 0;
+          if (st === 'reference') return book.isReferenceOnly;
           return true;
         });
-      } else if (selectedStatus !== 'all') {
+      } else if (params.status !== 'all') {
         matchesStatus =
-          (selectedStatus === 'available' && book.availableCopies > 0) ||
-          (selectedStatus === 'checked-out' && book.availableCopies === 0);
+          (params.status === 'available' && book.availableCopies > 0) ||
+          (params.status === 'checked-out' && book.availableCopies === 0);
       }
 
-      // 5. Grade Suitability
       let matchesGrade = true;
-      if (gradeCheckboxes.length > 0) {
-        matchesGrade = gradeCheckboxes.some(g => book.targetGrade === g || book.targetGrade === 'All Ages');
-      } else if (selectedGrade !== 'all') {
-        matchesGrade =
-          book.targetGrade === selectedGrade ||
-          book.targetGrade === 'All Ages';
+      if (params.gradeBoxes.length > 0) {
+        matchesGrade = params.gradeBoxes.some((g) => book.targetGrade === g || book.targetGrade === 'All Ages');
+      } else if (params.grade !== 'all') {
+        matchesGrade = book.targetGrade === params.grade || book.targetGrade === 'All Ages';
       }
 
-      // 6. Language
       let matchesLang = true;
-      if (langCheckboxes.length > 0) {
-        matchesLang = langCheckboxes.some(l => book.bookLanguage && book.bookLanguage.toLowerCase() === l.toLowerCase());
-      } else if (selectedLanguage !== 'all') {
+      if (params.langBoxes.length > 0) {
+        matchesLang = params.langBoxes.some((l) => book.bookLanguage && book.bookLanguage.toLowerCase() === l.toLowerCase());
+      } else if (params.blang !== 'all') {
         matchesLang =
-          selectedLanguage === 'all' ||
-          (book.bookLanguage && book.bookLanguage.toLowerCase() === selectedLanguage.toLowerCase());
+          params.blang === 'all' ||
+          Boolean(book.bookLanguage && book.bookLanguage.toLowerCase() === params.blang.toLowerCase());
       }
 
       return matchesSearch && matchesCategory && matchesMediaType && matchesType && matchesStatus && matchesGrade && matchesLang;
     });
-  }, [books, searchQuery, selectedCategory, selectedMediaType, selectedType, selectedStatus, selectedGrade, selectedLanguage, statusCheckboxes, gradeCheckboxes, langCheckboxes]);
+  };
+
+  // High-performance multi-facet full text filtering (150ms debounced query + sorted output)
+  const filteredBooks = useMemo(() => {
+    const list = filterBooksWithParams({
+      q: debouncedSearchQuery,
+      cat: selectedCategory,
+      media: selectedMediaType,
+      type: selectedType,
+      status: selectedStatus,
+      grade: selectedGrade,
+      blang: selectedLanguage,
+      statusBoxes: statusCheckboxes,
+      gradeBoxes: gradeCheckboxes,
+      langBoxes: langCheckboxes,
+    });
+
+    const sorted = [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'title') cmp = a.title.localeCompare(b.title);
+      else if (sortField === 'author') cmp = a.author.localeCompare(b.author);
+      else if (sortField === 'ddc') cmp = (a.ddcCallNumber || '').localeCompare(b.ddcCallNumber || '');
+      else if (sortField === 'shelf') cmp = (a.shelfLocation || '').localeCompare(b.shelfLocation || '');
+      else if (sortField === 'total') cmp = (a.totalCopies || 0) - (b.totalCopies || 0);
+      else if (sortField === 'available') cmp = (a.availableCopies || 0) - (b.availableCopies || 0);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [
+    books,
+    debouncedSearchQuery,
+    selectedCategory,
+    selectedMediaType,
+    selectedType,
+    selectedStatus,
+    selectedGrade,
+    selectedLanguage,
+    statusCheckboxes,
+    gradeCheckboxes,
+    langCheckboxes,
+    sortField,
+    sortDir,
+  ]);
+
+  // Smart Empty-State Suggestions when 0 results match active filters
+  const emptyStateSuggestions = useMemo(() => {
+    if (filteredBooks.length > 0 || books.length === 0) return [];
+    const suggestions: Array<{ label: string; count: number; apply: () => void }> = [];
+    const base = {
+      q: debouncedSearchQuery,
+      cat: selectedCategory,
+      media: selectedMediaType,
+      type: selectedType,
+      status: selectedStatus,
+      grade: selectedGrade,
+      blang: selectedLanguage,
+      statusBoxes: statusCheckboxes,
+      gradeBoxes: gradeCheckboxes,
+      langBoxes: langCheckboxes,
+    };
+
+    if (selectedStatus !== 'all' || statusCheckboxes.length > 0) {
+      const relaxed = filterBooksWithParams({ ...base, status: 'all', statusBoxes: [] });
+      if (relaxed.length > 0) {
+        suggestions.push({
+          label: language === 'dv' ? `ޙާލަތުގެ ފިލްޓަރު ދޫކޮށްލާ (${relaxed.length})` : `Include all availability statuses (${relaxed.length})`,
+          count: relaxed.length,
+          apply: () => {
+            setSelectedStatus('all');
+            setStatusCheckboxes([]);
+            setCurrentPage(1);
+          },
+        });
+      }
+    }
+
+    if (selectedLanguage !== 'all' || langCheckboxes.length > 0) {
+      const relaxed = filterBooksWithParams({ ...base, blang: 'all', langBoxes: [] });
+      if (relaxed.length > 0) {
+        suggestions.push({
+          label: language === 'dv' ? `ހުރިހާ ބަހެއް ދައްކާ (${relaxed.length})` : `Search across all languages (${relaxed.length})`,
+          count: relaxed.length,
+          apply: () => {
+            setSelectedLanguage('all');
+            setLangCheckboxes([]);
+            setCurrentPage(1);
+          },
+        });
+      }
+    }
+
+    if (selectedCategory !== 'all') {
+      const relaxed = filterBooksWithParams({ ...base, cat: 'all' });
+      if (relaxed.length > 0) {
+        suggestions.push({
+          label: language === 'dv' ? `ހުރިހާ މާއްދާއެއް (${relaxed.length})` : `Show all subjects (${relaxed.length})`,
+          count: relaxed.length,
+          apply: () => {
+            setSelectedCategory('all');
+            setCurrentPage(1);
+          },
+        });
+      }
+    }
+
+    if (selectedGrade !== 'all' || gradeCheckboxes.length > 0 || selectedMediaType !== 'all') {
+      const relaxed = filterBooksWithParams({ ...base, grade: 'all', gradeBoxes: [], media: 'all' });
+      if (relaxed.length > 0) {
+        suggestions.push({
+          label: language === 'dv' ? `ގްރޭޑާއި މީޑިއާ ފިލްޓަރު ފޮހެލާ (${relaxed.length})` : `Clear grade & media filters (${relaxed.length})`,
+          count: relaxed.length,
+          apply: () => {
+            setSelectedGrade('all');
+            setGradeCheckboxes([]);
+            setSelectedMediaType('all');
+            setCurrentPage(1);
+          },
+        });
+      }
+    }
+
+    return suggestions;
+  }, [
+    filteredBooks.length,
+    books,
+    debouncedSearchQuery,
+    selectedCategory,
+    selectedMediaType,
+    selectedType,
+    selectedStatus,
+    selectedGrade,
+    selectedLanguage,
+    statusCheckboxes,
+    gradeCheckboxes,
+    langCheckboxes,
+    language,
+  ]);
 
   // Curated Netflix/Libib-style Discovery Shelves
   const discoveryShelves = useMemo(() => {
@@ -326,6 +613,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
   const resetFilters = () => {
     setSearchQuery('');
+    setDebouncedSearchQuery('');
     setSelectedCategory('all');
     setSelectedMediaType('all');
     setSelectedType('all');
@@ -336,6 +624,60 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     setGradeCheckboxes([]);
     setLangCheckboxes([]);
     setCurrentPage(1);
+  };
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const toggleTableSelection = (bookId: string) => {
+    setSelectedTableIds((prev) =>
+      prev.includes(bookId) ? prev.filter((id) => id !== bookId) : [...prev, bookId]
+    );
+  };
+
+  const toggleSelectAllOnPage = () => {
+    const pageIds = paginatedBooks.map((b) => b.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedTableIds.includes(id));
+    if (allSelected) {
+      setSelectedTableIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedTableIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const selectedTableBooks = useMemo(
+    () => books.filter((b) => selectedTableIds.includes(b.id)),
+    [books, selectedTableIds]
+  );
+
+  const handleBulkExportCsv = () => {
+    if (selectedTableBooks.length === 0) return;
+    const headers = ['Title', 'Author', 'ISBN', 'DDC', 'Shelf', 'Category', 'Available', 'Total'];
+    const rows = selectedTableBooks.map((b) => [
+      `"${b.title.replace(/"/g, '""')}"`,
+      `"${b.author.replace(/"/g, '""')}"`,
+      `"${b.isbn}"`,
+      `"${b.ddcCallNumber || ''}"`,
+      `"${b.shelfLocation}"`,
+      `"${b.category}"`,
+      b.availableCopies,
+      b.totalCopies,
+    ]);
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `magoodhoo_selected_${selectedTableBooks.length}_books.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${selectedTableBooks.length} selected title(s) to CSV.`, 'Bulk Export');
   };
 
   const toggleStatusCheckbox = (status: string) => {
@@ -585,7 +927,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
               }`}
             >
-              {localizeCategory(cat)}
+              {localizeCategory(cat)} <span className="opacity-75 font-mono tabular-nums">({facetCounts.byCategory[cat] || 0})</span>
             </button>
           ))}
         </div>
@@ -603,9 +945,9 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               }}
               className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
             >
-              <option value="all">{language === 'dv' ? 'ހުރިހާ ޙާލަތެއް' : 'All Availability'}</option>
-              <option value="available">{language === 'dv' ? '✓ ލިބެންހުރި ފޮތްތައް' : '✓ In Stock (Available)'}</option>
-              <option value="checked-out">{language === 'dv' ? '⏱ ދޫކުރެވިފައި' : '⏱ Checked Out'}</option>
+              <option value="all">{language === 'dv' ? `ހުރިހާ ޙާލަތެއް (${books.length})` : `All Availability (${books.length})`}</option>
+              <option value="available">{language === 'dv' ? `✓ ލިބެންހުރި (${facetCounts.available})` : `✓ In Stock (${facetCounts.available})`}</option>
+              <option value="checked-out">{language === 'dv' ? `⏱ ދޫކުރެވިފައި (${facetCounts.checkedOut})` : `⏱ Checked Out (${facetCounts.checkedOut})`}</option>
             </select>
 
             {/* Media Type Filter */}
@@ -619,7 +961,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
             >
               <option value="all">{language === 'dv' ? 'ހުރިހާ މީޑިއާ ބާވަތެއް' : 'All Media Types'}</option>
               {MEDIA_TYPES.map((mt) => (
-                <option key={mt} value={mt}>{mt}</option>
+                <option key={mt} value={mt}>{mt} ({facetCounts.byMedia[mt] || 0})</option>
               ))}
             </select>
 
@@ -634,7 +976,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
             >
               {gradeOptions.map(g => (
                 <option key={g.value} value={g.value}>
-                  {language === 'dv' ? g.labelDv : g.labelEn}
+                  {language === 'dv' ? g.labelDv : g.labelEn}{g.value !== 'all' ? ` (${facetCounts.byGrade[g.value] || 0})` : ''}
                 </option>
               ))}
             </select>
@@ -648,10 +990,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               }}
               className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
             >
-              <option value="all">{language === 'dv' ? 'ހުރިހާ ބަހެއް' : 'All Languages'}</option>
-              <option value="English">English</option>
-              <option value="Dhivehi">ދިވެހި (Dhivehi)</option>
-              <option value="Arabic">العربية (Arabic)</option>
+              <option value="all">{language === 'dv' ? `ހުރިހާ ބަހެއް (${books.length})` : `All Languages (${books.length})`}</option>
+              <option value="English">English ({facetCounts.byLanguage.English})</option>
+              <option value="Dhivehi">ދިވެހި (Dhivehi) ({facetCounts.byLanguage.Dhivehi})</option>
+              <option value="Arabic">العربية (Arabic) ({facetCounts.byLanguage.Arabic})</option>
             </select>
 
             {hasActiveFilters && (
@@ -742,13 +1084,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
         </div>
 
-        {/* Row 3: Multi-Facet Filter Checkboxes (Availability, Grade, Language) */}
-        <div className="pt-2.5 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        {/* Row 3: Multi-Facet Filter Checkboxes (Availability, Grade, Language) with Live Counts */}
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             
             {/* Availability Checkboxes */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-extrabold text-slate-500 uppercase tracking-wider text-[10px]">
+              <span className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                 {language === 'dv' ? 'ޙާލަތު:' : 'Status:'}
               </span>
               <button
@@ -756,12 +1098,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 onClick={() => toggleStatusCheckbox('available')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
                   statusCheckboxes.includes('available')
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-extrabold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {statusCheckboxes.includes('available') ? <CheckSquare className="w-3.5 h-3.5 text-emerald-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
                 <span>{language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.available})</span>
               </button>
 
               <button
@@ -769,12 +1112,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 onClick={() => toggleStatusCheckbox('checked-out')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
                   statusCheckboxes.includes('checked-out')
-                    ? 'bg-amber-50 text-amber-800 border-amber-300 font-extrabold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {statusCheckboxes.includes('checked-out') ? <CheckSquare className="w-3.5 h-3.5 text-amber-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
                 <span>{language === 'dv' ? 'ދޫކޮށްފައި' : 'Checked Out'}</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.checkedOut})</span>
               </button>
 
               <button
@@ -782,18 +1126,19 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 onClick={() => toggleStatusCheckbox('reference')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
                   statusCheckboxes.includes('reference')
-                    ? 'bg-indigo-50 text-indigo-800 border-indigo-300 font-extrabold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {statusCheckboxes.includes('reference') ? <CheckSquare className="w-3.5 h-3.5 text-indigo-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
                 <span>{language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.reference})</span>
               </button>
             </div>
 
             {/* Language Checkboxes */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-extrabold text-slate-500 uppercase tracking-wider text-[10px]">
+              <span className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                 {language === 'dv' ? 'ބަސް:' : 'Language:'}
               </span>
               <button
@@ -801,12 +1146,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 onClick={() => toggleLangCheckbox('Dhivehi')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
                   langCheckboxes.includes('Dhivehi')
-                    ? 'bg-purple-50 text-purple-800 border-purple-300 font-extrabold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {langCheckboxes.includes('Dhivehi') ? <CheckSquare className="w-3.5 h-3.5 text-purple-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
                 <span>ދިވެހި</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.byLanguage.Dhivehi})</span>
               </button>
 
               <button
@@ -814,18 +1160,33 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 onClick={() => toggleLangCheckbox('English')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
                   langCheckboxes.includes('English')
-                    ? 'bg-sky-50 text-sky-800 border-sky-300 font-extrabold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {langCheckboxes.includes('English') ? <CheckSquare className="w-3.5 h-3.5 text-sky-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
                 <span>English</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.byLanguage.English})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleLangCheckbox('Arabic')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition font-bold text-[11px] cursor-pointer ${
+                  langCheckboxes.includes('Arabic')
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-extrabold shadow-2xs'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                {langCheckboxes.includes('Arabic') ? <CheckSquare className="w-3.5 h-3.5 text-emerald-600" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
+                <span>العربية</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-75">({facetCounts.byLanguage.Arabic})</span>
               </button>
             </div>
 
             {/* Grade Suitability Multi-facet Filter */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-extrabold text-slate-500 uppercase tracking-wider text-[10px]">
+              <span className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                 {language === 'dv' ? 'ގްރޭޑް:' : 'Grade:'}
               </span>
               {['Primary (Grades 1-5)', 'Middle (Grades 6-8)', 'Secondary (Grades 9-12)'].map((gr) => (
@@ -835,12 +1196,13 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   onClick={() => toggleGradeCheckbox(gr)}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border transition font-bold text-[10px] cursor-pointer ${
                     gradeCheckboxes.includes(gr)
-                      ? 'bg-teal-50 text-teal-800 border-teal-300 font-extrabold'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-800 font-extrabold'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
                 >
                   {gradeCheckboxes.includes(gr) ? <CheckSquare className="w-3 h-3 text-teal-600" /> : <Square className="w-3 h-3 text-slate-400" />}
                   <span>{gr.split(' ')[0]}</span>
+                  <span className="font-mono tabular-nums opacity-75">({facetCounts.byGrade[gr] || 0})</span>
                 </button>
               ))}
             </div>
@@ -977,7 +1339,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
       {/* SKELETON LOADING STATE */}
       {isLoading && (
-        <CatalogGridSkeleton count={8} />
+        viewMode === 'list' ? <CatalogTableSkeleton rows={6} /> : <CatalogGridSkeleton count={8} />
       )}
 
       {/* GRID VIEW (4-COLUMN RESPONSIVE DESKTOP GRID & SINGLE-COLUMN SWIPEABLE MOBILE LAYOUT) */}
@@ -1189,11 +1551,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       className="min-w-[85vw] max-w-[340px] snap-center shrink-0 bg-white border border-slate-200/90 rounded-3xl shadow-sm flex flex-col justify-between overflow-hidden"
                     >
                       <div>
-                        <div className="relative h-64 bg-slate-100 overflow-hidden">
-                          <img
+                        <div className="relative h-64 bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                          <BookCoverFallback
                             src={book.coverUrl}
-                            alt={book.title}
-                            loading="lazy"
+                            title={book.title}
+                            author={book.author}
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"></div>
@@ -1294,12 +1656,14 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       className="bg-white border border-slate-200/90 rounded-3xl shadow-xs overflow-hidden flex flex-col"
                     >
                       <div className="flex p-3.5 gap-3.5 items-center">
-                        <img
-                          src={book.coverUrl}
-                          alt=""
-                          loading="lazy"
-                          className="w-16 h-22 object-cover rounded-2xl shadow-xs border border-slate-200 shrink-0"
-                        />
+                        <div className="w-16 h-22 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+                          <BookCoverFallback
+                            src={book.coverUrl}
+                            title={book.title}
+                            author={book.author}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {book.isReferenceOnly ? (
@@ -1363,30 +1727,82 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         </div>
       )}
 
-      {/* COMPACT LIST / TABLE OF BOOKS VIEW (DENSE DESKTOP VIEW WITH STICKY HEADERS) */}
+      {/* COMPACT LIST / TABLE OF BOOKS VIEW (HIGH-DENSITY SORTABLE TABLE WITH BULK ACTIONS) */}
       {!isLoading && viewMode === 'list' && (
-        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xl space-y-4 p-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
           
           {/* Header Title */}
-          <div className="border-b border-slate-200 pb-3 flex items-center justify-between flex-wrap gap-2">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                <span className="p-1.5 bg-slate-100 rounded-lg border border-slate-300">
-                  <BookOpen className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <BookOpen className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                 </span>
                 <span>{t.catalog}</span>
               </h2>
-              <div className="h-1 w-20 bg-indigo-600 rounded-full mt-1"></div>
             </div>
 
-            <div className="text-xs text-slate-500 font-semibold">
-              <bdi className="font-mono font-bold text-slate-800">{filteredBooks.length}</bdi> {language === 'dv' ? 'ފޮތް ފެނިފައިވޭ' : 'items filtered'}
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+              <bdi className="font-mono tabular-nums font-bold text-slate-900 dark:text-white">{filteredBooks.length}</bdi> {language === 'dv' ? 'ފޮތް ފެނިފައިވޭ' : 'items filtered'}
             </div>
           </div>
 
+          {/* Bulk Selection Action Bar */}
+          {selectedTableIds.length > 0 && (
+            <div className="p-3 rounded-2xl bg-slate-900 dark:bg-emerald-950/70 text-white border border-slate-800 dark:border-emerald-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-bold font-mono tabular-nums">
+                {selectedTableIds.length} {language === 'dv' ? 'ފޮތް ޚިޔާރުކުރެވިފައި' : 'selected'}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBulkExportCsv}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exportToMarc21(selectedTableBooks, `magoodhoo-selected-${selectedTableBooks.length}.mrk`)}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>MARC21</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printBarcodeStickerSheet(
+                      selectedTableBooks.map((b) => ({
+                        title: b.title,
+                        code: b.barcode || b.isbn,
+                        ddcCallNumber: b.ddcCallNumber,
+                        shelfLocation: b.shelfLocation,
+                        isReferenceOnly: b.isReferenceOnly,
+                      })),
+                      `Catalog Barcodes (${selectedTableBooks.length})`
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{language === 'dv' ? 'ބާކޯޑް ޕްރިންޓް' : 'Print Barcodes'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTableIds([])}
+                  className="px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-white/10 text-slate-300 font-bold cursor-pointer"
+                >
+                  {language === 'dv' ? 'ދޫކޮށްލާ' : 'Clear'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Table Controls Top Row: Entries Dropdown & Search Input */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <span>{language === 'dv' ? 'ދައްކާ:' : 'Show'}</span>
               <select
                 value={entriesPerPage}
@@ -1394,7 +1810,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer"
+                className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-sm cursor-pointer"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -1407,7 +1823,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               <span>{language === 'dv' ? 'އައިޓަމް' : 'entries per page'}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 w-full sm:w-auto">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 w-full sm:w-auto">
               <span>{language === 'dv' ? 'ހޯއްދަވާ:' : 'Search:'}</span>
               <input
                 type="text"
@@ -1417,90 +1833,152 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   setCurrentPage(1);
                 }}
                 placeholder={language === 'dv' ? 'ފޮތުގެ ނަމުން...' : 'Filter table...'}
-                className="bg-white border border-slate-300 rounded-md px-3 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm w-full sm:w-48"
+                className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-sm w-full sm:w-48"
               />
             </div>
           </div>
 
-          {/* Main Table with Dark Blue Sticky Header */}
-          <div className="overflow-x-auto border border-slate-200/90 rounded-2xl max-h-[70vh]">
-            <table className="w-full text-start text-xs text-slate-800 border-collapse">
+          {/* Main Table with Sticky Sortable Headers */}
+          <div className="overflow-x-auto border border-slate-200/90 dark:border-slate-800 rounded-2xl max-h-[70vh]">
+            <table className="w-full text-start text-xs text-slate-800 dark:text-slate-200 border-collapse">
               <thead className="bg-slate-900 text-white font-extrabold border-b border-slate-800 sticky top-0 z-20 shadow-xs">
                 <tr>
-                  <th className="p-3.5 border-e border-slate-800">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</th>
-                  <th className="p-3.5 border-e border-slate-800">{language === 'dv' ? 'މުސަންނިފު' : 'Author'}</th>
-                  <th className="p-3.5 border-e border-slate-800">{language === 'dv' ? 'އައި.އެސް.ބީ.އެން' : 'ISBN / Call No.'}</th>
-                  <th className="p-3.5 border-e border-slate-800">{language === 'dv' ? 'ބައި / ޖެންރާ' : 'Genre'}</th>
-                  <th className="p-3.5 border-e border-slate-800 text-center">{language === 'dv' ? 'ޖުމްލަ' : 'Total'}</th>
-                  <th className="p-3.5 border-e border-slate-800 text-center">{language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</th>
+                  <th className="p-3 border-e border-slate-800 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAllOnPage}
+                      className="text-slate-300 hover:text-white cursor-pointer inline-flex items-center"
+                      aria-label="Select all books on page"
+                    >
+                      {paginatedBooks.length > 0 && paginatedBooks.every((b) => selectedTableIds.includes(b.id)) ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800">
+                    <button type="button" onClick={() => toggleSort('title')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800">
+                    <button type="button" onClick={() => toggleSort('author')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'މުސަންނިފު' : 'Author'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800">
+                    <button type="button" onClick={() => toggleSort('ddc')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'އައި.އެސް.ބީ.އެން / DDC' : 'ISBN / DDC'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800">
+                    <button type="button" onClick={() => toggleSort('shelf')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'ބައި / ރެކު' : 'Genre & Shelf'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800 text-center">
+                    <button type="button" onClick={() => toggleSort('total')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'ޖުމްލަ' : 'Total'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
+                  <th className="p-3.5 border-e border-slate-800 text-center">
+                    <button type="button" onClick={() => toggleSort('available')} className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300">
+                      <span>{language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</span>
+                      <ArrowUpDown className="w-3 h-3 opacity-75" />
+                    </button>
+                  </th>
                   <th className="p-3.5 text-center">{language === 'dv' ? 'ޢަމަލުތައް' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {paginatedBooks.map((book) => {
                   const isReserved = isAlreadyReservedByUser(book.id);
+                  const isChecked = selectedTableIds.includes(book.id);
 
                   return (
-                    <tr key={book.id} className="hover:bg-slate-50 transition">
+                    <tr key={book.id} className={`transition ${isChecked ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                      <td className="p-3 border-e border-slate-200 dark:border-slate-800 text-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleTableSelection(book.id)}
+                          className="text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer inline-flex items-center"
+                          aria-label={`Select ${book.title}`}
+                        >
+                          {isChecked ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4" />}
+                        </button>
+                      </td>
                       {/* Title Column */}
-                      <td className="p-3.5 border-e border-slate-200">
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-3">
-                          <BookCoverFallback
-                            src={book.coverUrl}
-                            title={book.title}
-                            className="w-8 h-10 object-cover rounded shadow-sm shrink-0 border border-slate-200"
-                          />
+                          <div className="w-8 h-10 rounded shadow-sm shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            <BookCoverFallback
+                              src={book.coverUrl}
+                              title={book.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
                           <div>
-                            <span className="font-extrabold text-slate-900 text-xs sm:text-sm block">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBook(book)}
+                              className="font-extrabold text-slate-900 dark:text-white hover:text-emerald-700 dark:hover:text-emerald-400 text-xs sm:text-sm block text-start cursor-pointer"
+                            >
                               <bdi>{book.title}</bdi>
-                            </span>
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
-                              <MapPin className="w-3 h-3 text-emerald-700" />
-                              <bdi>{book.shelfLocation}</bdi>
+                            </button>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                              {book.mediaType || 'Book'} · {book.bookLanguage || 'English'}
                             </span>
                           </div>
                         </div>
                       </td>
 
                       {/* Author Column */}
-                      <td className="p-3.5 border-e border-slate-200 font-medium text-slate-800">
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200">
                         <bdi>{book.author}</bdi>
                       </td>
 
                       {/* ISBN & Call Number Column */}
-                      <td className="p-3.5 border-e border-slate-200 font-mono text-slate-700 font-semibold space-y-0.5">
-                        <div className="text-slate-900"><bdi>{book.isbn}</bdi></div>
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-mono tabular-nums text-slate-700 dark:text-slate-300 font-semibold space-y-0.5">
+                        <div className="text-slate-900 dark:text-white"><bdi>{book.isbn}</bdi></div>
                         {book.ddcCallNumber && (
-                          <div className="text-[10px] text-slate-700 font-bold bg-slate-100 px-1.5 py-0.5 rounded inline-block">
+                          <div className="text-[10px] text-slate-700 dark:text-slate-300 font-bold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded inline-block">
                             <bdi>{book.ddcCallNumber}</bdi>
                           </div>
                         )}
                       </td>
 
-                      {/* Genre / Category Column */}
-                      <td className="p-3.5 border-e border-slate-200 font-medium text-slate-800">
-                        <span className="inline-block bg-slate-100 text-slate-800 text-[11px] font-bold px-2 py-0.5 rounded-md">
-                          {localizeCategory(book.category)}
-                        </span>
+                      {/* Genre & Shelf Column */}
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200 space-y-1">
+                        <div className="text-[11px] font-bold">{localizeCategory(book.category)}</div>
+                        <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <bdi>{book.shelfLocation}</bdi>
+                        </div>
                       </td>
 
                       {/* Total Copies Column */}
-                      <td className="p-3.5 border-e border-slate-200 text-center font-bold text-slate-800">
-                        <bdi className="font-mono">{book.totalCopies}</bdi>
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 text-center font-bold text-slate-800 dark:text-slate-200">
+                        <bdi className="font-mono tabular-nums">{book.totalCopies}</bdi>
                       </td>
 
-                      {/* Available Copies Column: Standardized Green = Available, Amber = Checked Out, Blue = Reference */}
-                      <td className="p-3.5 border-e border-slate-200 text-center">
+                      {/* Available Copies Column */}
+                      <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 text-center">
                         {book.isReferenceOnly ? (
-                          <span className="bg-sky-100 text-sky-800 border border-sky-300 text-[10px] font-black px-2 py-1 rounded-md shadow-xs inline-block">
+                          <span className="bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 text-[10px] font-black px-2 py-1 rounded-md shadow-xs inline-block">
                             <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'Ref Only'}</bdi>
                           </span>
                         ) : book.availableCopies > 0 ? (
-                          <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
-                            <bdi>{book.availableCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</bdi>
+                          <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px] font-mono tabular-nums">
+                            <bdi>{book.availableCopies}/{book.totalCopies} {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}</bdi>
                           </span>
                         ) : (
-                          <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
+                          <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
                             <bdi>{language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}</bdi>
                           </span>
                         )}
@@ -1509,7 +1987,6 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       {/* Actions Column */}
                       <td className="p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* View Details */}
                           <button
                             type="button"
                             onClick={() => setSelectedBook(book)}
@@ -1520,7 +1997,6 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             <span className="hidden sm:inline">{language === 'dv' ? 'ތަފްޞީލު' : 'Details'}</span>
                           </button>
 
-                          {/* Reserve Online */}
                           {!book.isReferenceOnly && (
                             <button
                               type="button"
@@ -1540,7 +2016,6 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             </button>
                           )}
 
-                          {/* Role-Guarded Desk & Catalog Controls */}
                           {can('circulation:checkout') && (
                             <button
                               type="button"
@@ -1587,18 +2062,18 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
           {/* Table Footer: Entries info & Pagination */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {language === 'dv' ? (
                 <span>
-                  <bdi className="font-mono font-bold text-slate-800">{filteredBooks.length}</bdi> ފޮތުގެ ތެރެއިން{' '}
-                  <bdi className="font-mono font-bold text-slate-800">{filteredBooks.length === 0 ? 0 : startIndex + 1}</bdi> އިން{' '}
-                  <bdi className="font-mono font-bold text-slate-800">{Math.min(currentPage * entriesPerPage, filteredBooks.length)}</bdi> އަށް ދައްކަނީ
+                  <bdi className="font-mono font-bold text-slate-800 dark:text-white">{filteredBooks.length}</bdi> ފޮތުގެ ތެރެއިން{' '}
+                  <bdi className="font-mono font-bold text-slate-800 dark:text-white">{filteredBooks.length === 0 ? 0 : startIndex + 1}</bdi> އިން{' '}
+                  <bdi className="font-mono font-bold text-slate-800 dark:text-white">{Math.min(currentPage * entriesPerPage, filteredBooks.length)}</bdi> އަށް ދައްކަނީ
                 </span>
               ) : (
                 <span>
-                  Showing <bdi className="font-mono font-bold text-slate-800">{filteredBooks.length === 0 ? 0 : startIndex + 1}</bdi> to{' '}
-                  <bdi className="font-mono font-bold text-slate-800">{Math.min(currentPage * entriesPerPage, filteredBooks.length)}</bdi> of{' '}
-                  <bdi className="font-mono font-bold text-slate-800">{filteredBooks.length}</bdi> books
+                  Showing <bdi className="font-mono font-bold text-slate-800 dark:text-white">{filteredBooks.length === 0 ? 0 : startIndex + 1}</bdi> to{' '}
+                  <bdi className="font-mono font-bold text-slate-800 dark:text-white">{Math.min(currentPage * entriesPerPage, filteredBooks.length)}</bdi> of{' '}
+                  <bdi className="font-mono font-bold text-slate-800 dark:text-white">{filteredBooks.length}</bdi> books
                 </span>
               )}
             </div>
@@ -1608,13 +2083,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 type="button"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 {language === 'dv' ? 'ކުރީގެ' : 'Previous'}
               </button>
 
               {Array.from({ length: totalPages }).map((_, i) => {
-                // Windowed pagination
                 if (totalPages > 8 && Math.abs(currentPage - (i + 1)) > 3 && i !== 0 && i !== totalPages - 1) {
                   return null;
                 }
@@ -1626,8 +2100,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     onClick={() => setCurrentPage(i + 1)}
                     className={`px-3 py-1 text-xs font-bold rounded border transition cursor-pointer ${
                       currentPage === i + 1
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
                     <bdi className="font-mono">{i + 1}</bdi>
@@ -1639,7 +2113,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 type="button"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 {language === 'dv' ? 'ކުރިއަށް' : 'Next'}
               </button>
@@ -1649,21 +2123,46 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Smart Empty State with One-Click Filter Relaxation Suggestions */}
       {!isLoading && filteredBooks.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-3">
+        <div className="text-center py-14 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
           <BookOpen className="w-12 h-12 text-slate-400 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">{t.noBooksFound}</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
-            {t.searchEmptyHint}
-          </p>
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow transition hover:bg-indigo-700"
-          >
-            {language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Reset All Filters'}
-          </button>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.noBooksFound}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto font-medium">
+              {t.searchEmptyHint}
+            </p>
+          </div>
+
+          {emptyStateSuggestions.length > 0 && (
+            <div className="pt-2 space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {language === 'dv' ? 'އިތުރު ގޮތްތައް:' : 'Smart Filter Suggestions:'}
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {emptyStateSuggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={s.apply}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition cursor-pointer"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="px-4 py-2 bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+            >
+              {language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Reset All Filters'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1678,13 +2177,14 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
             }
           }}
         >
-          <div className="bg-white w-full sm:max-w-xl h-full max-sm:h-auto max-sm:max-h-[92vh] max-sm:rounded-t-3xl shadow-2xl border-s border-slate-200 text-slate-800 flex flex-col justify-between overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 w-full sm:max-w-xl h-full max-sm:h-auto max-sm:max-h-[92vh] max-sm:rounded-t-3xl shadow-2xl border-s border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 flex flex-col justify-between overflow-hidden">
             {/* Mobile Bottom-Sheet Grab Indicator */}
-            <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-md mx-auto my-2.5 shrink-0"></div>
+            <div className="sm:hidden w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-md mx-auto my-2.5 shrink-0"></div>
             <div className="relative h-48 bg-slate-900 shrink-0">
-              <img
+              <BookCoverFallback
                 src={selectedBook.coverUrl}
-                alt={selectedBook.title}
+                title={selectedBook.title}
+                author={selectedBook.author}
                 className="w-full h-full object-cover opacity-75"
               />
               <button

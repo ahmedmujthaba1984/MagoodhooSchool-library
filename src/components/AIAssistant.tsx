@@ -15,6 +15,7 @@ import {
   SCHOOL_GRADE_LEVELS,
 } from '../services/ai';
 import { BilingualAISearchCopilot } from './BilingualAISearchCopilot';
+import { AiPanelSkeleton } from './Skeletons';
 
 interface AIAssistantProps {
   books: Book[];
@@ -323,7 +324,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
             </button>
           </div>
 
-          {matchResult && (
+          {isRecLoading && <AiPanelSkeleton rows={3} />}
+
+          {!isRecLoading && matchResult && (
             <div className="space-y-4">
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
@@ -456,7 +459,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
             </button>
           </div>
 
-          {quizData && (
+          {isQuizLoading && <AiPanelSkeleton rows={3} />}
+
+          {!isQuizLoading && quizData && (
             <div className="space-y-6 bg-slate-50/70 dark:bg-slate-950/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-950 dark:text-emerald-100 space-y-1">
                 <div className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">

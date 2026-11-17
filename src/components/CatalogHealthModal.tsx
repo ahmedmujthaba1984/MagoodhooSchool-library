@@ -12,6 +12,7 @@ import {
 import { enrichCatalogHealthProposals } from '../services/ai';
 import { useLanguage } from '../lib/i18n';
 import { useToast } from '../lib/toast';
+import { AiPanelSkeleton } from './Skeletons';
 
 interface CatalogHealthModalProps {
   isOpen: boolean;
@@ -343,6 +344,7 @@ export const CatalogHealthModal: React.FC<CatalogHealthModalProps> = ({
 
         {/* Proposal Rows */}
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {isEnriching && <AiPanelSkeleton rows={4} />}
           {filteredProposals.length === 0 ? (
             <div className="py-12 text-center space-y-2">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />

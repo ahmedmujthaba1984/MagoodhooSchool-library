@@ -4,9 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <script>
-      /* Suppress disabled HMR WebSocket in cloud proxy/iFrame per environment constraints */
+      /* Pre-paint theme, RTL direction & HMR/chunk recovery */
       (function() {
         if (typeof window === 'undefined') return;
+        try {
+          var savedTheme = localStorage.getItem('app_theme');
+          if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+          var params = new URLSearchParams(window.location.search);
+          var urlLang = params.get('lang');
+          var savedLang = urlLang === 'dv' || urlLang === 'en' ? urlLang : localStorage.getItem('app_lang');
+          if (savedLang === 'dv') {
+            document.documentElement.dir = 'rtl';
+            document.documentElement.lang = 'dv';
+            document.documentElement.classList.add('rtl-mode');
+          }
+        } catch (e) {}
+
+        /* Auto-recover once from stale hashed JS chunk errors after a fresh deploy */
+        window.addEventListener('vite:preloadError', function() {
+          try {
+            var reloaded = sessionStorage.getItem('magoodhoo_chunk_reload');
+            if (!reloaded) {
+              sessionStorage.setItem('magoodhoo_chunk_reload', '1');
+              window.location.reload();
+            }
+          } catch (e) {}
+        });
+
+        /* Suppress disabled HMR WebSocket in cloud proxy/iFrame per environment constraints */
         var OriginalWebSocket = window.WebSocket;
         if (OriginalWebSocket) {
           window.WebSocket = function(url, protocols) {
@@ -115,17 +142,189 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
-    />
-    <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
     />
+
+    <!-- Instant Pre-Hydration App Shell Skeleton Styles (<50ms render, stripped automatically when React mounts) -->
+    <style>
+      #boot-shell {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f1f5f9;
+        color: #0f172a;
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      }
+      html.dark #boot-shell {
+        background: #020617;
+        color: #f8fafc;
+      }
+      .boot-topbar {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        gap: 16px;
+      }
+      html.dark .boot-topbar {
+        background: #0f172a;
+        border-bottom-color: #1e293b;
+      }
+      .boot-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .boot-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: #047857;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+      }
+      .boot-body {
+        flex: 1;
+        display: flex;
+      }
+      .boot-sidebar {
+        width: 256px;
+        background: #0f172a;
+        padding: 16px 12px;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        border-inline-end: 1px solid #1e293b;
+      }
+      @media (min-width: 1024px) {
+        .boot-sidebar {
+          display: flex;
+        }
+      }
+      .boot-main {
+        flex: 1;
+        padding: 24px;
+        max-width: 1440px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .boot-shimmer {
+        background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+        background-size: 200% 100%;
+        animation: bootPulse 1.4s ease-in-out infinite;
+        border-radius: 12px;
+      }
+      html.dark .boot-shimmer {
+        background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+        background-size: 200% 100%;
+      }
+      .boot-dark-pill {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        height: 36px;
+      }
+      .boot-hero {
+        height: 156px;
+        border-radius: 24px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-sizing: border-box;
+      }
+      html.dark .boot-hero {
+        background: #0f172a;
+        border-color: #1e293b;
+      }
+      .boot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 20px;
+      }
+      .boot-card {
+        height: 310px;
+        border-radius: 24px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-sizing: border-box;
+      }
+      html.dark .boot-card {
+        background: #0f172a;
+        border-color: #1e293b;
+      }
+      @keyframes bootPulse {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    </style>
   </head>
   <body class="bg-slate-100 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-shell" aria-busy="true" aria-label="Loading Magoodhoo School Library Portal">
+        <header class="boot-topbar">
+          <div class="boot-brand">
+            <span class="boot-logo" aria-hidden="true">M</span>
+            <span>Magoodhoo School Library</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="boot-shimmer" style="width:180px;height:34px;border-radius:10px;"></div>
+            <div class="boot-shimmer" style="width:92px;height:34px;border-radius:10px;"></div>
+          </div>
+        </header>
+        <div class="boot-body">
+          <aside class="boot-sidebar">
+            <div class="boot-dark-pill" style="height:42px;margin-bottom:8px;"></div>
+            <div class="boot-dark-pill"></div>
+            <div class="boot-dark-pill"></div>
+            <div class="boot-dark-pill"></div>
+            <div class="boot-dark-pill"></div>
+            <div class="boot-dark-pill"></div>
+          </aside>
+          <main class="boot-main">
+            <div class="boot-hero">
+              <div class="boot-shimmer" style="width:140px;height:14px;margin-bottom:12px;"></div>
+              <div class="boot-shimmer" style="width:320px;max-width:80%;height:28px;margin-bottom:16px;"></div>
+              <div class="boot-shimmer" style="width:100%;max-width:560px;height:44px;border-radius:14px;"></div>
+            </div>
+            <div class="boot-grid">
+              <div class="boot-card">
+                <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                <div class="boot-shimmer" style="height:14px;width:80%;"></div>
+                <div class="boot-shimmer" style="height:12px;width:55%;"></div>
+              </div>
+              <div class="boot-card">
+                <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                <div class="boot-shimmer" style="height:14px;width:75%;"></div>
+                <div class="boot-shimmer" style="height:12px;width:50%;"></div>
+              </div>
+              <div class="boot-card">
+                <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                <div class="boot-shimmer" style="height:14px;width:85%;"></div>
+                <div class="boot-shimmer" style="height:12px;width:60%;"></div>
+              </div>
+              <div class="boot-card">
+                <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                <div class="boot-shimmer" style="height:14px;width:70%;"></div>
+                <div class="boot-shimmer" style="height:12px;width:45%;"></div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

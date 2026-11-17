@@ -14,10 +14,13 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon.png', 'offline.html'],
         manifest: false,
         workbox: {
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
-          navigateFallback: '/offline.html',
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//, /^\/covers\//, /^\/fonts\//],
           runtimeCaching: [
             {
               urlPattern: /^\/api\/(books|loans|fines|ledger|reservations).*/i,
