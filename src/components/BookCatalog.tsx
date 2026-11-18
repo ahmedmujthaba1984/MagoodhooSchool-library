@@ -49,7 +49,7 @@ import {
   CatalogSortOption,
   GRADE_BAND_OPTIONS,
 } from '../hooks/useCatalogFilter';
-import { normalizeSearchText } from '../utils/searchNormalize';
+import { normalizeQuery } from '../utils/thaanaNormalize';
 import { offlineQueue } from '../lib/offlineQueue';
 import { exportToMarc21 } from '../lib/dataPortability';
 import { printBarcodeStickerSheet } from '../lib/printableLabels';
@@ -132,6 +132,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     selectedLanguages,
     setSelectedLanguages,
     toggleLanguage,
+    selectedPublishers,
+    setSelectedPublishers,
     circulationType,
     setCirculationType,
     viewMode,
@@ -148,6 +150,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     paginatedBooks,
     availableCategories,
     availableMediaTypes,
+    availablePublishers,
     facetCounts,
     activeFilterChips,
     activeFilterCount,
@@ -218,7 +221,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
   // Auto-complete suggestions using Thaana-normalized matching
   const autoCompleteSuggestions = useMemo(() => {
-    const q = normalizeSearchText(searchQuery);
+    const q = normalizeQuery(searchQuery);
     if (q.length < 2) return [];
 
     const list: Array<{ type: 'title' | 'author' | 'isbn' | 'category'; label: string; book: Book }> = [];
@@ -231,14 +234,14 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       const barcodeStr = String(b.barcode ?? '');
       const catStr = String(b.category ?? '');
 
-      if (normalizeSearchText(titleStr).includes(q)) {
+      if (normalizeQuery(titleStr).includes(q)) {
         const key = `t:${titleStr}`;
         if (!seen.has(key)) {
           seen.add(key);
           list.push({ type: 'title', label: titleStr, book: b });
         }
       }
-      if (normalizeSearchText(authorStr).includes(q)) {
+      if (normalizeQuery(authorStr).includes(q)) {
         const key = `a:${authorStr}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -246,8 +249,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         }
       }
       if (
-        normalizeSearchText(isbnStr).replace(/-/g, '').includes(q.replace(/-/g, '')) ||
-        normalizeSearchText(barcodeStr).includes(q)
+        normalizeQuery(isbnStr).replace(/-/g, '').includes(q.replace(/-/g, '')) ||
+        normalizeQuery(barcodeStr).includes(q)
       ) {
         const key = `i:${isbnStr || barcodeStr}`;
         if (!seen.has(key)) {
@@ -255,7 +258,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           list.push({ type: 'isbn', label: `${isbnStr || barcodeStr} - ${titleStr}`, book: b });
         }
       }
-      if (normalizeSearchText(catStr).includes(q)) {
+      if (normalizeQuery(catStr).includes(q)) {
         const key = `c:${catStr}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -863,6 +866,28 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 </option>
               </select>
 
+              {/* Publisher Dropdown (deduplicated) */}
+              {availablePublishers.length > 0 && (
+                <select
+                  value={selectedPublishers.length === 1 ? selectedPublishers[0] : 'all'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedPublishers(val === 'all' ? [] : [val]);
+                  }}
+                  aria-label="Publisher filter"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer leading-relaxed max-w-[190px]"
+                >
+                  <option value="all">
+                    {language === 'dv' ? 'ހުރިހާ ޗާޕުޚާނާއެއް' : 'All Publishers'}
+                  </option>
+                  {availablePublishers.map((pub) => (
+                    <option key={pub} value={pub}>
+                      {pub} ({facetCounts.byPublisher[pub] || 0})
+                    </option>
+                  ))}
+                </select>
+              )}
+
               {/* Sort Order Selector */}
               <select
                 value={sortBy}
@@ -1179,7 +1204,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 className="ms-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-extrabold transition cursor-pointer leading-relaxed"
               >
                 <XCircle className="w-3.5 h-3.5" />
-                <span>{language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Clear All Filters'}</span>
+                <span>{language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Reset All Filters'}</span>
               </button>
             </div>
           )}
@@ -1380,6 +1405,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             ddcCallNumber={book.ddcCallNumber}
                             category={book.category}
                             size="md"
+                            aspectRatio="none"
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent pointer-events-none" />
@@ -1597,6 +1623,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 ddcCallNumber={book.ddcCallNumber}
                                 category={book.category}
                                 size="md"
+                                aspectRatio="none"
                                 className="w-full h-full object-cover"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent pointer-events-none" />
@@ -1718,6 +1745,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 ddcCallNumber={book.ddcCallNumber}
                                 category={book.category}
                                 size="sm"
+                                aspectRatio="none"
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -2108,6 +2136,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                   ddcCallNumber={book.ddcCallNumber}
                                   category={book.category}
                                   size="xs"
+                                  aspectRatio="none"
                                   className="w-full h-full object-cover"
                                 />
                               </div>
@@ -2432,6 +2461,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 ddcCallNumber={selectedBook.ddcCallNumber}
                 category={selectedBook.category}
                 size="lg"
+                aspectRatio="none"
                 className="w-full h-full object-cover opacity-75"
               />
               <button

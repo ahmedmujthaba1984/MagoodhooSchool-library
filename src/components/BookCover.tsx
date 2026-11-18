@@ -3,12 +3,14 @@ import { BookOpen } from 'lucide-react';
 
 export interface BookCoverProps {
   src?: string;
+  alt?: string;
   title?: string | null;
   author?: string | null;
   ddcCallNumber?: string | null;
   category?: string | null;
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg';
+  aspectRatio?: '2/3' | 'none';
 }
 
 const COVER_PALETTES = [
@@ -30,14 +32,16 @@ function pickPalette(seed: string): string {
 
 export const BookCover: React.FC<BookCoverProps> = ({
   src,
+  alt,
   title,
   author,
   ddcCallNumber,
   category,
   className = 'w-full h-full object-cover',
   size = 'md',
+  aspectRatio = '2/3',
 }) => {
-  const safeTitle = (title ?? '').trim() || 'Untitled Catalog Volume';
+  const safeTitle = (title ?? alt ?? '').trim() || 'Untitled Catalog Volume';
   const safeAuthor = (author ?? '').trim();
   const safeDdc = (ddcCallNumber ?? '').trim();
   const cleanSrc = (src ?? '').trim();
@@ -55,11 +59,21 @@ export const BookCover: React.FC<BookCoverProps> = ({
     [category, safeTitle]
   );
 
+  // Detect callers like w-8 h-11 or w-9 h-12 where size classes live in className
+  const hasExplicitDimensions = /\b(w-\d+|w-\[|h-\d+|h-\[)/.test(className) && !/\bw-full\b/.test(className);
+  const wrapperSizing = hasExplicitDimensions
+    ? className
+    : aspectRatio === 'none'
+    ? 'w-full h-full'
+    : 'aspect-[2/3] w-full';
+
+  const imgClasses = hasExplicitDimensions ? 'w-full h-full object-cover' : className;
+
   const renderFallback = () => {
-    if (size === 'xs') {
+    if (size === 'xs' || hasExplicitDimensions) {
       return (
         <div
-          className={`w-full h-full bg-gradient-to-br ${palette} text-white p-1 flex flex-col items-center justify-center select-none text-center`}
+          className={`relative overflow-hidden ${wrapperSizing} bg-gradient-to-br ${palette} text-white p-1 flex flex-col items-center justify-center select-none text-center`}
           aria-label={safeTitle}
         >
           <BookOpen className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
@@ -74,7 +88,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
 
     return (
       <div
-        className={`w-full h-full bg-gradient-to-br ${palette} text-white p-3 flex flex-col justify-between select-none relative overflow-hidden`}
+        className={`relative overflow-hidden ${wrapperSizing} bg-gradient-to-br ${palette} text-white p-3 flex flex-col justify-between select-none`}
         aria-label={safeTitle}
       >
         {/* Subtle decorative spine stripe */}
@@ -125,22 +139,19 @@ export const BookCover: React.FC<BookCoverProps> = ({
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-200 dark:bg-slate-800">
+    <div className={`relative overflow-hidden bg-slate-200 dark:bg-slate-800 ${wrapperSizing}`}>
       {!isLoaded && (
-        <div
-          className="absolute inset-0 shimmer-skeleton"
-          aria-hidden="true"
-        />
+        <div className="absolute inset-0 shimmer-skeleton" aria-hidden="true" />
       )}
       <img
         src={cleanSrc}
-        alt={`${safeTitle}${safeAuthor ? ` — ${safeAuthor}` : ''}`}
+        alt={alt || `${safeTitle}${safeAuthor ? ` — ${safeAuthor}` : ''}`}
         referrerPolicy="no-referrer"
         loading="lazy"
         decoding="async"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
-        className={`${className} transition-opacity duration-200 ${
+        className={`${imgClasses} transition-opacity duration-200 ${
           isLoaded ? 'opacity-100' : 'opacity-0'
         }`}
       />

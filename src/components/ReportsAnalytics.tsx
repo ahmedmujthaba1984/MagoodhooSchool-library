@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Book, Loan, UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { SectionErrorBoundary } from './SectionErrorBoundary';
 
 interface ReportsAnalyticsProps {
   books: Book[];
@@ -368,57 +369,71 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Chart 1: Most Borrowed Books */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-indigo-600" /> {language === 'dv' ? 'އެންމެ ގިނައިން ނަގާފައިވާ ފޮތްތައް' : 'Most Borrowed Book Titles'}
-                </h3>
-                <span className="text-xs font-bold text-slate-500">{language === 'dv' ? 'ޖުމްލަ ތަފާސްހިސާބު' : 'All-Time Statistics'}</span>
-              </div>
+            <SectionErrorBoundary
+              compact
+              areaNameEn="Most Borrowed Books Chart"
+              areaNameDv="އެންމެ ގިނައިން ނެގި ފޮތްތަކުގެ ޗާޓް"
+              language={language}
+            >
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-indigo-600" /> {language === 'dv' ? 'އެންމެ ގިނައިން ނަގާފައިވާ ފޮތްތައް' : 'Most Borrowed Book Titles'}
+                  </h3>
+                  <span className="text-xs font-bold text-slate-500">{language === 'dv' ? 'ޖުމްލަ ތަފާސްހިސާބު' : 'All-Time Statistics'}</span>
+                </div>
 
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={popularBooksData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} interval={0} angle={-15} textAnchor="end" />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
-                    <Bar dataKey="borrows" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="h-64" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={popularBooksData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} interval={0} angle={-15} textAnchor="end" />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#475569' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
+                      <Bar dataKey="borrows" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            </SectionErrorBoundary>
 
             {/* Chart 2: Category Breakdown */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-purple-600" /> {language === 'dv' ? 'ފޮތްތަކުގެ ބާވަތްތަކުގެ އިންސައްތަ' : 'Book Genre & Category Distribution'}
-                </h3>
-                <span className="text-xs font-bold text-slate-500">{books.length} {language === 'dv' ? 'ސުރުޚީ' : 'Titles'}</span>
-              </div>
+            <SectionErrorBoundary
+              compact
+              areaNameEn="Genre Distribution Chart"
+              areaNameDv="ބާވަތްތަކުގެ ޗާޓް"
+              language={language}
+            >
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-purple-600" /> {language === 'dv' ? 'ފޮތްތަކުގެ ބާވަތްތަކުގެ އިންސައްތަ' : 'Book Genre & Category Distribution'}
+                  </h3>
+                  <span className="text-xs font-bold text-slate-500">{books.length} {language === 'dv' ? 'ސުރުޚީ' : 'Titles'}</span>
+                </div>
 
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    >
-                      {categoryPieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-64" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                      >
+                        {categoryPieData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '16px', fontSize: '12px', color: '#fff' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            </SectionErrorBoundary>
 
           </div>
 

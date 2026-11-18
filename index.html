@@ -14,7 +14,9 @@
           }
           var params = new URLSearchParams(window.location.search);
           var urlLang = params.get('lang');
-          var savedLang = urlLang === 'dv' || urlLang === 'en' ? urlLang : localStorage.getItem('app_lang');
+          var savedLang = urlLang === 'dv' || urlLang === 'en'
+            ? urlLang
+            : (localStorage.getItem('locale') || localStorage.getItem('app_lang'));
           if (savedLang === 'dv') {
             document.documentElement.dir = 'rtl';
             document.documentElement.lang = 'dv';

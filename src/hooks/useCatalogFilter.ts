@@ -4,8 +4,8 @@ import {
   getNormalizedBookSearchFields,
   normalizeCodeQuery,
   normalizeFacetLabel,
-  normalizeSearchText,
-} from '../utils/searchNormalize';
+  normalizeQuery,
+} from '../utils/thaanaNormalize';
 import { CatalogUrlFilters, CatalogViewMode, normalizeCatalogView } from '../lib/urlState';
 import { Language } from '../lib/i18n';
 
@@ -52,6 +52,7 @@ export interface CatalogFilterCriteria {
   selectedStatuses?: CatalogStatusFilter[];
   selectedGrades?: string[];
   selectedLanguages?: string[];
+  selectedPublishers?: string[];
   circulationType?: CirculationTypeFilter;
   sortBy?: CatalogSortOption;
 }
@@ -61,6 +62,7 @@ export interface CatalogFacetCounts {
   byMedia: Record<string, number>;
   byGrade: Record<string, number>;
   byLanguage: Record<string, number>;
+  byPublisher: Record<string, number>;
   available: number;
   checkedOut: number;
   reference: number;
@@ -93,7 +95,7 @@ function parseCsvParam(val?: string): string[] {
 }
 
 function normalizeLanguageValue(raw: unknown): 'Dhivehi' | 'English' | 'Arabic' | 'Other' {
-  const s = normalizeSearchText(raw);
+  const s = normalizeQuery(raw);
   if (s === 'dv' || s.includes('dhivehi') || s.includes('thaana')) return 'Dhivehi';
   if (s === 'ar' || s.includes('arabic')) return 'Arabic';
   if (s === 'other') return 'Other';
@@ -145,7 +147,7 @@ function matchesGradeFacet(bookGradeRaw: unknown, filterGrade: string): boolean 
 export function selectFilteredBooks(books: Book[], criteria: CatalogFilterCriteria): Book[] {
   if (!Array.isArray(books) || books.length === 0) return [];
 
-  const normQuery = normalizeSearchText(criteria.q);
+  const normQuery = normalizeQuery(criteria.q);
   const normCode = normalizeCodeQuery(criteria.q);
   const queryTokens = normQuery ? normQuery.split(' ').filter(Boolean) : [];
 
@@ -159,6 +161,9 @@ export function selectFilteredBooks(books: Book[], criteria: CatalogFilterCriter
   const grades = (criteria.selectedGrades || []).filter(Boolean);
   const normLangs = (criteria.selectedLanguages || [])
     .map((l) => normalizeLanguageValue(l))
+    .filter(Boolean);
+  const normPubs = (criteria.selectedPublishers || [])
+    .map((p) => normalizeFacetLabel(p).toLowerCase())
     .filter(Boolean);
   const circType = criteria.circulationType || 'all';
 
@@ -216,6 +221,12 @@ export function selectFilteredBooks(books: Book[], criteria: CatalogFilterCriter
     if (normLangs.length > 0) {
       const bookLang = normalizeLanguageValue(book.bookLanguage || 'English');
       if (!normLangs.includes(bookLang)) return false;
+    }
+
+    // 8. Publisher (OR within selectedPublishers)
+    if (normPubs.length > 0) {
+      const bookPub = normalizeFacetLabel(book.publisher ?? '').toLowerCase();
+      if (!normPubs.includes(bookPub)) return false;
     }
 
     return true;
@@ -282,11 +293,13 @@ export function selectFilteredBooks(books: Book[], criteria: CatalogFilterCriter
 export function computeCatalogFacets(books: Book[]): {
   availableCategories: string[];
   availableMediaTypes: string[];
+  availablePublishers: string[];
   availableLanguages: Array<'Dhivehi' | 'English' | 'Arabic' | 'Other'>;
   facetCounts: CatalogFacetCounts;
 } {
   const byCategory: Record<string, number> = {};
   const byMedia: Record<string, number> = {};
+  const byPublisher: Record<string, number> = {};
   const byGrade: Record<string, number> = {
     'Primary (Grades 1-5)': 0,
     'Middle (Grades 6-8)': 0,
@@ -302,6 +315,7 @@ export function computeCatalogFacets(books: Book[]): {
 
   const categoryCanonicalMap = new Map<string, string>();
   const mediaCanonicalMap = new Map<string, string>();
+  const publisherCanonicalMap = new Map<string, string>();
 
   let available = 0;
   let checkedOut = 0;
@@ -330,6 +344,14 @@ export function computeCatalogFacets(books: Book[]): {
     mediaCanonicalMap.set(mediaKey, canonicalMedia);
     byMedia[canonicalMedia] = (byMedia[canonicalMedia] || 0) + 1;
 
+    const rawPub = normalizeFacetLabel(b.publisher);
+    if (rawPub) {
+      const pubKey = rawPub.toLowerCase();
+      const canonicalPub = publisherCanonicalMap.get(pubKey) || rawPub;
+      publisherCanonicalMap.set(pubKey, canonicalPub);
+      byPublisher[canonicalPub] = (byPublisher[canonicalPub] || 0) + 1;
+    }
+
     const availCopies = Number(b.availableCopies ?? 0);
     if (availCopies > 0) available += 1;
     else checkedOut += 1;
@@ -351,6 +373,9 @@ export function computeCatalogFacets(books: Book[]): {
     a.localeCompare(b)
   );
   const availableMediaTypes = Array.from(mediaCanonicalMap.values());
+  const availablePublishers = Array.from(publisherCanonicalMap.values()).sort((a, b) =>
+    a.localeCompare(b)
+  );
   const availableLanguages = (['Dhivehi', 'English', 'Arabic', 'Other'] as const).filter(
     (l) => byLanguage[l] > 0 || l !== 'Other'
   );
@@ -358,12 +383,14 @@ export function computeCatalogFacets(books: Book[]): {
   return {
     availableCategories,
     availableMediaTypes,
+    availablePublishers,
     availableLanguages,
     facetCounts: {
       byCategory,
       byMedia,
       byGrade,
       byLanguage,
+      byPublisher,
       available,
       checkedOut,
       reference,
@@ -409,6 +436,9 @@ export function useCatalogFilter({
   const [selectedLanguages, setSelectedLanguagesState] = useState<string[]>(() =>
     parseCsvParam(initialFilters?.blang)
   );
+  const [selectedPublishers, setSelectedPublishersState] = useState<string[]>(() =>
+    parseCsvParam(initialFilters?.pub)
+  );
   const [circulationType, setCirculationTypeState] = useState<CirculationTypeFilter>(
     initialFilters?.type || 'all'
   );
@@ -438,11 +468,11 @@ export function useCatalogFilter({
     }
   }, [resultsContainerRef]);
 
-  // 200ms debounced search query
+  // 180ms debounced search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
-    }, 200);
+    }, 180);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -456,6 +486,7 @@ export function useCatalogFilter({
         selectedStatuses,
         selectedGrades,
         selectedLanguages,
+        selectedPublishers,
         circulationType,
         sortBy,
         entriesPerPage,
@@ -467,6 +498,7 @@ export function useCatalogFilter({
       selectedStatuses,
       selectedGrades,
       selectedLanguages,
+      selectedPublishers,
       circulationType,
       sortBy,
       entriesPerPage,
@@ -557,6 +589,22 @@ export function useCatalogFilter({
     setPageState(1);
   }, []);
 
+  const setSelectedPublishers = useCallback((pubs: string[] | ((prev: string[]) => string[])) => {
+    setSelectedPublishersState(pubs);
+    setPageState(1);
+  }, []);
+
+  const togglePublisher = useCallback((pub: string) => {
+    const target = normalizeFacetLabel(pub);
+    if (!target) return;
+    setSelectedPublishersState((prev) =>
+      prev.some((p) => p.toLowerCase() === target.toLowerCase())
+        ? prev.filter((p) => p.toLowerCase() !== target.toLowerCase())
+        : [...prev, target]
+    );
+    setPageState(1);
+  }, []);
+
   const setCirculationType = useCallback((nextType: CirculationTypeFilter) => {
     setCirculationTypeState(nextType);
     setPageState(1);
@@ -580,15 +628,19 @@ export function useCatalogFilter({
     setSelectedStatusesState([]);
     setSelectedGradesState([]);
     setSelectedLanguagesState([]);
+    setSelectedPublishersState([]);
     setCirculationTypeState('all');
     setPageState(1);
   }, []);
 
   // Facets + Counts
-  const { availableCategories, availableMediaTypes, availableLanguages, facetCounts } = useMemo(
-    () => computeCatalogFacets(books),
-    [books]
-  );
+  const {
+    availableCategories,
+    availableMediaTypes,
+    availablePublishers,
+    availableLanguages,
+    facetCounts,
+  } = useMemo(() => computeCatalogFacets(books), [books]);
 
   // Filtered & Sorted Results
   const filteredBooks = useMemo(
@@ -600,6 +652,7 @@ export function useCatalogFilter({
         selectedStatuses,
         selectedGrades,
         selectedLanguages,
+        selectedPublishers,
         circulationType,
         sortBy,
       }),
@@ -611,6 +664,7 @@ export function useCatalogFilter({
       selectedStatuses,
       selectedGrades,
       selectedLanguages,
+      selectedPublishers,
       circulationType,
       sortBy,
     ]
@@ -654,6 +708,7 @@ export function useCatalogFilter({
       status: selectedStatuses.length > 0 ? selectedStatuses.join(',') : undefined,
       grade: selectedGrades.length > 0 ? selectedGrades.join(',') : undefined,
       blang: selectedLanguages.length > 0 ? selectedLanguages.join(',') : undefined,
+      pub: selectedPublishers.length > 0 ? selectedPublishers.join(',') : undefined,
       sort: sortBy !== 'title-asc' ? sortBy : undefined,
       page: safePage > 1 ? safePage : undefined,
       view: viewMode,
@@ -666,6 +721,7 @@ export function useCatalogFilter({
     selectedStatuses,
     selectedGrades,
     selectedLanguages,
+    selectedPublishers,
     sortBy,
     safePage,
     viewMode,
@@ -762,6 +818,15 @@ export function useCatalogFilter({
       });
     }
 
+    for (const pub of selectedPublishers) {
+      chips.push({
+        id: `pub:${pub}`,
+        group: language === 'dv' ? 'ޗާޕުޚާނާ' : 'Publisher',
+        label: pub,
+        onRemove: () => togglePublisher(pub),
+      });
+    }
+
     return chips;
   }, [
     searchQuery,
@@ -771,6 +836,7 @@ export function useCatalogFilter({
     selectedStatuses,
     selectedGrades,
     selectedLanguages,
+    selectedPublishers,
     language,
     toggleCategory,
     toggleMediaType,
@@ -778,6 +844,7 @@ export function useCatalogFilter({
     toggleStatus,
     toggleGrade,
     toggleLanguage,
+    togglePublisher,
   ]);
 
   const activeFilterCount = activeFilterChips.length;
@@ -793,6 +860,7 @@ export function useCatalogFilter({
       selectedStatuses,
       selectedGrades,
       selectedLanguages,
+      selectedPublishers,
       circulationType,
       sortBy,
     };
@@ -839,6 +907,20 @@ export function useCatalogFilter({
       }
     }
 
+    if (selectedPublishers.length > 0) {
+      const relaxed = selectFilteredBooks(books, { ...base, selectedPublishers: [] });
+      if (relaxed.length > 0) {
+        suggestions.push({
+          label:
+            language === 'dv'
+              ? `ހުރިހާ ޗާޕުޚާނާއެއް (${relaxed.length})`
+              : `All publishers (${relaxed.length})`,
+          count: relaxed.length,
+          apply: () => setSelectedPublishersState([]),
+        });
+      }
+    }
+
     if (selectedGrades.length > 0 || selectedMediaTypes.length > 0 || circulationType !== 'all') {
       const relaxed = selectFilteredBooks(books, {
         ...base,
@@ -873,6 +955,7 @@ export function useCatalogFilter({
     selectedStatuses,
     selectedGrades,
     selectedLanguages,
+    selectedPublishers,
     circulationType,
     sortBy,
     language,
@@ -898,6 +981,9 @@ export function useCatalogFilter({
     selectedLanguages,
     setSelectedLanguages,
     toggleLanguage,
+    selectedPublishers,
+    setSelectedPublishers,
+    togglePublisher,
     circulationType,
     setCirculationType,
     // View, Sort & Pagination
@@ -916,6 +1002,7 @@ export function useCatalogFilter({
     paginatedBooks,
     availableCategories,
     availableMediaTypes,
+    availablePublishers,
     availableLanguages,
     facetCounts,
     activeFilterChips,

@@ -19,6 +19,7 @@ import { getPredictiveInsights, PredictiveInsightsResponse } from '../lib/aiServ
 import { analyzeCatalogHealth } from '../lib/catalogHealth';
 import { ReminderDraftModal, ReminderTarget } from './ReminderDraftModal';
 import { AnalyticsDashboardSkeleton } from './Skeletons';
+import { SectionErrorBoundary } from './SectionErrorBoundary';
 
 interface DashboardViewProps {
   books: Book[];
@@ -276,15 +277,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums">
-              <bdi>{totalBooks.toLocaleString()}</bdi>
+              <bdi dir="ltr">{totalBooks.toLocaleString()}</bdi>
             </span>
             <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-              <bdi>+{kpiPeriodTrends.collectionDeltaPct}%</bdi>
+              <bdi dir="ltr">+{kpiPeriodTrends.collectionDeltaPct}%</bdi>
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span><bdi className="font-mono font-bold text-slate-900 dark:text-white">{books.length}</bdi> {t.titles} · <bdi className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">{availableBooks}</bdi> avail</span>
-            <span>{language === 'dv' ? 'ބޭރުގައި:' : 'Out:'} <strong className="font-mono text-slate-900 dark:text-white"><bdi>{totalBooks - availableBooks}</bdi></strong></span>
+            <span><bdi dir="ltr" className="font-mono font-bold text-slate-900 dark:text-white">{books.length}</bdi> {t.titles} · <bdi dir="ltr" className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">{availableBooks}</bdi> avail</span>
+            <span>{language === 'dv' ? 'ބޭރުގައި:' : 'Out:'} <strong className="font-mono text-slate-900 dark:text-white"><bdi dir="ltr">{totalBooks - availableBooks}</bdi></strong></span>
           </div>
         </div>
 
@@ -298,15 +299,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums">
-              <bdi>{activeLoans.length + overdueLoans.length}</bdi>
+              <bdi dir="ltr">{activeLoans.length + overdueLoans.length}</bdi>
             </span>
             <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-              <bdi>+{kpiPeriodTrends.circulationDeltaPct}%</bdi>
+              <bdi dir="ltr">+{kpiPeriodTrends.circulationDeltaPct}%</bdi>
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span>{t.activeBorrowers}: <strong className="font-mono text-slate-900 dark:text-white"><bdi>{activeBorrowersCount}</bdi></strong></span>
-            <span className="font-mono text-slate-700 dark:text-slate-300"><bdi>{pendingReservations.length}</bdi> holds</span>
+            <span>{t.activeBorrowers}: <strong className="font-mono text-slate-900 dark:text-white"><bdi dir="ltr">{activeBorrowersCount}</bdi></strong></span>
+            <span className="font-mono text-slate-700 dark:text-slate-300"><bdi dir="ltr">{pendingReservations.length}</bdi> holds</span>
           </div>
         </div>
 
@@ -320,14 +321,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-3xl font-extrabold text-rose-700 dark:text-rose-400 font-mono tabular-nums">
-              <bdi>{overdueRatePct}%</bdi>
+              <bdi dir="ltr">{overdueRatePct}%</bdi>
             </span>
             <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-              <bdi>{kpiPeriodTrends.overdueDeltaPct}%</bdi> vs term
+              <bdi dir="ltr">{kpiPeriodTrends.overdueDeltaPct}%</bdi> vs term
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span><strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>{overdueLoans.length}</bdi></strong> items · Sun–Thu</span>
+            <span><strong className="font-mono text-rose-700 dark:text-rose-400"><bdi dir="ltr">{overdueLoans.length}</bdi></strong> items · Sun–Thu</span>
             <button onClick={() => onNavigateTab('admin-panel')} className="text-rose-700 dark:text-rose-400 hover:underline font-bold cursor-pointer">
               {language === 'dv' ? 'ބައްލަވާ →' : 'Review →'}
             </button>
@@ -344,11 +345,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
-              <bdi>MVR {collectedRevenueMvr.toFixed(2)}</bdi>
+              <bdi dir="ltr">MVR {collectedRevenueMvr.toFixed(2)}</bdi>
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span>{language === 'dv' ? 'ނުދައްކާ:' : 'Due:'} <strong className="font-mono text-rose-700 dark:text-rose-400"><bdi>MVR {unpaidFinesMvr.toFixed(2)}</bdi></strong></span>
+            <span>{language === 'dv' ? 'ނުދައްކާ:' : 'Due:'} <strong className="font-mono text-rose-700 dark:text-rose-400"><bdi dir="ltr">MVR {unpaidFinesMvr.toFixed(2)}</bdi></strong></span>
             <button onClick={() => onNavigateTab('admin-panel')} className="text-slate-800 dark:text-slate-200 hover:underline font-bold cursor-pointer">
               {language === 'dv' ? 'ލެޖަރ →' : 'Ledger →'}
             </button>
@@ -373,14 +374,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              <bdi>{catalogHealth.healthScore}%</bdi>
+              <bdi dir="ltr">{catalogHealth.healthScore}%</bdi>
             </span>
             <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400">
-              <bdi>{catalogHealth.proposals.length}</bdi> flagged
+              <bdi dir="ltr">{catalogHealth.proposals.length}</bdi> flagged
             </span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between font-medium">
-            <span><bdi className="font-mono font-bold text-slate-900 dark:text-white">{catalogHealth.healthyTitles}/{catalogHealth.totalTitles}</bdi> clean</span>
+            <span><bdi dir="ltr" className="font-mono font-bold text-slate-900 dark:text-white">{catalogHealth.healthyTitles}/{catalogHealth.totalTitles}</bdi> clean</span>
             {onOpenCatalogHealth && (
               <button
                 type="button"
@@ -442,7 +443,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <th className="text-start px-2 py-1">{language === 'dv' ? 'ދުވަސް' : 'Day'}</th>
                       {peakTrafficHeatmapData[0].slots.map((s) => (
                         <th key={s.slot} className="text-center font-mono px-2 py-1">
-                          <div><bdi>{s.slot}</bdi></div>
+                          <div><bdi dir="ltr">{s.slot}</bdi></div>
                           {isPeakWindowSlot(s.slot) && (
                             <div className="text-[9px] font-sans font-bold text-emerald-700 dark:text-emerald-400 normal-case">
                               {s.slot === '14:00' ? 'After School' : 'Interval'}
@@ -480,7 +481,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 }`}
                                 title={`${row.day} ${cell.label}: ${cell.checkouts} checkouts, ${cell.returns} returns`}
                               >
-                                <bdi>{cell.intensity}</bdi>
+                                <bdi dir="ltr">{cell.intensity}</bdi>
                               </button>
                             </td>
                           );
@@ -503,8 +504,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {selectedHeatmapCell ? (
                   <div className="font-mono text-[11px] bg-slate-900 dark:bg-slate-800 text-white px-3 py-1.5 rounded-lg">
                     <bdi>{selectedHeatmapCell.day} · {selectedHeatmapCell.label}</bdi> —{' '}
-                    <span className="text-emerald-300"><bdi>{selectedHeatmapCell.checkouts}</bdi> out</span> ·{' '}
-                    <span className="text-sky-300"><bdi>{selectedHeatmapCell.returns}</bdi> in</span>
+                    <span className="text-emerald-300"><bdi dir="ltr">{selectedHeatmapCell.checkouts}</bdi> out</span> ·{' '}
+                    <span className="text-sky-300"><bdi dir="ltr">{selectedHeatmapCell.returns}</bdi> in</span>
                   </div>
                 ) : (
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">Peak slot: Thu 11:45 Interval (86 txns)</span>
@@ -512,89 +513,104 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="h-64 w-full" dir="ltr">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyPeakTrafficData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" strokeOpacity={0.4} />
-                  <XAxis dataKey="slot" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
-                  <Bar dataKey="checkouts" name="Checkouts" fill="#047857" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="returns" name="Returns" fill="#1e293b" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <SectionErrorBoundary
+              compact
+              areaNameEn="Hourly Traffic Chart"
+              areaNameDv="ގަޑިތަކުގެ ޗާޓް"
+              language={language}
+              onRecover={() => setTrafficMode('heatmap')}
+            >
+              <div className="h-64 w-full" dir="ltr">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={hourlyPeakTrafficData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" strokeOpacity={0.4} />
+                    <XAxis dataKey="slot" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                    <Bar dataKey="checkouts" name="Checkouts" fill="#047857" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="returns" name="Returns" fill="#1e293b" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </SectionErrorBoundary>
           )}
         </div>
 
         {/* Collection Health Split: Dhivehi-to-English Ratio & Top DDC Subjects */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">{t.collectionHealth}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {language === 'dv' ? 'ދިވެހި އަދި އިނގިރޭސި ފޮތްތަކުގެ ނިސްބަތް' : 'Dhivehi-to-English ratio & top DDC sections'}
-            </p>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-800/70 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700 dark:text-slate-200">
-                {language === 'dv' ? 'ދިވެހި : އިނގިރޭސި ނިސްބަތް' : 'Dhivehi : English Ratio'}
-              </span>
-              <span className="font-mono tabular-nums font-extrabold text-emerald-700 dark:text-emerald-400">
-                <bdi>{dvToEnMetrics.ratioLabel}</bdi>
-              </span>
+        <SectionErrorBoundary
+          compact
+          areaNameEn="Collection Distribution Chart"
+          areaNameDv="ކޮލެކްޝަން ބަހާލުން ޗާޓް"
+          language={language}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4 flex flex-col justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">{t.collectionHealth}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {language === 'dv' ? 'ދިވެހި އަދި އިނގިރޭސި ފޮތްތަކުގެ ނިސްބަތް' : 'Dhivehi-to-English ratio & top DDC sections'}
+              </p>
             </div>
-            <div className="h-2.5 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex">
-              <div
-                className="bg-emerald-600 h-full transition-all"
-                style={{ width: `${dvToEnMetrics.dvPct}%` }}
-                title={`Dhivehi: ${dvToEnMetrics.dvCopies} copies`}
-              />
-              <div
-                className="bg-slate-900 dark:bg-sky-500 h-full transition-all"
-                style={{ width: `${dvToEnMetrics.enPct}%` }}
-                title={`English: ${dvToEnMetrics.enCopies} copies`}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-slate-600 dark:text-slate-300">
-              <span>Dv {dvToEnMetrics.dvCopies} ({dvToEnMetrics.dvPct}%)</span>
-              <span>En {dvToEnMetrics.enCopies} ({dvToEnMetrics.enPct}%)</span>
-            </div>
-          </div>
 
-          <div className="h-32 w-full flex items-center justify-center" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={languageBreakdown}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={34}
-                  outerRadius={54}
-                  paddingAngle={3}
-                >
-                  {languageBreakdown.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top DDC Sections</div>
-            {categoryBreakdown.slice(0, 3).map((cat) => (
-              <div key={cat.category} className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-700 dark:text-slate-300 truncate pe-2">{cat.category}</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white shrink-0"><bdi>{cat.copies}</bdi></span>
+            <div className="bg-slate-50 dark:bg-slate-800/70 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-200">
+                  {language === 'dv' ? 'ދިވެހި : އިނގިރޭސި ނިސްބަތް' : 'Dhivehi : English Ratio'}
+                </span>
+                <span className="font-mono tabular-nums font-extrabold text-emerald-700 dark:text-emerald-400">
+                  <bdi dir="ltr">{dvToEnMetrics.ratioLabel}</bdi>
+                </span>
               </div>
-            ))}
+              <div className="h-2.5 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex">
+                <div
+                  className="bg-emerald-600 h-full transition-all"
+                  style={{ width: `${dvToEnMetrics.dvPct}%` }}
+                  title={`Dhivehi: ${dvToEnMetrics.dvCopies} copies`}
+                />
+                <div
+                  className="bg-slate-900 dark:bg-sky-500 h-full transition-all"
+                  style={{ width: `${dvToEnMetrics.enPct}%` }}
+                  title={`English: ${dvToEnMetrics.enCopies} copies`}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-slate-600 dark:text-slate-300">
+                <span><bdi dir="ltr">Dv {dvToEnMetrics.dvCopies} ({dvToEnMetrics.dvPct}%)</bdi></span>
+                <span><bdi dir="ltr">En {dvToEnMetrics.enCopies} ({dvToEnMetrics.enPct}%)</bdi></span>
+              </div>
+            </div>
+
+            <div className="h-32 w-full flex items-center justify-center" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={languageBreakdown}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={34}
+                    outerRadius={54}
+                    paddingAngle={3}
+                  >
+                    {languageBreakdown.map((_, i) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '12px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top DDC Sections</div>
+              {categoryBreakdown.slice(0, 3).map((cat) => (
+                <div key={cat.category} className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-700 dark:text-slate-300 truncate pe-2">{cat.category}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white shrink-0"><bdi dir="ltr">{cat.copies}</bdi></span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </SectionErrorBoundary>
       </div>
 
       {/* Grade-Level Reading Engagement + AI Predictive Insights + Collection Health & Weeding */}
@@ -628,90 +644,98 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* AI Predictive Insights Panel */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-              <span>{t.aiInsights}</span>
-            </h3>
-            <button
-              type="button"
-              onClick={handleLoadInsights}
-              disabled={loadingInsights}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50"
-              title="Refresh AI Insights"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingInsights ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+        {/* AI Predictive Insights Panel (Wrapped in SectionErrorBoundary) */}
+        <SectionErrorBoundary
+          compact
+          areaNameEn="AI Predictive Insights"
+          areaNameDv="އޭއައި ލަފާކުރުންތައް"
+          language={language}
+          onRecover={handleLoadInsights}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                <span>{t.aiInsights}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={handleLoadInsights}
+                disabled={loadingInsights}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50"
+                title="Refresh AI Insights"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingInsights ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
 
-          {loadingInsights && !insights ? (
-            <AnalyticsDashboardSkeleton panels={3} />
-          ) : insights ? (
-            <div className="space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
-                {insights.executiveSummary}
-              </div>
-
-              {insights.highRiskLoans.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                    {language === 'dv' ? 'ޖޫރިމަނާގެ ރިސްކު ހުރި ނެގުންތައް' : 'High-Risk / Overdue Alerts'}
-                  </div>
-                  {insights.highRiskLoans.slice(0, 3).map(hr => (
-                    <div key={hr.id} className="p-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <div className="font-bold text-slate-900 dark:text-white truncate"><bdi>{hr.bookTitle}</bdi></div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                          <bdi>{hr.userName}</bdi> · <bdi className="font-mono tabular-nums">{hr.dueDate}</bdi> · <bdi className="font-mono tabular-nums font-bold text-rose-700 dark:text-rose-300">{hr.riskScore}%</bdi>
-                        </div>
-                        {hr.riskFactors && (
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {hr.riskFactors}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          hr.riskLevel === 'CRITICAL' ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200'
-                        }`}>
-                          {hr.riskLevel}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setReminderTarget({
-                            loanId: hr.id,
-                            bookTitle: hr.bookTitle,
-                            userName: hr.userName,
-                            userGrade: hr.userGrade,
-                            dueDate: hr.dueDate,
-                            daysOverdue: hr.daysOverdue,
-                            lateFeeMvr: hr.lateFeeMvr,
-                          })}
-                          className="px-2 py-1 rounded-lg bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white text-[10px] font-bold transition flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                          title={language === 'dv' ? 'ހަނދާންކޮށްދޭ މެސެޖު ޑްރާފްޓްކުރޭ' : 'Draft Reminder'}
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          <span>{language === 'dv' ? 'މެސެޖު' : 'Draft Reminder'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            {loadingInsights && !insights ? (
+              <AnalyticsDashboardSkeleton panels={3} />
+            ) : insights ? (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
+                  {insights.executiveSummary}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-              Click refresh to compute predictive insights.
-            </div>
-          )}
 
-          <ReminderDraftModal
-            target={reminderTarget}
-            onClose={() => setReminderTarget(null)}
-          />
-        </div>
+                {insights.highRiskLoans.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                      {language === 'dv' ? 'ޖޫރިމަނާގެ ރިސްކު ހުރި ނެގުންތައް' : 'High-Risk / Overdue Alerts'}
+                    </div>
+                    {insights.highRiskLoans.slice(0, 3).map(hr => (
+                      <div key={hr.id} className="p-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="font-bold text-slate-900 dark:text-white truncate"><bdi>{hr.bookTitle}</bdi></div>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                            <bdi>{hr.userName}</bdi> · <bdi dir="ltr" className="font-mono tabular-nums">{hr.dueDate}</bdi> · <bdi dir="ltr" className="font-mono tabular-nums font-bold text-rose-700 dark:text-rose-300">{hr.riskScore}%</bdi>
+                          </div>
+                          {hr.riskFactors && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              {hr.riskFactors}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            hr.riskLevel === 'CRITICAL' ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200'
+                          }`}>
+                            {hr.riskLevel}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setReminderTarget({
+                              loanId: hr.id,
+                              bookTitle: hr.bookTitle,
+                              userName: hr.userName,
+                              userGrade: hr.userGrade,
+                              dueDate: hr.dueDate,
+                              daysOverdue: hr.daysOverdue,
+                              lateFeeMvr: hr.lateFeeMvr,
+                            })}
+                            className="px-2 py-1 rounded-lg bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white text-[10px] font-bold transition flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                            title={language === 'dv' ? 'ހަނދާންކޮށްދޭ މެސެޖު ޑްރާފްޓްކުރޭ' : 'Draft Reminder'}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>{language === 'dv' ? 'މެސެޖު' : 'Draft Reminder'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
+                Click refresh to compute predictive insights.
+              </div>
+            )}
+
+            <ReminderDraftModal
+              target={reminderTarget}
+              onClose={() => setReminderTarget(null)}
+            />
+          </div>
+        </SectionErrorBoundary>
 
         {/* Collection Health & Weeding Insights (Top-Read + Zero Circulation >= 12 Months) */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">

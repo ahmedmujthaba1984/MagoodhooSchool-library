@@ -10,6 +10,7 @@ export interface CatalogUrlFilters {
   status?: string;
   grade?: string;
   blang?: string;
+  pub?: string;
   sort?: string;
   page?: number;
   view?: CatalogViewMode;
@@ -107,6 +108,7 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
       status: params.get('status') || undefined,
       grade: params.get('grade') || undefined,
       blang: params.get('blang') || undefined,
+      pub: params.get('pub') || undefined,
       sort: params.get('sort') || undefined,
       page,
       view: normalizeCatalogView(params.get('view')),
@@ -142,6 +144,7 @@ export function buildUrlFromState(input: {
     if (f.status && f.status !== 'all') params.set('status', f.status);
     if (f.grade && f.grade !== 'all') params.set('grade', f.grade);
     if (f.blang && f.blang !== 'all') params.set('blang', f.blang);
+    if (f.pub && f.pub !== 'all') params.set('pub', f.pub);
     if (f.sort && f.sort !== 'title-asc') params.set('sort', f.sort);
     if (f.page && f.page > 1) params.set('page', String(f.page));
   }
