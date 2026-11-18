@@ -60,7 +60,9 @@ import { SecurityBackupSuiteView } from './components/SecurityBackupSuiteView';
 import { CatalogHealthModal } from './components/CatalogHealthModal';
 import { SyncOutboxModal } from './components/SyncOutboxModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { CirculationDeskSkeleton } from './components/Skeletons';
+import { useAuth } from './contexts/AuthContext';
 import {
   parseUrlState,
   buildUrlFromState,
@@ -117,15 +119,6 @@ import {
   ShoppingBag,
   ShieldCheck
 } from 'lucide-react';
-
-const GUEST_USER: UserProfile = {
-  id: 'guest',
-  name: 'Guest Visitor',
-  email: 'guest@magoodhooschool.edu.mv',
-  role: 'student',
-  patronTier: 'external',
-  createdAt: new Date().toISOString().split('T')[0]
-};
 
 const PERSONAL_STORAGE_KEY = 'magoodhoo_personal_library';
 
@@ -287,7 +280,15 @@ export default function App() {
     return () => window.removeEventListener('online', handleOnline);
   }, [toast, language]);
 
-  const [currentUser, setCurrentUser] = useState<UserProfile>(sampleUsers[0]);
+  const {
+    currentUser,
+    setCurrentUser,
+    loginWithGoogle,
+    loginWithDeskPin,
+    enterGuestMode,
+    logout,
+    syncWithDirectory,
+  } = useAuth();
   const {
     can,
     accessRole,
@@ -486,9 +487,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const updated = users.find(u => u.id === currentUser.id);
-    if (updated) setCurrentUser(updated);
-  }, [users]);
+    syncWithDirectory(users);
+  }, [users, syncWithDirectory]);
 
   useEffect(() => {
     if (activeTab === 'add-book') setIsAddBookModalOpen(true);
@@ -1442,10 +1442,10 @@ export default function App() {
     );
   };
 
-  const handleLogout = () => {
-    setCurrentUser(GUEST_USER);
+  const handleLogout = async () => {
+    await logout();
     setActiveTab('catalog');
-    toast.info('You have signed out cleanly.', 'Signed Out');
+    toast.info(language === 'dv' ? 'އެކައުންޓުން ނިކުމެވިއްޖެ.' : 'You have signed out cleanly.', 'Signed Out');
   };
 
   const handleOpenImportModal = (type: 'books' | 'parents' = 'books') => {
@@ -1977,6 +1977,9 @@ export default function App() {
                   onLoginSuccess={(user) => setCurrentUser(user)}
                   onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
                   onNavigateTab={(tab) => setActiveTab(tab)}
+                  onEnterGuestOpac={enterGuestMode}
+                  onGoogleLogin={() => loginWithGoogle(users)}
+                  onDeskPinLogin={(pin) => loginWithDeskPin(pin, users)}
                 />
               </ErrorBoundary>
             )}
@@ -1989,17 +1992,26 @@ export default function App() {
 
             {activeTab === 'dashboard' && (
               <ErrorBoundary key="err-dashboard" areaNameEn="Operations Dashboard" areaNameDv="ލައިބްރަރީ ޑޭޝްބޯޑް" language={language} isAdmin={isSuperAdmin}>
-                <DashboardView
-                  books={books}
-                  users={users}
-                  loans={loans}
-                  reservations={reservations}
-                  ledgerTransactions={ledgerTransactions}
+                <ProtectedRoute
                   currentUser={currentUser}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                  onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
-                  onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
-                />
+                  requiredPermission="policies:edit"
+                  areaNameEn="Operations Dashboard"
+                  areaNameDv="ލައިބްރަރީ ޑޭޝްބޯޑް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <DashboardView
+                    books={books}
+                    users={users}
+                    loans={loans}
+                    reservations={reservations}
+                    ledgerTransactions={ledgerTransactions}
+                    currentUser={currentUser}
+                    onNavigateTab={(tab) => setActiveTab(tab)}
+                    onOpenAddBookModal={() => setIsAddBookModalOpen(true)}
+                    onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
@@ -2050,26 +2062,35 @@ export default function App() {
 
             {(activeTab === 'borrow-book' || activeTab === 'return-book' || activeTab === 'issued-books' || activeTab === 'late-returns' || activeTab === 'checkout-hub') && (
               <ErrorBoundary key="err-circulation" areaNameEn="Circulation Desk" areaNameDv="ފޮތް ދޫކުރާ ޑެސްކް" language={language} isAdmin={isSuperAdmin}>
-                {isLoadingCatalog && books.length === 0 ? (
-                  <CirculationDeskSkeleton />
-                ) : (
-                  <QuickCheckout
-                    books={books}
-                    users={users}
-                    loans={loans}
-                    reservations={reservations}
-                    settings={settings}
-                    onProcessCheckout={handleProcessCheckout}
-                    onProcessReturn={handleProcessReturn}
-                    onRenewLoan={handleRenewLoan}
-                    onOpenScanner={() => {
-                      setScannerCallback(null);
-                      setIsScannerOpen(true);
-                    }}
-                    preselectedBook={preselectedCheckoutBook}
-                    preselectedMemberId={preselectedMemberCode}
-                  />
-                )}
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  requiredPermission="circulation:checkout"
+                  areaNameEn="Circulation Desk"
+                  areaNameDv="ފޮތް ދޫކުރާ ޑެސްކް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  {isLoadingCatalog && books.length === 0 ? (
+                    <CirculationDeskSkeleton />
+                  ) : (
+                    <QuickCheckout
+                      books={books}
+                      users={users}
+                      loans={loans}
+                      reservations={reservations}
+                      settings={settings}
+                      onProcessCheckout={handleProcessCheckout}
+                      onProcessReturn={handleProcessReturn}
+                      onRenewLoan={handleRenewLoan}
+                      onOpenScanner={() => {
+                        setScannerCallback(null);
+                        setIsScannerOpen(true);
+                      }}
+                      preselectedBook={preselectedCheckoutBook}
+                      preselectedMemberId={preselectedMemberCode}
+                    />
+                  )}
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
@@ -2082,22 +2103,31 @@ export default function App() {
                 isAdmin={isSuperAdmin}
                 onRecover={() => setSelectedUrlPatronId(null)}
               >
-                <MemberDirectory
-                  allUsers={users}
-                  loans={loans}
-                  books={books}
-                  currentUserRole={currentUser.role}
-                  initialSelectedMemberId={selectedUrlPatronId}
-                  onSelectedMemberChange={(memberId) => setSelectedUrlPatronId(memberId)}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                  onOpenImportModal={handleOpenImportModal}
-                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                  onSelectMemberForCheckout={(memberCode) => {
-                    setPreselectedMemberCode(memberCode);
-                    setActiveTab('checkout-hub');
-                  }}
-                  onDeleteUser={handleDeleteUser}
-                />
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  allowedAccessRoles={['super_admin', 'desk_assistant', 'teacher']}
+                  areaNameEn="Members Directory"
+                  areaNameDv="މެންބަރުންގެ ލިސްޓު"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <MemberDirectory
+                    allUsers={users}
+                    loans={loans}
+                    books={books}
+                    currentUserRole={currentUser.role}
+                    initialSelectedMemberId={selectedUrlPatronId}
+                    onSelectedMemberChange={(memberId) => setSelectedUrlPatronId(memberId)}
+                    onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                    onOpenImportModal={handleOpenImportModal}
+                    onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                    onSelectMemberForCheckout={(memberCode) => {
+                      setPreselectedMemberCode(memberCode);
+                      setActiveTab('checkout-hub');
+                    }}
+                    onDeleteUser={handleDeleteUser}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
@@ -2124,86 +2154,131 @@ export default function App() {
 
             {activeTab === 'parent-portal' && (
               <ErrorBoundary key="err-parent" areaNameEn="Parent Portal" areaNameDv="ބެލެނިވެރިންގެ ޕޯޓަލް" language={language} isAdmin={isSuperAdmin}>
-                <ParentDashboard
-                  parentUser={currentUser}
-                  allUsers={users}
-                  loans={loans}
-                  reservations={reservations}
-                  books={books}
-                  onRenewLoan={handleRenewLoan}
-                  onDeleteUser={handleDeleteUser}
-                  onCancelReservation={handleCancelReservation}
-                  onAddChildToParent={async (name, grade, studentIdCode) => {
-                    const childProfile: Omit<UserProfile, 'id'> = {
-                      name,
-                      grade,
-                      studentIdCode,
-                      role: 'student',
-                      patronTier: 'student',
-                      parentId: currentUser.id,
-                      email: `${name.toLowerCase().replace(/\s+/g, '.')}@fmagoodhooschool.edu.mv`,
-                      createdAt: new Date().toISOString().split('T')[0]
-                    };
-                    const newChildId = await createUserProfile(childProfile);
-                    const existingChildren = currentUser.childrenIds || [];
-                    await updateUserProfile(currentUser.id, {
-                      childrenIds: [...existingChildren, newChildId]
-                    });
-                    toast.success(`Added student account for ${name}.`, 'Child Linked');
-                  }}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                />
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  requireParentOrAdmin
+                  areaNameEn="Parent Portal"
+                  areaNameDv="ބެލެނިވެރިންގެ ޕޯޓަލް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <ParentDashboard
+                    parentUser={currentUser}
+                    allUsers={users}
+                    loans={loans}
+                    reservations={reservations}
+                    books={books}
+                    ledgerTransactions={ledgerTransactions}
+                    onRenewLoan={handleRenewLoan}
+                    onDeleteUser={handleDeleteUser}
+                    onCancelReservation={handleCancelReservation}
+                    onSuggestBookForChild={(title, author, reason, child) => {
+                      void handleCreateAcquisition({
+                        title,
+                        author,
+                        bookLanguage: 'English',
+                        budgetCategory: 'Fiction & Graded Readers',
+                        curriculumJustification: reason,
+                        requestedByUserId: currentUser.id,
+                        requestedByName: `${currentUser.name} (for ${child.name})`,
+                        requestedByRole: currentUser.role,
+                        requestedDate: new Date().toISOString().split('T')[0],
+                        upvoterIds: [currentUser.id],
+                        stage: 'Requested',
+                        quantity: 1,
+                        unitPriceMvr: 185,
+                      });
+                    }}
+                    onAddChildToParent={async (name, grade, studentIdCode) => {
+                      const childProfile: Omit<UserProfile, 'id'> = {
+                        name,
+                        grade,
+                        studentIdCode,
+                        role: 'student',
+                        patronTier: 'student',
+                        parentId: currentUser.id,
+                        email: `${name.toLowerCase().replace(/\s+/g, '.')}@fmagoodhooschool.edu.mv`,
+                        createdAt: new Date().toISOString().split('T')[0]
+                      };
+                      const newChildId = await createUserProfile(childProfile);
+                      const existingChildren = currentUser.childrenIds || [];
+                      await updateUserProfile(currentUser.id, {
+                        childrenIds: [...existingChildren, newChildId]
+                      });
+                      toast.success(`Added student account for ${name}.`, 'Child Linked');
+                    }}
+                    onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
             {(activeTab === 'manage-students' || activeTab === 'admin-panel') && (
               <ErrorBoundary key="err-admin" areaNameEn="Admin & MVR Ledger" areaNameDv="އެޑްމިން އަދި ލެޖަރ" language={language} isAdmin={isSuperAdmin}>
-                <AdminPanel
-                  books={books}
-                  users={users}
-                  loans={loans}
-                  settings={settings}
-                  ledgerTransactions={ledgerTransactions}
-                  immutableAuditLogs={auditLogs}
+                <ProtectedRoute
                   currentUser={currentUser}
-                  currentUserName={currentUser.name}
-                  isQuotaExhausted={isQuotaExhausted}
-                  onAddBook={handleAddBook}
-                  onUpdateBook={handleUpdateBook}
-                  onDeleteBook={handleDeleteBook}
-                  onDeleteUser={handleDeleteUser}
-                  onUpdateSettings={handleUpdateSettings}
-                  onMarkFeePaid={handleMarkFeePaid}
-                  onWaiveFee={handleWaiveFee}
-                  onRecordLedgerTransaction={handleRecordLedgerTransaction}
-                  onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
-                  onOpenImportModal={handleOpenImportModal}
-                  onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
-                  onOpenSecuritySuite={() => setActiveTab('security-suite')}
-                  onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
-                />
+                  requiredPermission="policies:edit"
+                  areaNameEn="Admin & MVR Ledger"
+                  areaNameDv="އެޑްމިން އަދި ލެޖަރ"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <AdminPanel
+                    books={books}
+                    users={users}
+                    loans={loans}
+                    settings={settings}
+                    ledgerTransactions={ledgerTransactions}
+                    immutableAuditLogs={auditLogs}
+                    currentUser={currentUser}
+                    currentUserName={currentUser.name}
+                    isQuotaExhausted={isQuotaExhausted}
+                    onAddBook={handleAddBook}
+                    onUpdateBook={handleUpdateBook}
+                    onDeleteBook={handleDeleteBook}
+                    onDeleteUser={handleDeleteUser}
+                    onUpdateSettings={handleUpdateSettings}
+                    onMarkFeePaid={handleMarkFeePaid}
+                    onWaiveFee={handleWaiveFee}
+                    onRecordLedgerTransaction={handleRecordLedgerTransaction}
+                    onOpenAddParentModal={() => setIsAddParentModalOpen(true)}
+                    onOpenImportModal={handleOpenImportModal}
+                    onOpenReportCardSyncModal={() => setIsReportCardSyncModalOpen(true)}
+                    onOpenSecuritySuite={() => setActiveTab('security-suite')}
+                    onOpenCatalogHealth={() => setIsCatalogHealthOpen(true)}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
             {activeTab === 'security-suite' && (
               <ErrorBoundary key="err-security" areaNameEn="Security & Backups" areaNameDv="ސެކިއުރިޓީ އަދި ބެކަޕް" language={language} isAdmin={isSuperAdmin}>
-                <SecurityBackupSuiteView
+                <ProtectedRoute
                   currentUser={currentUser}
-                  users={users}
-                  books={books}
-                  loans={loans}
-                  reservations={reservations}
-                  ledgerTransactions={ledgerTransactions}
-                  acquisitions={acquisitions}
-                  personalItems={personalItems}
-                  auditLogs={auditLogs}
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  onUpdateUserRole={handleUpdateUserRole}
-                  onExportBackup={handleExportBackup}
-                  onRestoreBackup={handleRestoreBackup}
-                  onRecordAuditEvent={recordAuditEvent}
-                />
+                  requiredPermission="notifications:send"
+                  areaNameEn="Security & Backups"
+                  areaNameDv="ސެކިއުރިޓީ އަދި ބެކަޕް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <SecurityBackupSuiteView
+                    currentUser={currentUser}
+                    users={users}
+                    books={books}
+                    loans={loans}
+                    reservations={reservations}
+                    ledgerTransactions={ledgerTransactions}
+                    acquisitions={acquisitions}
+                    personalItems={personalItems}
+                    auditLogs={auditLogs}
+                    settings={settings}
+                    onUpdateSettings={handleUpdateSettings}
+                    onUpdateUserRole={handleUpdateUserRole}
+                    onExportBackup={handleExportBackup}
+                    onRestoreBackup={handleRestoreBackup}
+                    onRecordAuditEvent={recordAuditEvent}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
@@ -2228,36 +2303,63 @@ export default function App() {
 
             {activeTab === 'reports' && (
               <ErrorBoundary key="err-reports" areaNameEn="Analytics & Reports" areaNameDv="ތަފާސްހިސާބު" language={language} isAdmin={isSuperAdmin}>
-                <ReportsAnalytics books={books} loans={loans} users={users} />
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  requiredPermission="analytics:class_reading"
+                  areaNameEn="Analytics & Reports"
+                  areaNameDv="ތަފާސްހިސާބު"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <ReportsAnalytics books={books} loans={loans} users={users} />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
             {activeTab === 'stocktaking' && (
               <ErrorBoundary key="err-stocktaking" areaNameEn="Stocktake & Weeding" areaNameDv="ސްޓޮކްޓޭކް އަދި ވީޑިންގ" language={language} isAdmin={isSuperAdmin}>
-                <InventoryAuditView
-                  books={books}
-                  loans={loans}
-                  onAutoCheckIn={(loan) => handleProcessReturn(loan, 0)}
-                  onUpdateBook={handleUpdateBook}
-                  onDeleteBook={handleDeleteBook}
-                />
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  requiredPermission="catalog:create_edit"
+                  areaNameEn="Stocktake & Weeding"
+                  areaNameDv="ސްޓޮކްޓޭކް އަދި ވީޑިންގ"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <InventoryAuditView
+                    books={books}
+                    loans={loans}
+                    onAutoCheckIn={(loan) => handleProcessReturn(loan, 0)}
+                    onUpdateBook={handleUpdateBook}
+                    onDeleteBook={handleDeleteBook}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
             {activeTab === 'acquisitions' && (
               <ErrorBoundary key="err-acquisitions" areaNameEn="Acquisitions & Budgets" areaNameDv="ފޮތް ހޯދުމާއި ބަޖެޓް" language={language} isAdmin={isSuperAdmin}>
-                <AcquisitionsBoardView
-                  requests={acquisitions}
-                  books={books}
-                  settings={settings}
-                  onCreateRequest={handleCreateAcquisition}
-                  onUpdateRequest={handleUpdateAcquisition}
-                  onDeleteRequest={handleDeleteAcquisition}
-                  onToggleUpvote={handleUpvoteAcquisition}
-                  onReceiveAndCatalog={handleReceiveAndCatalogAcquisition}
-                  onUpdateSettings={handleUpdateSettings}
-                  onOpenSuggestionPortal={() => setIsSuggestBookModalOpen(true)}
-                />
+                <ProtectedRoute
+                  currentUser={currentUser}
+                  requiredPermission="catalog:create_edit"
+                  areaNameEn="Acquisitions & Budgets"
+                  areaNameDv="ފޮތް ހޯދުމާއި ބަޖެޓް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <AcquisitionsBoardView
+                    requests={acquisitions}
+                    books={books}
+                    settings={settings}
+                    onCreateRequest={handleCreateAcquisition}
+                    onUpdateRequest={handleUpdateAcquisition}
+                    onDeleteRequest={handleDeleteAcquisition}
+                    onToggleUpvote={handleUpvoteAcquisition}
+                    onReceiveAndCatalog={handleReceiveAndCatalogAcquisition}
+                    onUpdateSettings={handleUpdateSettings}
+                    onOpenSuggestionPortal={() => setIsSuggestBookModalOpen(true)}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 
@@ -2274,16 +2376,25 @@ export default function App() {
 
             {(activeTab === 'my-borrowings' || activeTab === 'my-loans') && (
               <ErrorBoundary key="err-my-loans" areaNameEn="My Borrowed Books" areaNameDv="އަޅުގަނޑު ގެންގުޅޭ ފޮތްތައް" language={language} isAdmin={isSuperAdmin}>
-                <MyBorrowings
+                <ProtectedRoute
                   currentUser={currentUser}
-                  loans={loans}
-                  reservations={reservations}
-                  books={books}
-                  isLoading={isLoadingCatalog}
-                  onRenewLoan={handleRenewLoan}
-                  onCancelReservation={handleCancelReservation}
-                  onOpenChallenges={() => setActiveTab('reading-challenges')}
-                />
+                  requireSignedIn
+                  areaNameEn="My Borrowed Books"
+                  areaNameDv="އަޅުގަނޑު ގެންގުޅޭ ފޮތްތައް"
+                  onOpenLogin={() => setActiveTab('login')}
+                  onBackToOpac={() => setActiveTab('catalog')}
+                >
+                  <MyBorrowings
+                    currentUser={currentUser}
+                    loans={loans}
+                    reservations={reservations}
+                    books={books}
+                    isLoading={isLoadingCatalog}
+                    onRenewLoan={handleRenewLoan}
+                    onCancelReservation={handleCancelReservation}
+                    onOpenChallenges={() => setActiveTab('reading-challenges')}
+                  />
+                </ProtectedRoute>
               </ErrorBoundary>
             )}
 

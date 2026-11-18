@@ -20,6 +20,7 @@ import { analyzeCatalogHealth } from '../lib/catalogHealth';
 import { ReminderDraftModal, ReminderTarget } from './ReminderDraftModal';
 import { AnalyticsDashboardSkeleton } from './Skeletons';
 import { SectionErrorBoundary } from './SectionErrorBoundary';
+import { StatusPill } from './StatusPill';
 
 interface DashboardViewProps {
   books: Book[];
@@ -33,7 +34,7 @@ interface DashboardViewProps {
   onOpenCatalogHealth?: () => void;
 }
 
-const CHART_COLORS = ['#047857', '#0f172a', '#0284c7', '#d97706', '#64748b'];
+const CHART_COLORS = ['#0F4C45', '#C26D3A', '#1D4ED8', '#16655B', '#6B655D'];
 
 function getMonthsOnShelf(addedAt?: string): number {
   if (!addedAt) return 14;
@@ -207,13 +208,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const getHeatCellColor = (intensity: number, isWeekend?: boolean) => {
     if (isWeekend && intensity === 0) {
-      return 'bg-slate-50 dark:bg-slate-900/60 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800';
+      return 'bg-[#F7F5F0] dark:bg-[#232724] text-[#6B655D] dark:text-[#6B655D] border-[#E2DDD5] dark:border-[#2E3330]';
     }
-    if (intensity >= 75) return 'bg-emerald-700 text-white border-emerald-800';
-    if (intensity >= 55) return 'bg-emerald-500 text-white border-emerald-600';
-    if (intensity >= 25) return 'bg-emerald-200 dark:bg-emerald-900/50 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800';
-    if (intensity > 0) return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-    return 'bg-slate-50 dark:bg-slate-900/60 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800';
+    if (intensity >= 75) return 'bg-[#0F4C45] text-white border-[#0D2623]';
+    if (intensity >= 55) return 'bg-[#16655B] text-white border-[#0F4C45]';
+    if (intensity >= 25) return 'bg-[#ECFDF5] dark:bg-[#0F4C45]/50 text-[#0F4C45] dark:text-[#6EE7B7] border-[#A7F3D0] dark:border-[#16655B]';
+    if (intensity > 0) return 'bg-[#EFECE6] dark:bg-[#232724] text-[#1C1917] dark:text-[#F5F3EE] border-[#E2DDD5] dark:border-[#2E3330]';
+    return 'bg-[#F7F5F0] dark:bg-[#232724] text-[#6B655D] border-[#E2DDD5] dark:border-[#2E3330]';
   };
 
   const isPeakWindowSlot = (slot: string) => slot === '09:30' || slot === '11:45' || slot === '14:00';
@@ -221,16 +222,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Executive Header Strip */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div className="space-y-1">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#0F4C45] dark:text-[#6EE7B7] flex items-center gap-1.5">
             <Library className="w-3.5 h-3.5" />
             <span>{language === 'dv' ? 'މަގޫދޫ ސްކޫލް އައި.އެލް.އެސް އެނަލިޓިކްސް' : 'Magoodhoo School ILS Analytics Overview'}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-[#F5F3EE] tracking-tight archival-heading">
             {language === 'dv' ? `މަރުޙަބާ، ${currentUser.name}` : `Welcome back, ${currentUser.name}`}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <p className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium">
             {language === 'dv'
               ? 'ސާކިއުލޭޝަން، 7 ދުވަހުގެ ޓްރެފިކް ހީޓްމެޕް، ކޮލެކްޝަން ހެލްތު، އަދި MVR ލެޖަރ.'
               : 'Live circulation metrics, 7-day peak traffic grid, collection weeding health, and MVR reconciliation.'}
@@ -241,15 +242,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('checkout-hub')}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            className="px-3.5 py-2 rounded-xl bg-[#0D2623] dark:bg-[#232724] hover:bg-[#163B36] dark:hover:bg-[#2E3330] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#6EE7B7]" />
             <span>{language === 'dv' ? 'ސާކިއުލޭޝަން ޑެސްކް' : 'Circulation Desk'}</span>
           </button>
           <button
             type="button"
             onClick={onOpenAddBookModal}
-            className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            className="px-3.5 py-2 rounded-xl bg-[#0F4C45] hover:bg-[#16655B] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t.addBook}</span>
@@ -257,9 +258,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('ai-assistant')}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            className="px-3.5 py-2 rounded-xl bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+            <Sparkles className="w-3.5 h-3.5 text-[#C26D3A]" />
             <span>{t.aiLibrarian}</span>
           </button>
         </div>
@@ -523,12 +524,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="h-64 w-full" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={hourlyPeakTrafficData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" strokeOpacity={0.4} />
-                    <XAxis dataKey="slot" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
-                    <Bar dataKey="checkouts" name="Checkouts" fill="#047857" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="returns" name="Returns" fill="#1e293b" radius={[6, 6, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2DDD5" strokeOpacity={0.5} />
+                    <XAxis dataKey="slot" tick={{ fontSize: 11, fill: '#6B655D' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#6B655D' }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2DDD5', fontSize: '12px' }} />
+                    <Bar dataKey="checkouts" name="Checkouts" fill="#0F4C45" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="returns" name="Returns" fill="#C26D3A" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -816,22 +817,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Recent Circulation Ledger Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-3">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          <h4 className="font-bold text-[#1C1917] dark:text-[#F5F3EE] text-sm flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" />
             <span>{language === 'dv' ? 'އެންމެ ފަހުގެ ސާކިއުލޭޝަން ރެކޯޑް' : 'Recent Circulation Ledger'}</span>
           </h4>
           <button
             onClick={() => onNavigateTab('checkout-hub')}
-            className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-[#0F4C45] dark:text-[#6EE7B7] hover:underline flex items-center gap-1 cursor-pointer"
           >
             {language === 'dv' ? 'ހުރިހާ ލިސްޓެއް' : 'Manage All'} <ArrowUpRight className="w-3.5 h-3.5 rtl-mirror" />
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs text-slate-700 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] border-y border-slate-200 dark:border-slate-700">
+          <table className="w-full text-start text-xs text-[#1C1917] dark:text-[#F5F3EE]">
+            <thead className="bg-[#EFECE6] dark:bg-[#232724] text-[#6B655D] dark:text-[#A19B91] font-bold uppercase text-[10px] border-y border-[#E2DDD5] dark:border-[#2E3330]">
               <tr>
                 <th className="py-2.5 px-3">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</th>
                 <th className="py-2.5 px-3">{language === 'dv' ? 'ކޮޕީ' : 'Copy'}</th>
@@ -840,23 +841,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <th className="py-2.5 px-3 text-end">{t.status}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[#E2DDD5] dark:divide-[#2E3330]">
               {loans.slice(0, 6).map(loan => (
-                <tr key={loan.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                  <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white"><bdi>{loan.bookTitle}</bdi></td>
-                  <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400"><bdi>{loan.copyBarcode || loan.bookIsbn}</bdi></td>
-                  <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300"><bdi>{loan.userName}</bdi></td>
-                  <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400"><bdi>{loan.dueDate}</bdi></td>
+                <tr key={loan.id} className="hover:bg-[#F7F5F0] dark:hover:bg-[#232724]/60">
+                  <td className="py-2.5 px-3 font-bold text-[#1C1917] dark:text-[#F5F3EE]"><bdi>{loan.bookTitle}</bdi></td>
+                  <td className="py-2.5 px-3 font-mono tabular-nums text-[11px] text-[#6B655D] dark:text-[#A19B91]"><bdi dir="ltr">{loan.copyBarcode || loan.bookIsbn}</bdi></td>
+                  <td className="py-2.5 px-3 text-[#1C1917] dark:text-[#F5F3EE]"><bdi>{loan.userName}</bdi></td>
+                  <td className="py-2.5 px-3 font-mono tabular-nums text-[#6B655D] dark:text-[#A19B91]"><bdi dir="ltr">{loan.dueDate}</bdi></td>
                   <td className="py-2.5 px-3 text-end">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      loan.status === 'active'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                        : loan.status === 'overdue'
-                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {loan.status === 'active' ? t.statusActive : loan.status === 'overdue' ? t.statusOverdue : t.statusReturned}
-                    </span>
+                    <StatusPill
+                      status={loan.status === 'overdue' ? 'overdue' : loan.status === 'active' ? 'checked_out' : 'available'}
+                      label={loan.status === 'active' ? t.statusActive : loan.status === 'overdue' ? t.statusOverdue : t.statusReturned}
+                      compact
+                    />
                   </td>
                 </tr>
               ))}

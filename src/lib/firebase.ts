@@ -18,6 +18,8 @@ import {
 } from 'firebase/firestore';
 import {
   getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -45,6 +47,22 @@ export const db: Firestore = (() => {
 
 // Initialize Auth
 export const auth = getAuth(app);
+
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export async function signInWithGooglePopup(): Promise<FirebaseUser> {
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+}
+
+export async function signOutFirebase(): Promise<void> {
+  await signOut(auth);
+}
+
+export function subscribeAuthState(callback: (user: FirebaseUser | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
 
 // Error Handling Definition
 export enum OperationType {

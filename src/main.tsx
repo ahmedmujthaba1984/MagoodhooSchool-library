@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { ThemeLocaleProvider } from './lib/i18n';
 import { ToastProvider } from './lib/toast';
+import { AuthProvider } from './contexts/AuthContext';
 import { SectionErrorBoundary } from './components/SectionErrorBoundary';
 
 // Prevent harmless Vite HMR WebSocket disconnect messages from triggering overlay errors
@@ -68,7 +69,9 @@ createRoot(document.getElementById('root')!).render(
     >
       <ThemeLocaleProvider>
         <ToastProvider>
-          <App />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </ToastProvider>
       </ThemeLocaleProvider>
     </SectionErrorBoundary>
