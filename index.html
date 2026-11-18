@@ -16,11 +16,14 @@
           var urlLang = params.get('lang');
           var savedLang = urlLang === 'dv' || urlLang === 'en'
             ? urlLang
-            : (localStorage.getItem('locale') || localStorage.getItem('app_lang'));
-          if (savedLang === 'dv') {
-            document.documentElement.dir = 'rtl';
-            document.documentElement.lang = 'dv';
+            : (localStorage.getItem('library_locale') || localStorage.getItem('locale') || localStorage.getItem('app_lang'));
+          var isDv = savedLang === 'dv';
+          document.documentElement.dir = isDv ? 'rtl' : 'ltr';
+          document.documentElement.lang = isDv ? 'dv' : 'en';
+          if (isDv) {
             document.documentElement.classList.add('rtl-mode');
+          } else {
+            document.documentElement.classList.remove('rtl-mode');
           }
         } catch (e) {}
 

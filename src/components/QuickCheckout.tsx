@@ -751,10 +751,15 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                       <div className="text-[11px] text-slate-600 dark:text-slate-400">
                         <bdi>{matchedBook.author}</bdi> · <bdi className="font-mono">{matchedBook.ddcCallNumber || 'DDC'}</bdi> · <bdi>{matchedBook.shelfLocation}</bdi>
                       </div>
-                      <div className="text-[11px] font-mono tabular-nums text-slate-700 dark:text-slate-300">
-                        {matchedCopyBarcode && <span>Copy: <bdi>{matchedCopyBarcode}</bdi> · </span>}
+                      <div className="text-[11px] text-slate-700 dark:text-slate-300">
+                        {matchedCopyBarcode && <span>Copy: <bdi dir="ltr" className="font-mono tabular-nums">{matchedCopyBarcode}</bdi> · </span>}
                         <span className={matchedBook.availableCopies > 0 ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-rose-600 dark:text-rose-400 font-bold'}>
-                          {matchedBook.isReferenceOnly ? t.statusReferenceOnly : `${matchedBook.availableCopies}/${matchedBook.totalCopies} ${t.available}`}
+                          {matchedBook.isReferenceOnly ? t.statusReferenceOnly : (
+                            <>
+                              <bdi dir="ltr" className="font-mono tabular-nums">{matchedBook.availableCopies}/{matchedBook.totalCopies}</bdi>{' '}
+                              {t.available}
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>

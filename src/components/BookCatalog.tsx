@@ -566,13 +566,22 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   <BookOpen className="w-3.5 h-3.5" /> {t.catalog}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">
-                  <bdi dir="ltr">{books.length.toLocaleString()}</bdi> {t.titles} ·{' '}
-                  <bdi dir="ltr">{totalPhysicalCopies.toLocaleString()}</bdi> {t.physicalBooks}
+                <span>
+                  <bdi dir="ltr" className="font-mono tabular-nums">
+                    {books.length.toLocaleString()}
+                  </bdi>{' '}
+                  {t.titles} ·{' '}
+                  <bdi dir="ltr" className="font-mono tabular-nums">
+                    {totalPhysicalCopies.toLocaleString()}
+                  </bdi>{' '}
+                  {t.physicalBooks}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
-                  <bdi dir="ltr">{totalAvailableCopies.toLocaleString()}</bdi> {t.available}
+                <span className="text-emerald-700 dark:text-emerald-400">
+                  <bdi dir="ltr" className="font-mono tabular-nums">
+                    {totalAvailableCopies.toLocaleString()}
+                  </bdi>{' '}
+                  {t.available}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-relaxed">
@@ -681,7 +690,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 title="Scan Book Barcode or ISBN with Camera"
               >
                 <Scan className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
-                <span className="hidden sm:inline font-mono text-[11px]">
+                <span className="hidden sm:inline text-[11px]">
                   {language === 'dv' ? 'ސްކޭން' : 'Scan'}
                 </span>
               </button>
@@ -1204,7 +1213,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 className="ms-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-extrabold transition cursor-pointer leading-relaxed"
               >
                 <XCircle className="w-3.5 h-3.5" />
-                <span>{language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Reset All Filters'}</span>
+                <span>{language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Clear All Filters'}</span>
               </button>
             </div>
           )}
@@ -1417,8 +1426,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 {language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}
                               </span>
                             ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-md font-mono tabular-nums">
-                                <bdi dir="ltr">
+                              <span className="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-md">
+                                <bdi dir="ltr" className="font-mono tabular-nums">
                                   {book.availableCopies}/{book.totalCopies}
                                 </bdi>{' '}
                                 {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}
@@ -1445,27 +1454,50 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                         <div className="p-4 space-y-2 text-xs">
                           <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-semibold">
                             <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span className="truncate font-mono tabular-nums text-[11px]">
+                            <span className="truncate text-[11px] leading-relaxed">
                               {book.isReferenceOnly ? (
                                 language === 'dv' ? (
                                   <>
-                                    ރެފަރެންސް — <bdi dir="ltr">{book.shelfLocation}</bdi>
+                                    ރެފަރެންސް —{' '}
+                                    <bdi dir="ltr" className="font-mono">
+                                      {book.shelfLocation}
+                                    </bdi>
                                   </>
                                 ) : (
                                   <>
-                                    In-Library Use — <bdi dir="ltr">{book.shelfLocation}</bdi>
+                                    In-Library Use —{' '}
+                                    <bdi dir="ltr" className="font-mono">
+                                      {book.shelfLocation}
+                                    </bdi>
                                   </>
                                 )
                               ) : language === 'dv' ? (
                                 <>
-                                  <bdi dir="ltr">{book.totalCopies}</bdi> ގެ ތެރެއިން{' '}
-                                  <bdi dir="ltr">{book.availableCopies}</bdi> ކޮޕީ ލިބެންހުރި —{' '}
-                                  <bdi dir="ltr">{book.shelfLocation}</bdi>
+                                  <bdi dir="ltr" className="font-mono tabular-nums">
+                                    {book.totalCopies}
+                                  </bdi>{' '}
+                                  ގެ ތެރެއިން{' '}
+                                  <bdi dir="ltr" className="font-mono tabular-nums">
+                                    {book.availableCopies}
+                                  </bdi>{' '}
+                                  ކޮޕީ ލިބެންހުރި —{' '}
+                                  <bdi dir="ltr" className="font-mono">
+                                    {book.shelfLocation}
+                                  </bdi>
                                 </>
                               ) : (
                                 <>
-                                  {book.availableCopies} of {book.totalCopies} copies available —{' '}
-                                  <bdi dir="ltr">{book.shelfLocation}</bdi>
+                                  <span className="font-mono tabular-nums">
+                                    {book.availableCopies}
+                                  </span>{' '}
+                                  of{' '}
+                                  <span className="font-mono tabular-nums">
+                                    {book.totalCopies}
+                                  </span>{' '}
+                                  copies available —{' '}
+                                  <bdi dir="ltr" className="font-mono">
+                                    {book.shelfLocation}
+                                  </bdi>
                                 </>
                               )}
                             </span>
@@ -1494,16 +1526,16 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             <bdi>{book.description}</bdi>
                           </p>
 
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 font-mono tabular-nums">
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
                             <span>
                               ISBN{' '}
-                              <bdi dir="ltr" className="text-slate-800 dark:text-slate-200">
+                              <bdi dir="ltr" className="font-mono tabular-nums text-slate-800 dark:text-slate-200">
                                 {book.isbn}
                               </bdi>
                             </span>
                             {qStats.totalHolds > 0 && (
                               <span className="text-amber-700 dark:text-amber-400 font-semibold">
-                                <bdi dir="ltr">
+                                <bdi dir="ltr" className="font-mono tabular-nums">
                                   {qStats.totalHolds} {qStats.totalHolds === 1 ? 'hold' : 'holds'}
                                 </bdi>
                               </span>
@@ -1538,12 +1570,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           <>
                             {isReserved ? (
                               <div className="flex-1 flex items-center gap-1">
-                                <span className="flex-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1 font-mono tabular-nums">
+                                <span className="flex-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1">
                                   <Bookmark className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
                                   <span>
                                     {language === 'dv' ? (
                                       <>
-                                        ކިއު <bdi dir="ltr">#{qStats.userPosition}</bdi>
+                                        ކިއު{' '}
+                                        <bdi dir="ltr" className="font-mono tabular-nums">
+                                          #{qStats.userPosition}
+                                        </bdi>
                                       </>
                                     ) : (
                                       `Hold #${qStats.userPosition} in queue`
@@ -1922,8 +1957,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               {/* Bulk Selection Action Bar */}
               {selectedTableIds.length > 0 && (
                 <div className="p-3 rounded-2xl bg-slate-900 dark:bg-emerald-950/70 text-white border border-slate-800 dark:border-emerald-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-bold font-mono tabular-nums">
-                    <bdi dir="ltr">{selectedTableIds.length}</bdi>{' '}
+                  <span className="font-bold">
+                    <bdi dir="ltr" className="font-mono tabular-nums">
+                      {selectedTableIds.length}
+                    </bdi>{' '}
                     {language === 'dv' ? 'ފޮތް ޚިޔާރުކުރެވިފައި' : 'selected'}
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
@@ -2198,8 +2235,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'Ref Only'}</bdi>
                               </span>
                             ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px] font-mono tabular-nums">
-                                <bdi dir="ltr">
+                              <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
+                                <bdi dir="ltr" className="font-mono tabular-nums">
                                   {book.availableCopies}/{book.totalCopies}
                                 </bdi>{' '}
                                 {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}
@@ -2432,7 +2469,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   onClick={clearAllFilters}
                   className="px-4 py-2.5 bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
                 >
-                  {language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Reset All Filters'}
+                  {language === 'dv' ? 'ހުރިހާ ފިލްޓަރެއް ފޮހެލާ' : 'Clear All Filters'}
                 </button>
               </div>
             </div>
@@ -2709,10 +2746,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     if (dq.userPosition > 0) {
                       return (
                         <div className="flex items-center gap-1.5">
-                          <span className="px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold font-mono tabular-nums flex items-center gap-1.5">
+                          <span className="px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
                             <Bookmark className="w-3.5 h-3.5 text-emerald-700" />
                             <span>
-                              <bdi dir="ltr">
+                              <bdi dir="ltr" className="font-mono tabular-nums">
                                 #{dq.userPosition} of {dq.totalHolds}
                               </bdi>{' '}
                               in queue

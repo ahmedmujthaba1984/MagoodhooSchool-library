@@ -119,7 +119,7 @@
     padding-bottom: 0.2em;
   }
 
-  /* Mixed-language text isolation: bare <bdi> auto-detects direction cleanly without breaking RTL Dhivehi titles, while <bdi dir="ltr"> and .font-mono enforce LTR */
+  /* Mixed-language text isolation: bare <bdi> auto-detects direction cleanly without breaking RTL Dhivehi titles, while <bdi dir="ltr">, bdi.font-mono, and code/.bdi-code enforce LTR */
   bdi {
     unicode-bidi: isolate;
   }
@@ -133,17 +133,22 @@
     text-align: start;
   }
 
-  .font-mono,
   code,
   .bdi-code,
   bdi.font-mono,
-  [dir="rtl"] .font-mono,
   [dir="rtl"] code,
-  [dir="rtl"] .bdi-code {
+  [dir="rtl"] .bdi-code,
+  [dir="rtl"] bdi.font-mono {
     unicode-bidi: isolate;
     direction: ltr;
     display: inline-block;
     text-align: start;
+    font-family: var(--font-mono) !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .font-mono,
+  [dir="rtl"] .font-mono {
     font-family: var(--font-mono) !important;
     font-variant-numeric: tabular-nums;
   }

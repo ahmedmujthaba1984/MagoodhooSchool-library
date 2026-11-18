@@ -668,11 +668,15 @@ export const ThemeLocaleProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (typeof window !== 'undefined') {
       const urlLang = new URLSearchParams(window.location.search).get('lang');
       if (urlLang === 'dv' || urlLang === 'en') {
+        localStorage.setItem('library_locale', urlLang);
         localStorage.setItem('locale', urlLang);
         localStorage.setItem('app_lang', urlLang);
         return urlLang;
       }
-      const saved = localStorage.getItem('locale') || localStorage.getItem('app_lang');
+      const saved =
+        localStorage.getItem('library_locale') ||
+        localStorage.getItem('locale') ||
+        localStorage.getItem('app_lang');
       if (saved === 'dv' || saved === 'en') return saved;
     }
     return 'en';
@@ -684,6 +688,7 @@ export const ThemeLocaleProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const urlLang = new URLSearchParams(window.location.search).get('lang');
       if (urlLang === 'dv' || urlLang === 'en') {
         setLanguageState(urlLang);
+        localStorage.setItem('library_locale', urlLang);
         localStorage.setItem('locale', urlLang);
         localStorage.setItem('app_lang', urlLang);
       }
@@ -700,6 +705,7 @@ export const ThemeLocaleProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== 'undefined') {
+      localStorage.setItem('library_locale', lang);
       localStorage.setItem('locale', lang);
       localStorage.setItem('app_lang', lang);
     }

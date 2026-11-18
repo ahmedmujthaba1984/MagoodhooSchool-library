@@ -192,7 +192,7 @@ export class SectionErrorBoundary extends BaseComponent {
           </div>
         </div>
 
-        {this.props.isAdmin && this.state.technicalSummary && (
+        {this.state.technicalSummary && (
           <div className="pt-2 border-t border-rose-100 dark:border-rose-900/50">
             <button
               type="button"

@@ -112,11 +112,11 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({ books }) => 
 
               <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs">
                 <div className="flex items-center gap-1.5 text-slate-800 font-extrabold">
-                  <MapPin className="w-3.5 h-3.5 text-amber-600" /> Shelf Location: <span className="font-mono text-amber-950 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-lg">{book.shelfLocation}</span>
+                  <MapPin className="w-3.5 h-3.5 text-amber-600" /> Shelf Location: <bdi dir="ltr" className="font-mono text-amber-950 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-lg">{book.shelfLocation}</bdi>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono font-bold">
-                  <span>ISBN: {book.isbn}</span>
-                  <span className="text-slate-900 font-extrabold">{book.totalCopies} Copies at Desk</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-600 font-bold">
+                  <span>ISBN: <bdi dir="ltr" className="font-mono">{book.isbn}</bdi></span>
+                  <span className="text-slate-900 font-extrabold"><bdi dir="ltr" className="font-mono">{book.totalCopies}</bdi> Copies at Desk</span>
                 </div>
               </div>
             </div>

@@ -461,7 +461,7 @@ export const ReadingEngagementView: React.FC<ReadingEngagementViewProps> = ({
                   <div key={h.houseName} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="font-bold text-slate-900 dark:text-white">
-                        <span className="font-mono text-slate-400 me-1.5">#{idx + 1}</span>
+                        <bdi dir="ltr" className="font-mono text-slate-400 me-1.5">#{idx + 1}</bdi>
                         <bdi>{h.houseName}</bdi>
                         <span className="text-slate-400 font-normal ms-2 text-[11px]">
                           <bdi>{h.houseDhivehi}</bdi>
