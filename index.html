@@ -144,7 +144,7 @@
     <meta property="og:type" content="website" />
 
     <!-- PWA & Mobile Web Capabilities -->
-    <meta name="theme-color" content="#047857" />
+    <meta name="theme-color" content="#0F4C45" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -175,21 +175,21 @@
         min-height: 100vh;
         display: flex;
         flex-direction: column;
-        background: #f1f5f9;
-        color: #0f172a;
+        background: #F7F5F0;
+        color: #1C1917;
         font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
       }
       html[dir="rtl"] #boot-shell {
         font-family: 'Faruma', 'Noto Sans Thaana', sans-serif;
       }
       html.dark #boot-shell {
-        background: #020617;
-        color: #f8fafc;
+        background: #121413;
+        color: #F5F3EE;
       }
       .boot-topbar {
         height: 64px;
-        background: #ffffff;
-        border-bottom: 1px solid #e2e8f0;
+        background: #FFFFFF;
+        border-bottom: 1px solid #E2DDD5;
         width: 100%;
         box-sizing: border-box;
       }
@@ -208,8 +208,8 @@
         .boot-topbar-inner { padding: 0 24px; }
       }
       html.dark .boot-topbar {
-        background: #0f172a;
-        border-bottom-color: #1e293b;
+        background: #1A1D1B;
+        border-bottom-color: #2E3330;
       }
       .boot-brand {
         display: flex;
@@ -217,17 +217,18 @@
         gap: 10px;
         font-weight: 800;
         font-size: 14px;
+        letter-spacing: -0.02em;
       }
       .boot-logo {
-        width: 34px;
-        height: 34px;
-        border-radius: 12px;
-        background: #047857;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: #0F4C45;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        color: #fff;
-        font-weight: 900;
+        color: #F7F5F0;
+        flex-shrink: 0;
       }
       .boot-body {
         flex: 1;
@@ -236,13 +237,17 @@
       .boot-sidebar {
         width: 256px;
         flex-shrink: 0;
-        background: #0f172a;
+        background: #0D2623;
         padding: 16px 12px;
         display: none;
         flex-direction: column;
         gap: 10px;
-        border-inline-end: 1px solid #1e293b;
+        border-inline-end: 1px solid #193D38;
         box-sizing: border-box;
+      }
+      html.dark .boot-sidebar {
+        background: #161918;
+        border-inline-end-color: #2E3330;
       }
       @media (min-width: 1024px) {
         .boot-sidebar {
@@ -267,13 +272,13 @@
         box-sizing: border-box;
       }
       .boot-shimmer {
-        background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+        background: linear-gradient(90deg, #EFECE6 25%, #F7F5F0 50%, #EFECE6 75%);
         background-size: 200% 100%;
         animation: bootPulse 1.4s ease-in-out infinite;
         border-radius: 12px;
       }
       html.dark .boot-shimmer {
-        background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+        background: linear-gradient(90deg, #1A1D1B 25%, #232724 50%, #1A1D1B 75%);
         background-size: 200% 100%;
       }
       .boot-dark-pill {
@@ -284,15 +289,15 @@
       .boot-hero {
         height: 156px;
         border-radius: 24px;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #FFFFFF;
+        border: 1px solid #E2DDD5;
         padding: 24px;
         margin-bottom: 20px;
         box-sizing: border-box;
       }
       html.dark .boot-hero {
-        background: #0f172a;
-        border-color: #1e293b;
+        background: #1A1D1B;
+        border-color: #2E3330;
       }
       .boot-grid {
         display: grid;
@@ -301,9 +306,9 @@
       }
       .boot-card {
         height: 310px;
-        border-radius: 24px;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        background: #FFFFFF;
+        border: 1px solid #E2DDD5;
         padding: 16px;
         display: flex;
         flex-direction: column;
@@ -311,8 +316,8 @@
         box-sizing: border-box;
       }
       html.dark .boot-card {
-        background: #0f172a;
-        border-color: #1e293b;
+        background: #1A1D1B;
+        border-color: #2E3330;
       }
       @keyframes bootPulse {
         0% { background-position: 200% 0; }
@@ -320,17 +325,24 @@
       }
     </style>
   </head>
-  <body class="bg-slate-100 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
+  <body class="bg-[#F7F5F0] dark:bg-[#121413] text-[#1C1917] dark:text-[#F5F3EE] antialiased selection:bg-[#0F4C45] selection:text-white">
     <div id="root">
       <div id="boot-shell" aria-busy="true" aria-label="Loading Magoodhoo School Library Portal">
         <header class="boot-topbar">
           <div class="boot-topbar-inner">
             <div class="boot-brand">
-              <span class="boot-logo" aria-hidden="true">M</span>
+              <span class="boot-logo" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 10.5C5 8.84 6.34 7.5 8 7.5H13.5C14.88 7.5 16 8.62 16 10V24.5C16 23.4 15.1 22.5 14 22.5H8C6.34 22.5 5 21.16 5 19.5V10.5Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
+                  <path d="M27 10.5C27 8.84 25.66 7.5 24 7.5H18.5C17.12 7.5 16 8.62 16 10V24.5C16 23.4 16.9 22.5 18 22.5H24C25.66 22.5 27 21.16 27 19.5V10.5Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
+                  <path d="M19.5 7.5V15.5L21.75 13.8L24 15.5V7.5" fill="#C26D3A"/>
+                  <path d="M7.5 26.5C10.5 24.8 13.5 24.8 16 26.5C18.5 24.8 21.5 24.8 24.5 26.5" stroke="#C26D3A" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+              </span>
               <span>Magoodhoo School Library</span>
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
-              <div class="boot-shimmer" style="width:180px;height:34px;border-radius:10px;"></div>
+              <div class="boot-shimmer" style="width:200px;height:34px;border-radius:10px;"></div>
               <div class="boot-shimmer" style="width:92px;height:34px;border-radius:10px;"></div>
             </div>
           </div>
@@ -353,22 +365,22 @@
               </div>
               <div class="boot-grid">
                 <div class="boot-card">
-                  <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                  <div class="boot-shimmer" style="flex:1;border-radius:14px;"></div>
                   <div class="boot-shimmer" style="height:14px;width:80%;"></div>
                   <div class="boot-shimmer" style="height:12px;width:55%;"></div>
                 </div>
                 <div class="boot-card">
-                  <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                  <div class="boot-shimmer" style="flex:1;border-radius:14px;"></div>
                   <div class="boot-shimmer" style="height:14px;width:75%;"></div>
                   <div class="boot-shimmer" style="height:12px;width:50%;"></div>
                 </div>
                 <div class="boot-card">
-                  <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                  <div class="boot-shimmer" style="flex:1;border-radius:14px;"></div>
                   <div class="boot-shimmer" style="height:14px;width:85%;"></div>
                   <div class="boot-shimmer" style="height:12px;width:60%;"></div>
                 </div>
                 <div class="boot-card">
-                  <div class="boot-shimmer" style="flex:1;border-radius:16px;"></div>
+                  <div class="boot-shimmer" style="flex:1;border-radius:14px;"></div>
                   <div class="boot-shimmer" style="height:14px;width:70%;"></div>
                   <div class="boot-shimmer" style="height:12px;width:45%;"></div>
                 </div>

@@ -37,6 +37,8 @@ import { Book, UserProfile, Reservation, Loan, LibrarySettings } from '../types'
 import { AddBookModal } from './AddBookModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { BookCover } from './BookCover';
+import { LibraryBookCard } from './LibraryBookCard';
+import { StatusPill } from './StatusPill';
 import { CatalogGridSkeleton, CatalogTableSkeleton } from './Skeletons';
 import { OpacKioskMode } from './OpacKioskMode';
 import { TopReadingClassesWidget } from './TopReadingClassesWidget';
@@ -466,19 +468,22 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       ]
         .filter((shelf) => shelf.items.length > 0)
         .map((shelf) => (
-          <section key={shelf.key} className="space-y-2.5">
+          <section
+            key={shelf.key}
+            className="bg-[#EFECE6]/90 dark:bg-[#232724]/85 border border-[#E2DDD5] dark:border-[#2E3330] rounded-3xl p-4 sm:p-5 space-y-3.5 shelf-ledge"
+          >
             <div className="flex items-center justify-between gap-3 flex-wrap px-1">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2 leading-relaxed">
-                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                <h3 className="text-base font-extrabold text-[#1C1917] dark:text-[#F5F3EE] flex items-center gap-2 leading-relaxed archival-heading">
+                  <Sparkles className="w-4 h-4 text-[#C26D3A] shrink-0" strokeWidth={1.75} />
                   <span>{shelf.title}</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-xs text-[#6B655D] dark:text-[#A19B91] leading-relaxed">
                   {shelf.subtitle}
                 </p>
               </div>
               {shelf.showGradeTabs && (
-                <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 gap-1">
+                <div className="flex items-center bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl p-1 gap-1">
                   {(['Primary', 'Middle', 'Secondary'] as const).map((band) => (
                     <button
                       key={band}
@@ -486,8 +491,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       onClick={() => setShelfGradeFilter(band)}
                       className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                         shelfGradeFilter === band
-                          ? 'bg-emerald-700 text-white'
-                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          ? 'bg-[#0F4C45] text-white'
+                          : 'text-[#6B655D] dark:text-[#A19B91] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
                       }`}
                     >
                       {band}
@@ -501,51 +506,24 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               {shelf.items.map((book) => {
                 const qStats = getQueueStats(book.id);
                 return (
-                  <div
+                  <LibraryBookCard
                     key={`${shelf.key}-${book.id}`}
-                    onClick={() => setSelectedBook(book)}
-                    className="w-40 sm:w-44 shrink-0 snap-start bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl overflow-hidden hover:border-emerald-500/60 transition cursor-pointer group flex flex-col"
-                  >
-                    <div className="aspect-[2/3] w-full bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
-                      <BookCover
-                        src={book.coverUrl}
-                        title={book.title}
-                        author={book.author}
-                        ddcCallNumber={book.ddcCallNumber}
-                        category={book.category}
-                        size="sm"
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent pointer-events-none" />
-                      <div className="absolute bottom-2 start-2 end-2 flex items-center justify-between text-[10px] font-mono tabular-nums text-white">
-                        <bdi dir="ltr">
-                          {book.isReferenceOnly
-                            ? 'REF'
-                            : `${book.availableCopies}/${book.totalCopies} avail`}
-                        </bdi>
-                        {qStats.totalHolds > 0 && (
-                          <span className="text-amber-300">
-                            <bdi dir="ltr">
-                              {qStats.totalHolds} hold{qStats.totalHolds > 1 ? 's' : ''}
-                            </bdi>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="p-2.5 space-y-1 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 leading-relaxed">
-                          <bdi>{book.title}</bdi>
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-relaxed">
-                          <bdi>{book.author}</bdi>
-                        </p>
-                      </div>
-                      <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 truncate pt-1">
-                        <bdi dir="ltr">{book.shelfLocation}</bdi>
-                      </div>
-                    </div>
-                  </div>
+                    variant="shelf"
+                    title={book.title}
+                    author={book.author}
+                    coverUrl={book.coverUrl}
+                    category={localizeCategory(book.category)}
+                    ddcCallNumber={book.ddcCallNumber}
+                    barcode={book.barcode}
+                    isbn={book.isbn}
+                    shelfLocation={book.shelfLocation}
+                    availableCopies={book.availableCopies}
+                    totalCopies={book.totalCopies}
+                    isReferenceOnly={book.isReferenceOnly}
+                    holdsCount={qStats.totalHolds}
+                    language={language}
+                    onSelect={() => setSelectedBook(book)}
+                  />
                 );
               })}
             </div>
@@ -556,38 +534,38 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner / Search Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 text-slate-900 dark:text-slate-100 border border-slate-200/90 dark:border-slate-800 shadow-sm relative">
+      {/* Top Archival Reading Room Hero & Search Bar */}
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-3xl p-6 sm:p-8 text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] shadow-xs relative">
         <div className="relative z-10 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-2 max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-semibold leading-relaxed">
-                <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-black uppercase tracking-wider">
-                  <BookOpen className="w-3.5 h-3.5" /> {t.catalog}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#6B655D] dark:text-[#A19B91] font-semibold leading-relaxed">
+                <span className="inline-flex items-center gap-1.5 text-[#0F4C45] dark:text-[#6EE7B7] font-extrabold uppercase tracking-wider">
+                  <BookOpen className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.catalog}
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
-                  <bdi dir="ltr" className="font-mono tabular-nums">
+                  <bdi dir="ltr" className="font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">
                     {books.length.toLocaleString()}
                   </bdi>{' '}
                   {t.titles} ·{' '}
-                  <bdi dir="ltr" className="font-mono tabular-nums">
+                  <bdi dir="ltr" className="font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">
                     {totalPhysicalCopies.toLocaleString()}
                   </bdi>{' '}
                   {t.physicalBooks}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="text-emerald-700 dark:text-emerald-400">
+                <span className="text-[#15803D] dark:text-[#6EE7B7]">
                   <bdi dir="ltr" className="font-mono tabular-nums">
                     {totalAvailableCopies.toLocaleString()}
                   </bdi>{' '}
                   {t.available}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-relaxed">
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1C1917] dark:text-[#F5F3EE] leading-relaxed archival-heading">
                 {t.catalog}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#6B655D] dark:text-[#A19B91] font-medium leading-relaxed">
                 {language === 'dv'
                   ? 'މަގޫދޫ ސްކޫލް ލައިބްރަރީގެ ޑިޖިޓަލް ކެޓަލޮގުން ފޮތްތައް ހޯއްދަވައި، އޮންލައިންކޮށް ނަންނޯޓު ކުރައްވާ.'
                   : 'Discover curated library shelves, inspect real-time copy availability, and place self-service holds.'}
@@ -599,30 +577,30 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 <button
                   type="button"
                   onClick={onOpenSuggestBook}
-                  className="bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+                  className="bg-[#ECFDF5] dark:bg-[#0F4C45]/40 hover:bg-[#D1FAE5] dark:hover:bg-[#0F4C45]/60 text-[#0F4C45] dark:text-[#6EE7B7] border border-[#A7F3D0] dark:border-[#16655B] font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
                   id="opac-suggest-book-btn"
                 >
-                  <BookPlus className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <BookPlus className="w-4 h-4" strokeWidth={1.75} />
                   <span>{language === 'dv' ? 'ފޮތެއް ހުށަހަޅާ' : 'Suggest a Book'}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setIsKioskOpen(true)}
-                className="bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer shadow-xs whitespace-nowrap"
+                className="bg-[#1C1917] dark:bg-[#232724] hover:bg-[#2E2A27] dark:hover:bg-[#2E3330] text-white border border-transparent dark:border-[#2E3330] font-bold text-xs px-4 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer shadow-xs whitespace-nowrap"
                 id="launch-library-kiosk-btn"
               >
-                <Monitor className="w-4 h-4 text-emerald-400 dark:text-white" />
+                <Monitor className="w-4 h-4 text-[#C26D3A]" strokeWidth={1.75} />
                 <span>{language === 'dv' ? 'ކިއޮސްކް މޯޑު' : 'Launch Library Kiosk'}</span>
               </button>
               {can('data:import_export') && onOpenImportModal && (
                 <button
                   type="button"
                   onClick={() => onOpenImportModal('books')}
-                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 border border-slate-300 dark:border-slate-700 cursor-pointer whitespace-nowrap"
+                  className="bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 border border-[#E2DDD5] dark:border-[#2E3330] cursor-pointer whitespace-nowrap"
                   id="catalog-import-csv-btn"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <FileSpreadsheet className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                   <span>{t.importBulk}</span>
                 </button>
               )}
@@ -630,10 +608,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 <button
                   type="button"
                   onClick={onOpenSmartCataloger}
-                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                  className="bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] font-bold text-xs px-3.5 py-2.5 rounded-2xl transition flex items-center gap-2 cursor-pointer whitespace-nowrap"
                   id="catalog-smart-ai-cataloger-btn"
                 >
-                  <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <Camera className="w-4 h-4 text-[#C26D3A]" strokeWidth={1.75} />
                   <span>{language === 'dv' ? 'އޭއައި ކަވަރު ސްކޭނަރ' : 'AI Vision Cataloger'}</span>
                 </button>
               )}
@@ -644,10 +622,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     if (onOpenAddBookModal) onOpenAddBookModal();
                     else setIsAddBookModalOpen(true);
                   }}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-4 py-2.5 rounded-2xl shadow-sm transition flex items-center gap-2 active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="bg-[#0F4C45] hover:bg-[#16655B] text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer whitespace-nowrap"
                   id="catalog-add-book-btn"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4" strokeWidth={1.75} />
                   <span>{t.addBook}</span>
                 </button>
               )}
@@ -656,7 +634,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
           {/* Search Bar Input with Camera Scanner & Auto-complete Index */}
           <div className="relative mt-2 max-w-3xl">
-            <Search className="w-5 h-5 text-slate-400 absolute top-3.5 start-4 pointer-events-none" />
+            <Search className="w-5 h-5 text-[#6B655D] dark:text-[#A19B91] absolute top-3.5 start-4 pointer-events-none" strokeWidth={1.75} />
             <input
               type="text"
               value={searchQuery}
@@ -666,7 +644,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               }}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t.searchPlaceholder}
-              className="w-full py-3 ps-12 pe-28 text-start bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 rounded-2xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm font-semibold transition-all shadow-inner leading-relaxed"
+              className="w-full py-3 ps-12 pe-28 text-start bg-[#F7F5F0] dark:bg-[#232724] text-[#1C1917] dark:text-[#F5F3EE] placeholder-[#6B655D] dark:placeholder-[#A19B91] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] focus:outline-none focus:ring-2 focus:ring-[#0F4C45] text-sm font-semibold transition-all leading-relaxed"
               id="catalog-search-input"
             />
 
@@ -763,11 +741,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         compact
         onRecover={clearAllFilters}
       >
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-3.5">
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] p-4 rounded-3xl border border-[#E2DDD5] dark:border-[#2E3330] shadow-xs space-y-3.5">
           {/* Row 1: Category Badges (Multi-select OR within Subjects) */}
           <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
-            <span className="text-xs font-black text-slate-500 dark:text-slate-400 flex items-center gap-1 uppercase tracking-wider pe-2 shrink-0 leading-relaxed">
-              <Filter className="w-3.5 h-3.5 text-emerald-600" />{' '}
+            <span className="text-xs font-extrabold text-[#6B655D] dark:text-[#A19B91] flex items-center gap-1 uppercase tracking-wider pe-2 shrink-0 leading-relaxed">
+              <Filter className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />{' '}
               {language === 'dv' ? 'ބައި / ޖެންރާ:' : 'Subject:'}
             </span>
             <button
@@ -775,8 +753,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               onClick={() => setSelectedCategories([])}
               className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer leading-relaxed ${
                 selectedCategories.length === 0
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                  ? 'bg-[#0F4C45] text-white shadow-xs'
+                  : 'bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330]'
               }`}
             >
               {language === 'dv'
@@ -794,8 +772,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   onClick={() => toggleCategory(cat)}
                   className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer leading-relaxed ${
                     isSelected
-                      ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                      ? 'bg-[#0F4C45] text-white shadow-xs'
+                      : 'bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330]'
                   }`}
                 >
                   {localizeCategory(cat)}{' '}
@@ -1277,16 +1255,16 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 {filteredByShelfGroups.map(([shelfName, shelfBooks]) => (
                   <section
                     key={shelfName}
-                    className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs"
+                    className="bg-[#EFECE6]/90 dark:bg-[#232724]/85 border border-[#E2DDD5] dark:border-[#2E3330] rounded-3xl p-4 sm:p-5 space-y-3.5 shelf-ledge"
                   >
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                    <div className="flex items-center justify-between gap-2 border-b border-[#E2DDD5] dark:border-[#2E3330] pb-2.5">
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <h4 className="font-black text-sm text-slate-900 dark:text-white leading-relaxed">
+                        <MapPin className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" strokeWidth={1.75} />
+                        <h4 className="font-extrabold text-sm text-[#1C1917] dark:text-[#F5F3EE] leading-relaxed archival-heading">
                           <bdi>{shelfName}</bdi>
                         </h4>
                       </div>
-                      <span className="text-[11px] font-mono tabular-nums font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <span className="text-[11px] font-mono tabular-nums font-bold px-2.5 py-1 rounded-lg bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE]">
                         <bdi dir="ltr">{shelfBooks.length} items</bdi>
                       </span>
                     </div>
@@ -1295,53 +1273,24 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       {shelfBooks.map((book) => {
                         const qStats = getQueueStats(book.id);
                         return (
-                          <div
+                          <LibraryBookCard
                             key={book.id}
-                            onClick={() => setSelectedBook(book)}
-                            className="w-36 sm:w-40 shrink-0 snap-start bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden hover:border-emerald-500 transition cursor-pointer group flex flex-col"
-                          >
-                            <div className="aspect-[2/3] w-full relative overflow-hidden bg-slate-200 dark:bg-slate-800">
-                              <BookCover
-                                src={book.coverUrl}
-                                title={book.title}
-                                author={book.author}
-                                ddcCallNumber={book.ddcCallNumber}
-                                category={book.category}
-                                size="sm"
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              />
-                              <div className="absolute bottom-1.5 start-1.5 end-1.5 flex items-center justify-between">
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold text-white ${
-                                    book.isReferenceOnly
-                                      ? 'bg-sky-700/90'
-                                      : book.availableCopies > 0
-                                      ? 'bg-emerald-700/90'
-                                      : 'bg-amber-600/90'
-                                  }`}
-                                >
-                                  <bdi dir="ltr">
-                                    {book.isReferenceOnly
-                                      ? 'REF'
-                                      : `${book.availableCopies}/${book.totalCopies}`}
-                                  </bdi>
-                                </span>
-                                {qStats.totalHolds > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-900/80 text-amber-300">
-                                    <bdi dir="ltr">{qStats.totalHolds}h</bdi>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="p-2.5 space-y-1 flex-1 flex flex-col justify-between">
-                              <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
-                                <bdi>{book.title}</bdi>
-                              </h5>
-                              <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
-                                <bdi dir="ltr">{book.ddcCallNumber || book.isbn}</bdi>
-                              </div>
-                            </div>
-                          </div>
+                            variant="shelf"
+                            title={book.title}
+                            author={book.author}
+                            coverUrl={book.coverUrl}
+                            category={localizeCategory(book.category)}
+                            ddcCallNumber={book.ddcCallNumber}
+                            barcode={book.barcode}
+                            isbn={book.isbn}
+                            shelfLocation={book.shelfLocation}
+                            availableCopies={book.availableCopies}
+                            totalCopies={book.totalCopies}
+                            isReferenceOnly={book.isReferenceOnly}
+                            holdsCount={qStats.totalHolds}
+                            language={language}
+                            onSelect={() => setSelectedBook(book)}
+                          />
                         );
                       })}
                     </div>
@@ -1355,8 +1304,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           {!isLoading && viewMode === 'grid' && filteredBooks.length > 0 && (
             <div className="space-y-4">
               {/* Mobile Swipe / Stack Control Pill */}
-              <div className="sm:hidden flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-2.5 rounded-2xl shadow-xs">
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+              <div className="sm:hidden flex items-center justify-between bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] p-2.5 rounded-2xl shadow-xs">
+                <span className="text-[11px] font-bold text-[#6B655D] dark:text-[#A19B91]">
                   {mobileSwipeMode === 'swipe'
                     ? language === 'dv'
                       ? 'ކާޑުތައް ހުރަހަށް ކައްސާލާ (Swipe)'
@@ -1365,14 +1314,14 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     ? 'ކާޑުތައް ތިރިއަށް ބައްލަވާ (Stack)'
                     : 'Single column cards'}
                 </span>
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
+                <div className="flex items-center gap-1 bg-[#EFECE6] dark:bg-[#232724] p-0.5 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setMobileSwipeMode('swipe')}
                     className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition cursor-pointer ${
                       mobileSwipeMode === 'swipe'
-                        ? 'bg-emerald-700 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-300'
+                        ? 'bg-[#0F4C45] text-white shadow-xs'
+                        : 'text-[#6B655D] dark:text-[#A19B91]'
                     }`}
                   >
                     {language === 'dv' ? 'ސްވައިޕް' : 'Swipe'}
@@ -1382,8 +1331,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     onClick={() => setMobileSwipeMode('stack')}
                     className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition cursor-pointer ${
                       mobileSwipeMode === 'stack'
-                        ? 'bg-emerald-700 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-300'
+                        ? 'bg-[#0F4C45] text-white shadow-xs'
+                        : 'text-[#6B655D] dark:text-[#A19B91]'
                     }`}
                   >
                     {language === 'dv' ? 'ލިސްޓް' : 'List'}
@@ -1391,248 +1340,122 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 </div>
               </div>
 
-              {/* DESKTOP VIEW: 4-COLUMN RESPONSIVE GRID */}
+              {/* DESKTOP VIEW: 4-COLUMN TACTILE BOOK GRID */}
               <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {paginatedBooks.map((book) => {
                   const qStats = getQueueStats(book.id);
                   const isReserved = qStats.userPosition > 0;
 
                   return (
-                    <div
+                    <LibraryBookCard
                       key={book.id}
-                      className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden group"
-                    >
-                      <div>
-                        <div
-                          className="relative h-56 bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer"
-                          onClick={() => setSelectedBook(book)}
-                        >
-                          <BookCover
-                            src={book.coverUrl}
-                            title={book.title}
-                            author={book.author}
-                            ddcCallNumber={book.ddcCallNumber}
-                            category={book.category}
-                            size="md"
-                            aspectRatio="none"
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent pointer-events-none" />
-
-                          {/* Single subtle top status indicator */}
-                          <div className="absolute top-3 end-3">
-                            {book.isReferenceOnly ? (
-                              <span className="bg-sky-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-md">
-                                {language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}
-                              </span>
-                            ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-md">
-                                <bdi dir="ltr" className="font-mono tabular-nums">
-                                  {book.availableCopies}/{book.totalCopies}
-                                </bdi>{' '}
-                                {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}
-                              </span>
-                            ) : (
-                              <span className="bg-amber-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md">
-                                {language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Title & Author on Cover bottom */}
-                          <div className="absolute bottom-3 inset-x-3.5 text-white">
-                            <h3 className="font-bold text-sm line-clamp-1 group-hover:text-emerald-300 transition leading-relaxed">
-                              <bdi>{book.title}</bdi>
-                            </h3>
-                            <p className="text-xs text-slate-200 line-clamp-1 leading-relaxed">
-                              <bdi>{book.author}</bdi>
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Clean Details Section */}
-                        <div className="p-4 space-y-2 text-xs">
-                          <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-semibold">
-                            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span className="truncate text-[11px] leading-relaxed">
-                              {book.isReferenceOnly ? (
-                                language === 'dv' ? (
-                                  <>
-                                    ރެފަރެންސް —{' '}
-                                    <bdi dir="ltr" className="font-mono">
-                                      {book.shelfLocation}
-                                    </bdi>
-                                  </>
-                                ) : (
-                                  <>
-                                    In-Library Use —{' '}
-                                    <bdi dir="ltr" className="font-mono">
-                                      {book.shelfLocation}
-                                    </bdi>
-                                  </>
-                                )
-                              ) : language === 'dv' ? (
-                                <>
-                                  <bdi dir="ltr" className="font-mono tabular-nums">
-                                    {book.totalCopies}
-                                  </bdi>{' '}
-                                  ގެ ތެރެއިން{' '}
-                                  <bdi dir="ltr" className="font-mono tabular-nums">
-                                    {book.availableCopies}
-                                  </bdi>{' '}
-                                  ކޮޕީ ލިބެންހުރި —{' '}
-                                  <bdi dir="ltr" className="font-mono">
-                                    {book.shelfLocation}
-                                  </bdi>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="font-mono tabular-nums">
-                                    {book.availableCopies}
-                                  </span>{' '}
-                                  of{' '}
-                                  <span className="font-mono tabular-nums">
-                                    {book.totalCopies}
-                                  </span>{' '}
-                                  copies available —{' '}
-                                  <bdi dir="ltr" className="font-mono">
-                                    {book.shelfLocation}
-                                  </bdi>
-                                </>
-                              )}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-relaxed">
-                            <span>{localizeCategory(book.category)}</span>
-                            {book.ddcCallNumber && (
-                              <>
-                                {' '}
-                                ·{' '}
-                                <span className="font-mono">
-                                  <bdi dir="ltr">{book.ddcCallNumber}</bdi>
-                                </span>
-                              </>
-                            )}
-                            {book.targetGrade && (
-                              <>
-                                {' '}
-                                · <span>{book.targetGrade}</span>
-                              </>
-                            )}
-                          </div>
-
-                          <p className="text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed text-xs">
-                            <bdi>{book.description}</bdi>
-                          </p>
-
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <span>
-                              ISBN{' '}
-                              <bdi dir="ltr" className="font-mono tabular-nums text-slate-800 dark:text-slate-200">
-                                {book.isbn}
-                              </bdi>
-                            </span>
-                            {qStats.totalHolds > 0 && (
-                              <span className="text-amber-700 dark:text-amber-400 font-semibold">
-                                <bdi dir="ltr" className="font-mono tabular-nums">
-                                  {qStats.totalHolds} {qStats.totalHolds === 1 ? 'hold' : 'holds'}
-                                </bdi>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card Action Footer */}
-                      <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedBook(book)}
-                          className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-all cursor-pointer"
-                          title={language === 'dv' ? 'ތަފްޞީލު ބައްލަވާ' : 'View book details'}
-                        >
-                          <Eye className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                        </button>
-
-                        {book.isReferenceOnly ? (
+                      variant="catalog"
+                      title={book.title}
+                      author={book.author}
+                      coverUrl={book.coverUrl}
+                      category={localizeCategory(book.category)}
+                      ddcCallNumber={book.ddcCallNumber}
+                      barcode={book.barcode}
+                      isbn={book.isbn}
+                      shelfLocation={book.shelfLocation}
+                      targetGrade={book.targetGrade}
+                      description={book.description}
+                      availableCopies={book.availableCopies}
+                      totalCopies={book.totalCopies}
+                      isReferenceOnly={book.isReferenceOnly}
+                      holdsCount={qStats.totalHolds}
+                      language={language}
+                      onSelect={() => setSelectedBook(book)}
+                      footer={
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={onViewReferenceOnly}
-                            className="flex-1 bg-sky-100 dark:bg-sky-950/50 hover:bg-sky-200 text-sky-900 dark:text-sky-200 border border-sky-300 dark:border-sky-800 font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer leading-relaxed"
+                            onClick={() => setSelectedBook(book)}
+                            className="p-2 text-[#1C1917] dark:text-[#F5F3EE] hover:bg-[#EFECE6] dark:hover:bg-[#232724] rounded-xl border border-[#E2DDD5] dark:border-[#2E3330] bg-[#FFFFFF] dark:bg-[#1A1D1B] transition-all cursor-pointer"
+                            title={language === 'dv' ? 'ތަފްޞީލު ބައްލަވާ' : 'View book details'}
                           >
-                            <BookMarked className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                            <span>
-                              {language === 'dv' ? 'ރެފަރެންސް މައުލޫމާތު' : 'Reference Desk'}
-                            </span>
+                            <Eye className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                           </button>
-                        ) : (
-                          <>
-                            {isReserved ? (
-                              <div className="flex-1 flex items-center gap-1">
-                                <span className="flex-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1">
-                                  <Bookmark className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                                  <span>
-                                    {language === 'dv' ? (
-                                      <>
-                                        ކިއު{' '}
-                                        <bdi dir="ltr" className="font-mono tabular-nums">
-                                          #{qStats.userPosition}
-                                        </bdi>
-                                      </>
-                                    ) : (
-                                      `Hold #${qStats.userPosition} in queue`
-                                    )}
-                                  </span>
-                                </span>
-                                {onCancelReservation && qStats.userReservation && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onCancelReservation(qStats.userReservation!.id)}
-                                    className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
-                                    title={
-                                      language === 'dv'
-                                        ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ'
-                                        : 'Cancel Hold'
-                                    }
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleReserveWithFeedback(book)}
-                                className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 leading-relaxed"
-                              >
-                                <Bookmark className="w-3.5 h-3.5" />
-                                <span>
-                                  {book.availableCopies > 0
-                                    ? language === 'dv'
-                                      ? 'ނަންނޯޓު ކުރައްވާ'
-                                      : 'Reserve Hold'
-                                    : language === 'dv'
-                                    ? 'ކިއުއަށް ވަންނަވާ'
-                                    : `Join Queue (${qStats.totalHolds})`}
-                                </span>
-                              </button>
-                            )}
 
-                            {can('circulation:checkout') && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenCheckoutForBook(book)}
-                                className="bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition shrink-0 cursor-pointer leading-relaxed"
-                                title="Desk Checkout"
-                              >
-                                {language === 'dv' ? 'ދޫކުރޭ' : 'Issue'}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
+                          {book.isReferenceOnly ? (
+                            <button
+                              type="button"
+                              onClick={onViewReferenceOnly}
+                              className="flex-1 bg-[#ECFDF5] dark:bg-[#0F4C45]/40 hover:bg-[#D1FAE5] text-[#0F4C45] dark:text-[#6EE7B7] border border-[#A7F3D0] dark:border-[#16655B] font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer leading-relaxed"
+                            >
+                              <BookMarked className="w-3.5 h-3.5" strokeWidth={1.75} />
+                              <span>
+                                {language === 'dv' ? 'ރެފަރެންސް މައުލޫމާތު' : 'Reference Desk'}
+                              </span>
+                            </button>
+                          ) : (
+                            <>
+                              {isReserved ? (
+                                <div className="flex-1 flex items-center gap-1">
+                                  <span className="flex-1 bg-[#FFFBEB] dark:bg-[#78350F]/40 text-[#B45309] dark:text-[#FCD34D] border border-[#FDE68A] dark:border-[#B45309]/60 text-[11px] font-bold py-2 px-2 rounded-xl text-center flex items-center justify-center gap-1">
+                                    <Bookmark className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                                    <span>
+                                      {language === 'dv' ? (
+                                        <>
+                                          ކިއު{' '}
+                                          <bdi dir="ltr" className="font-mono tabular-nums">
+                                            #{qStats.userPosition}
+                                          </bdi>
+                                        </>
+                                      ) : (
+                                        `Hold #${qStats.userPosition} in queue`
+                                      )}
+                                    </span>
+                                  </span>
+                                  {onCancelReservation && qStats.userReservation && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onCancelReservation(qStats.userReservation!.id)}
+                                      className="bg-[#B91C1C] hover:bg-[#991B1B] text-white p-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+                                      title={
+                                        language === 'dv'
+                                          ? 'ރިޒަވޭޝަން ކެންސަލް ކުރައްވާ'
+                                          : 'Cancel Hold'
+                                      }
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReserveWithFeedback(book)}
+                                  className="flex-1 bg-[#0F4C45] hover:bg-[#16655B] text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 leading-relaxed"
+                                >
+                                  <Bookmark className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                  <span>
+                                    {book.availableCopies > 0
+                                      ? language === 'dv'
+                                        ? 'ނަންނޯޓު ކުރައްވާ'
+                                        : 'Reserve Hold'
+                                      : language === 'dv'
+                                      ? 'ކިއުއަށް ވަންނަވާ'
+                                      : `Join Queue (${qStats.totalHolds})`}
+                                  </span>
+                                </button>
+                              )}
+
+                              {can('circulation:checkout') && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenCheckoutForBook(book)}
+                                  className="bg-[#1C1917] dark:bg-[#232724] hover:bg-[#2E2A27] dark:hover:bg-[#2E3330] text-white border border-transparent dark:border-[#2E3330] font-bold text-xs py-2 px-3 rounded-xl text-center transition shrink-0 cursor-pointer leading-relaxed"
+                                  title="Desk Checkout"
+                                >
+                                  {language === 'dv' ? 'ދޫކުރޭ' : 'Issue'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      }
+                    />
                   );
                 })}
               </div>
@@ -1647,10 +1470,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       return (
                         <div
                           key={book.id}
-                          className="min-w-[85vw] max-w-[340px] snap-center shrink-0 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-sm flex flex-col justify-between overflow-hidden"
+                          className="min-w-[85vw] max-w-[340px] snap-center shrink-0 bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl shadow-sm flex flex-col justify-between overflow-hidden"
                         >
                           <div>
-                            <div className="relative h-64 bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div className="relative h-64 bg-[#EFECE6] dark:bg-[#232724] overflow-hidden">
                               <BookCover
                                 src={book.coverUrl}
                                 title={book.title}
@@ -1661,37 +1484,40 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 aspectRatio="none"
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent pointer-events-none" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-[#121413]/90 via-[#121413]/30 to-transparent pointer-events-none" />
 
                               <div className="absolute top-3 start-3 end-3 flex justify-between items-start gap-1">
-                                <span className="bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-md shadow border border-white/10">
+                                <span className="bg-[#121413]/85 backdrop-blur-md text-[#F5F3EE] text-[10px] font-bold px-2 py-1 rounded-md shadow border border-white/10">
                                   {localizeCategory(book.category)}
                                 </span>
 
                                 {book.isReferenceOnly ? (
-                                  <span className="bg-sky-600 text-white text-[10px] font-black px-2 py-1 rounded-md shadow flex items-center gap-1">
-                                    <BookMarked className="w-3 h-3" />
-                                    <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'REFERENCE'}</bdi>
-                                  </span>
+                                  <StatusPill
+                                    status="reference"
+                                    label={language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}
+                                    compact
+                                  />
                                 ) : book.availableCopies > 0 ? (
-                                  <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3" />
-                                    <bdi dir="ltr">{book.availableCopies}</bdi>{' '}
-                                    {language === 'dv' ? 'ލިބެންހުރި' : 'Available'}
-                                  </span>
+                                  <StatusPill
+                                    status="available"
+                                    countPrefix={`${book.availableCopies}`}
+                                    label={language === 'dv' ? 'ލިބެންހުރި' : 'Available'}
+                                    compact
+                                  />
                                 ) : (
-                                  <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    <bdi>{language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}</bdi>
-                                  </span>
+                                  <StatusPill
+                                    status="checked_out"
+                                    label={language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}
+                                    compact
+                                  />
                                 )}
                               </div>
 
                               <div className="absolute bottom-3 inset-x-3 text-white">
-                                <h3 className="font-black text-base line-clamp-1 leading-relaxed">
+                                <h3 className="font-bold text-base line-clamp-1 leading-relaxed archival-heading">
                                   <bdi>{book.title}</bdi>
                                 </h3>
-                                <p className="text-xs text-slate-200 line-clamp-1 font-medium leading-relaxed">
+                                <p className="text-xs text-[#E2DDD5] line-clamp-1 font-medium leading-relaxed">
                                   {language === 'dv' ? 'މުސަންނިފު:' : 'by'}{' '}
                                   <bdi>{book.author}</bdi>
                                 </p>
@@ -1699,23 +1525,23 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             </div>
 
                             <div className="p-4 space-y-2 text-xs">
-                              <div className="flex items-center text-slate-600 dark:text-slate-300 gap-1 font-semibold">
-                                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <div className="flex items-center text-[#1C1917] dark:text-[#E2DDD5] gap-1 font-semibold">
+                                <MapPin className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" strokeWidth={1.75} />
                                 <span className="truncate">
                                   <bdi dir="ltr">{book.shelfLocation}</bdi>
                                 </span>
                               </div>
 
-                              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 font-semibold">
+                              <div className="flex items-center justify-between text-[11px] text-[#6B655D] dark:text-[#A19B91] pt-2 border-t border-[#E2DDD5]/70 dark:border-[#2E3330] font-semibold">
                                 <span>
                                   ISBN:{' '}
-                                  <bdi dir="ltr" className="font-mono text-slate-800 dark:text-slate-200">
+                                  <bdi dir="ltr" className="font-mono text-[#1C1917] dark:text-[#F5F3EE]">
                                     {book.isbn}
                                   </bdi>
                                 </span>
                                 <span>
                                   Copies:{' '}
-                                  <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                  <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                                     {book.availableCopies}/{book.totalCopies}
                                   </bdi>
                                 </span>
@@ -1723,33 +1549,33 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             </div>
                           </div>
 
-                          <div className="p-4 bg-slate-50/90 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                          <div className="p-3.5 bg-[#F7F5F0]/80 dark:bg-[#232724]/60 border-t border-[#E2DDD5] dark:border-[#2E3330] flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => setSelectedBook(book)}
-                              className="p-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer"
+                              className="p-2 text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] hover:bg-[#EFECE6] rounded-xl border border-[#E2DDD5] dark:border-[#2E3330] shadow-xs cursor-pointer"
                               title="Details"
                             >
-                              <Eye className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                              <Eye className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                             </button>
 
                             {book.isReferenceOnly ? (
                               <button
                                 type="button"
                                 onClick={onViewReferenceOnly}
-                                className="flex-1 bg-sky-100 text-sky-900 border border-sky-300 font-bold text-xs py-2 px-3 rounded-xl text-center cursor-pointer"
+                                className="flex-1 bg-[#ECFDF5] dark:bg-[#0F4C45]/40 text-[#0F4C45] dark:text-[#6EE7B7] border border-[#A7F3D0] dark:border-[#16655B] font-bold text-xs py-2 px-3 rounded-xl text-center cursor-pointer"
                               >
                                 <span>{language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}</span>
                               </button>
                             ) : isReserved ? (
-                              <span className="flex-1 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-bold py-2 px-2 rounded-xl text-center">
+                              <span className="flex-1 bg-[#FFFBEB] dark:bg-[#78350F]/40 text-[#B45309] dark:text-[#FCD34D] border border-[#FDE68A] dark:border-[#B45309]/60 text-[11px] font-bold py-2 px-2 rounded-xl text-center">
                                 {language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved Online'}
                               </span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleReserveWithFeedback(book)}
-                                className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs py-2 px-3 rounded-xl text-center transition shadow-xs cursor-pointer"
+                                className="flex-1 bg-[#0F4C45] hover:bg-[#16655B] text-white font-bold text-xs py-2 px-3 rounded-xl text-center transition shadow-xs cursor-pointer"
                               >
                                 <span>
                                   {language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Book'}
@@ -1769,10 +1595,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       return (
                         <div
                           key={book.id}
-                          className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs overflow-hidden flex flex-col"
+                          className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl shadow-xs overflow-hidden flex flex-col"
                         >
                           <div className="flex p-3.5 gap-3.5 items-center">
-                            <div className="w-16 h-22 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+                            <div className="w-16 h-22 rounded-md shadow-xs border border-[#E2DDD5] dark:border-[#2E3330] overflow-hidden shrink-0 book-cover-card">
                               <BookCover
                                 src={book.coverUrl}
                                 title={book.title}
@@ -1787,54 +1613,53 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                             <div className="flex-1 space-y-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {book.isReferenceOnly ? (
-                                  <span className="bg-sky-100 text-sky-800 border border-sky-300 text-[9px] font-black px-2 py-0.5 rounded-md">
-                                    REF ONLY
-                                  </span>
+                                  <StatusPill status="reference" label={language === 'dv' ? 'ރެފަރެންސް' : 'Reference'} compact />
                                 ) : book.availableCopies > 0 ? (
-                                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-md">
-                                    <bdi dir="ltr">{book.availableCopies}</bdi> AVAILABLE
-                                  </span>
+                                  <StatusPill
+                                    status="available"
+                                    countPrefix={`${book.availableCopies}`}
+                                    label={language === 'dv' ? 'ލިބެންހުރި' : 'Available'}
+                                    compact
+                                  />
                                 ) : (
-                                  <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-md">
-                                    CHECKED OUT
-                                  </span>
+                                  <StatusPill status="checked_out" label={language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'} compact />
                                 )}
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                                <span className="text-[10px] text-[#6B655D] dark:text-[#A19B91] font-medium truncate">
                                   {localizeCategory(book.category)}
                                 </span>
                               </div>
-                              <h4 className="font-extrabold text-slate-900 dark:text-white text-sm truncate leading-relaxed">
+                              <h4 className="font-bold text-[#1C1917] dark:text-[#F5F3EE] text-sm truncate leading-relaxed">
                                 <bdi>{book.title}</bdi>
                               </h4>
-                              <p className="text-xs text-slate-600 dark:text-slate-300 truncate leading-relaxed">
+                              <p className="text-xs text-[#6B655D] dark:text-[#A19B91] truncate leading-relaxed">
                                 By <bdi>{book.author}</bdi>
                               </p>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                              <p className="text-[11px] text-[#0F4C45] dark:text-[#6EE7B7] font-mono">
                                 Location: <bdi dir="ltr">{book.shelfLocation}</bdi>
                               </p>
                             </div>
                           </div>
 
-                          <div className="p-3 bg-slate-50/90 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                          <div className="p-3 bg-[#F7F5F0]/80 dark:bg-[#232724]/60 border-t border-[#E2DDD5] dark:border-[#2E3330] flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => setSelectedBook(book)}
-                              className="p-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer"
+                              className="p-2 text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-xl border border-[#E2DDD5] dark:border-[#2E3330] text-xs font-bold cursor-pointer"
                             >
-                              <Eye className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                              <Eye className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                             </button>
                             {!book.isReferenceOnly && (
                               <button
                                 type="button"
                                 onClick={() => handleReserveWithFeedback(book)}
                                 disabled={isReserved}
-                                className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold text-center transition cursor-pointer ${
+                                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition cursor-pointer ${
                                   isReserved
-                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 cursor-not-allowed'
-                                    : 'bg-emerald-700 text-white shadow-xs'
+                                    ? 'bg-[#FFFBEB] dark:bg-[#78350F]/40 text-[#B45309] dark:text-[#FCD34D] border border-[#FDE68A] dark:border-[#B45309]/60 cursor-not-allowed'
+                                    : 'bg-[#0F4C45] hover:bg-[#16655B] text-white shadow-xs'
                                 }`}
                               >
-                                {isReserved ? 'Reserved' : 'Reserve Book'}
+                                {isReserved ? (language === 'dv' ? 'ނަންނޯޓު ކުރެވިފައި' : 'Reserved') : (language === 'dv' ? 'ނަންނޯޓު ކުރައްވާ' : 'Reserve Book')}
                               </button>
                             )}
                           </div>
@@ -1847,19 +1672,19 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
               {/* Grid Pagination Bar */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 bg-[#FFFFFF] dark:bg-[#1A1D1B] p-4 rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330]">
+                  <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium">
                     {language === 'dv' ? (
                       <span>
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {filteredBooks.length}
                         </bdi>{' '}
                         ފޮތުގެ ތެރެއިން{' '}
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {startIndex + 1}
                         </bdi>{' '}
                         އިން{' '}
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {Math.min(currentPage * entriesPerPage, filteredBooks.length)}
                         </bdi>{' '}
                         އަށް ދައްކަނީ
@@ -1867,15 +1692,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     ) : (
                       <span>
                         Showing{' '}
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {startIndex + 1}
                         </bdi>{' '}
                         to{' '}
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {Math.min(currentPage * entriesPerPage, filteredBooks.length)}
                         </bdi>{' '}
                         of{' '}
-                        <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                        <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                           {filteredBooks.length}
                         </bdi>{' '}
                         books
@@ -1888,7 +1713,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       type="button"
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                      className="px-3 py-1.5 bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
                     >
                       {language === 'dv' ? 'ކުރީގެ' : 'Previous'}
                     </button>
@@ -1908,8 +1733,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           onClick={() => setCurrentPage(i + 1)}
                           className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
                             currentPage === i + 1
-                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                              ? 'bg-[#0F4C45] text-white border-[#0F4C45] shadow-sm'
+                              : 'bg-[#FFFFFF] dark:bg-[#1A1D1B] text-[#1C1917] dark:text-[#F5F3EE] border-[#E2DDD5] dark:border-[#2E3330] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
                           }`}
                         >
                           <bdi dir="ltr" className="font-mono">
@@ -1922,7 +1747,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       type="button"
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                       disabled={currentPage >= totalPages}
-                      className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                      className="px-3 py-1.5 bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
                     >
                       {language === 'dv' ? 'ކުރިއަށް' : 'Next'}
                     </button>
@@ -1934,20 +1759,20 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
           {/* TABLE VIEW (HIGH-DENSITY SORTABLE TABLE WITH BULK ACTIONS) */}
           {!isLoading && viewMode === 'table' && filteredBooks.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
+            <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] overflow-hidden shadow-xs space-y-4 p-5 sm:p-6">
               {/* Header Title */}
-              <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between flex-wrap gap-2">
+              <div className="border-b border-[#E2DDD5] dark:border-[#2E3330] pb-3 flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 leading-relaxed">
-                    <span className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <BookOpen className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                  <h2 className="text-xl font-bold text-[#1C1917] dark:text-[#F5F3EE] flex items-center gap-2 leading-relaxed archival-heading">
+                    <span className="p-1.5 bg-[#EFECE6] dark:bg-[#232724] rounded-lg border border-[#E2DDD5] dark:border-[#2E3330]">
+                      <BookOpen className="w-5 h-5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                     </span>
                     <span>{t.catalog}</span>
                   </h2>
                 </div>
 
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                  <bdi dir="ltr" className="font-mono tabular-nums font-bold text-slate-900 dark:text-white">
+                <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-semibold">
+                  <bdi dir="ltr" className="font-mono tabular-nums font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                     {filteredBooks.length}
                   </bdi>{' '}
                   {language === 'dv' ? 'ފޮތް ފެނިފައިވޭ' : 'items filtered'}
@@ -1956,7 +1781,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
               {/* Bulk Selection Action Bar */}
               {selectedTableIds.length > 0 && (
-                <div className="p-3 rounded-2xl bg-slate-900 dark:bg-emerald-950/70 text-white border border-slate-800 dark:border-emerald-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="p-3 rounded-2xl bg-[#0D2623] dark:bg-[#0F4C45]/50 text-white border border-[#193D38] dark:border-[#16655B] flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-bold">
                     <bdi dir="ltr" className="font-mono tabular-nums">
                       {selectedTableIds.length}
@@ -1969,7 +1794,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       onClick={handleBulkExportCsv}
                       className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3.5 h-3.5" strokeWidth={1.75} />
                       <span>CSV</span>
                     </button>
                     <button
@@ -1982,7 +1807,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       }
                       className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Layers className="w-3.5 h-3.5" />
+                      <Layers className="w-3.5 h-3.5" strokeWidth={1.75} />
                       <span>MARC21</span>
                     </button>
                     <button
@@ -1999,15 +1824,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           `Catalog Barcodes (${selectedTableBooks.length})`
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#C26D3A] hover:bg-[#A8592C] text-white font-bold flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Printer className="w-3.5 h-3.5" />
+                      <Printer className="w-3.5 h-3.5" strokeWidth={1.75} />
                       <span>{language === 'dv' ? 'ބާކޯޑް ޕްރިންޓް' : 'Print Barcodes'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedTableIds([])}
-                      className="px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-white/10 text-slate-300 font-bold cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-white/10 text-[#CBD5D1] font-bold cursor-pointer"
                     >
                       {language === 'dv' ? 'ދޫކޮށްލާ' : 'Clear'}
                     </button>
@@ -2017,12 +1842,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
               {/* Table Controls Top Row: Entries Dropdown & Search Input */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#6B655D] dark:text-[#A19B91]">
                   <span>{language === 'dv' ? 'ދައްކާ:' : 'Show'}</span>
                   <select
                     value={entriesPerPage}
                     onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-sm cursor-pointer"
+                    className="bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg px-2 py-1.5 text-xs font-bold text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:ring-1 focus:ring-[#0F4C45] shadow-2xs cursor-pointer"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -2037,93 +1862,93 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   <span>{language === 'dv' ? 'އައިޓަމް' : 'entries per page'}</span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 w-full sm:w-auto">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#6B655D] dark:text-[#A19B91] w-full sm:w-auto">
                   <span>{language === 'dv' ? 'ހޯއްދަވާ:' : 'Search:'}</span>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={language === 'dv' ? 'ފޮތުގެ ނަމުން...' : 'Filter table...'}
-                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-sm w-full sm:w-48 leading-relaxed"
+                    className="bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg px-3 py-1.5 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:ring-1 focus:ring-[#0F4C45] shadow-2xs w-full sm:w-48 leading-relaxed"
                   />
                 </div>
               </div>
 
               {/* Main Table with Sticky Sortable Headers */}
-              <div className="overflow-x-auto border border-slate-200/90 dark:border-slate-800 rounded-2xl max-h-[70vh]">
-                <table className="w-full text-start text-xs text-slate-800 dark:text-slate-200 border-collapse">
-                  <thead className="bg-slate-900 text-white font-extrabold border-b border-slate-800 sticky top-0 z-20 shadow-xs">
+              <div className="overflow-x-auto border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl max-h-[70vh]">
+                <table className="w-full text-start text-xs text-[#1C1917] dark:text-[#F5F3EE] border-collapse">
+                  <thead className="bg-[#0D2623] dark:bg-[#232724] text-[#F7F5F0] font-extrabold border-b border-[#193D38] dark:border-[#2E3330] sticky top-0 z-20 shadow-xs">
                     <tr>
-                      <th className="p-3 border-e border-slate-800 w-10 text-center">
+                      <th className="p-3 border-e border-[#193D38] dark:border-[#2E3330] w-10 text-center">
                         <button
                           type="button"
                           onClick={toggleSelectAllOnPage}
-                          className="text-slate-300 hover:text-white cursor-pointer inline-flex items-center"
+                          className="text-[#CBD5D1] hover:text-white cursor-pointer inline-flex items-center"
                           aria-label="Select all books on page"
                         >
                           {paginatedBooks.length > 0 &&
                           paginatedBooks.every((b) => selectedTableIds.includes(b.id)) ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-400" />
+                            <CheckSquare className="w-4 h-4 text-[#C26D3A]" />
                           ) : (
                             <Square className="w-4 h-4" />
                           )}
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330]">
                         <button
                           type="button"
                           onClick={() => toggleSort('title')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330]">
                         <button
                           type="button"
                           onClick={() => toggleSort('author')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'މުސަންނިފު' : 'Author'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330]">
                         <button
                           type="button"
                           onClick={() => toggleSort('ddc')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'އައި.އެސް.ބީ.އެން / DDC' : 'ISBN / DDC'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330]">
                         <button
                           type="button"
                           onClick={() => toggleSort('shelf')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'ބައި / ރެކު' : 'Genre & Shelf'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800 text-center">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330] text-center">
                         <button
                           type="button"
                           onClick={() => toggleSort('total')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'ޖުމްލަ' : 'Total'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-slate-800 text-center">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330] text-center">
                         <button
                           type="button"
                           onClick={() => toggleSort('available')}
-                          className="inline-flex items-center gap-1 cursor-pointer hover:text-emerald-300"
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-[#F3DFB1]"
                         >
                           <span>{language === 'dv' ? 'ލިބެންހުރި' : 'Available'}</span>
                           <ArrowUpDown className="w-3 h-3 opacity-75" />
@@ -2134,7 +1959,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  <tbody className="divide-y divide-[#E2DDD5] dark:divide-[#2E3330]">
                     {paginatedBooks.map((book) => {
                       const isReserved = isAlreadyReservedByUser(book.id);
                       const isChecked = selectedTableIds.includes(book.id);
@@ -2144,28 +1969,28 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           key={book.id}
                           className={`transition ${
                             isChecked
-                              ? 'bg-emerald-50/60 dark:bg-emerald-950/30'
-                              : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                              ? 'bg-[#ECFDF5] dark:bg-[#0F4C45]/30'
+                              : 'hover:bg-[#F7F5F0] dark:hover:bg-[#232724]/60'
                           }`}
                         >
-                          <td className="p-3 border-e border-slate-200 dark:border-slate-800 text-center">
+                          <td className="p-3 border-e border-[#E2DDD5] dark:border-[#2E3330] text-center">
                             <button
                               type="button"
                               onClick={() => toggleTableSelection(book.id)}
-                              className="text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer inline-flex items-center"
+                              className="text-[#6B655D] hover:text-[#0F4C45] dark:hover:text-[#6EE7B7] cursor-pointer inline-flex items-center"
                               aria-label={`Select ${book.title}`}
                             >
                               {isChecked ? (
-                                <CheckSquare className="w-4 h-4 text-emerald-600" />
+                                <CheckSquare className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" />
                               ) : (
                                 <Square className="w-4 h-4" />
                               )}
                             </button>
                           </td>
                           {/* Title Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800">
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330]">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-12 rounded-md shadow-sm shrink-0 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                              <div className="w-9 h-12 rounded-md shadow-xs shrink-0 border border-[#E2DDD5] dark:border-[#2E3330] overflow-hidden book-cover-card">
                                 <BookCover
                                   src={book.coverUrl}
                                   title={book.title}
@@ -2181,11 +2006,11 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setSelectedBook(book)}
-                                  className="font-extrabold text-slate-900 dark:text-white hover:text-emerald-700 dark:hover:text-emerald-400 text-xs sm:text-sm block text-start cursor-pointer leading-relaxed"
+                                  className="font-extrabold text-[#1C1917] dark:text-[#F5F3EE] hover:text-[#0F4C45] dark:hover:text-[#6EE7B7] text-xs sm:text-sm block text-start cursor-pointer leading-relaxed"
                                 >
                                   <bdi>{book.title}</bdi>
                                 </button>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                                <span className="text-[10px] text-[#6B655D] dark:text-[#A19B91] font-semibold">
                                   <bdi dir="ltr">{book.mediaType || 'Book'}</bdi> ·{' '}
                                   <bdi dir="ltr">{book.bookLanguage || 'English'}</bdi>
                                 </span>
@@ -2194,57 +2019,58 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           </td>
 
                           {/* Author Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330] font-medium text-[#1C1917] dark:text-[#F5F3EE] leading-relaxed">
                             <bdi>{book.author}</bdi>
                           </td>
 
-                          {/* ISBN & Call Number Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-mono tabular-nums text-slate-700 dark:text-slate-300 font-semibold space-y-1">
-                            <div className="text-slate-900 dark:text-white">
+                          {/* ISBN & Spine Call Number Sticker Column */}
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330] font-mono tabular-nums text-[#6B655D] dark:text-[#A19B91] font-semibold space-y-1">
+                            <div className="text-[#1C1917] dark:text-[#F5F3EE]">
                               <bdi dir="ltr">{book.isbn}</bdi>
                             </div>
                             {book.ddcCallNumber && (
-                              <div className="text-[10px] text-slate-700 dark:text-slate-300 font-bold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded inline-block">
+                              <div className="text-[10px] text-[#1C1917] dark:text-[#F5F3EE] font-bold bg-[#EFECE6] dark:bg-[#232724] border border-[#D6CFC3] dark:border-[#2E3330] px-1.5 py-0.5 rounded inline-block">
                                 <bdi dir="ltr">{book.ddcCallNumber}</bdi>
                               </div>
                             )}
                           </td>
 
                           {/* Genre & Shelf Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 font-medium text-slate-800 dark:text-slate-200 space-y-1">
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330] font-medium text-[#1C1917] dark:text-[#F5F3EE] space-y-1">
                             <div className="text-[11px] font-bold leading-relaxed">
                               {localizeCategory(book.category)}
                             </div>
-                            <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                              <MapPin className="w-3 h-3 shrink-0" />
+                            <div className="text-[10px] font-mono text-[#0F4C45] dark:text-[#6EE7B7] flex items-center gap-1">
+                              <MapPin className="w-3 h-3 shrink-0" strokeWidth={1.75} />
                               <bdi dir="ltr">{book.shelfLocation}</bdi>
                             </div>
                           </td>
 
                           {/* Total Copies Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 text-center font-bold text-slate-800 dark:text-slate-200">
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330] text-center font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                             <bdi dir="ltr" className="font-mono tabular-nums">
                               {book.totalCopies}
                             </bdi>
                           </td>
 
-                          {/* Available Copies Column */}
-                          <td className="p-3.5 border-e border-slate-200 dark:border-slate-800 text-center">
+                          {/* Available Copies Semantic StatusPill Column */}
+                          <td className="p-3.5 border-e border-[#E2DDD5] dark:border-[#2E3330] text-center">
                             {book.isReferenceOnly ? (
-                              <span className="bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 text-[10px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block">
-                                <bdi>{language === 'dv' ? 'ރެފަރެންސް' : 'Ref Only'}</bdi>
-                              </span>
+                              <StatusPill
+                                status="reference"
+                                label={language === 'dv' ? 'ރެފަރެންސް' : 'Reference'}
+                              />
                             ) : book.availableCopies > 0 ? (
-                              <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
-                                <bdi dir="ltr" className="font-mono tabular-nums">
-                                  {book.availableCopies}/{book.totalCopies}
-                                </bdi>{' '}
-                                {language === 'dv' ? 'ލިބެންހުރި' : 'Avail'}
-                              </span>
+                              <StatusPill
+                                status="available"
+                                countPrefix={`${book.availableCopies}/${book.totalCopies}`}
+                                label={language === 'dv' ? 'ލިބެންހުރި' : 'Available'}
+                              />
                             ) : (
-                              <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-black px-2.5 py-1 rounded-md shadow-xs inline-block min-w-[85px]">
-                                <bdi>{language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}</bdi>
-                              </span>
+                              <StatusPill
+                                status="checked_out"
+                                label={language === 'dv' ? 'ދޫކުރެވިފައި' : 'Checked Out'}
+                              />
                             )}
                           </td>
 
@@ -2254,10 +2080,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedBook(book)}
-                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-md transition shadow-xs flex items-center gap-1 px-2.5 text-xs font-bold cursor-pointer"
+                                className="p-1.5 bg-[#1C1917] dark:bg-[#232724] hover:bg-[#2E2A27] text-white rounded-md transition shadow-xs flex items-center gap-1 px-2.5 text-xs font-bold cursor-pointer"
                                 title={language === 'dv' ? 'ތަފްޞީލު ބައްލަވާ' : 'View Book Details'}
                               >
-                                <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                <Eye className="w-3.5 h-3.5 text-[#6EE7B7]" strokeWidth={1.75} />
                                 <span className="hidden sm:inline">
                                   {language === 'dv' ? 'ތަފްޞީލު' : 'Details'}
                                 </span>
@@ -2270,8 +2096,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                   disabled={isReserved}
                                   className={`p-1.5 rounded-md transition shadow-xs flex items-center gap-1 px-2.5 text-xs font-bold cursor-pointer ${
                                     isReserved
-                                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 cursor-not-allowed'
-                                      : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                      ? 'bg-[#FFFBEB] dark:bg-[#78350F]/40 text-[#B45309] dark:text-[#FCD34D] border border-[#FDE68A] cursor-not-allowed'
+                                      : 'bg-[#0F4C45] hover:bg-[#16655B] text-white'
                                   }`}
                                   title={
                                     isReserved
@@ -2283,7 +2109,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                       : 'Reserve'
                                   }
                                 >
-                                  <Bookmark className="w-3.5 h-3.5" />
+                                  <Bookmark className="w-3.5 h-3.5" strokeWidth={1.75} />
                                   <span className="hidden sm:inline">
                                     {isReserved
                                       ? language === 'dv'
@@ -2303,7 +2129,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                   className="p-1.5 bg-[#1D4ED8] hover:bg-blue-800 text-white rounded-md transition shadow-xs cursor-pointer"
                                   title={language === 'dv' ? 'ފޮތް ދޫކުރައްވާ' : 'Issue Book at Desk'}
                                 >
-                                  <User className="w-3.5 h-3.5" />
+                                  <User className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 </button>
                               )}
 
@@ -2314,10 +2140,10 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                     if (onEditBook) onEditBook(book);
                                     else setSelectedBook(book);
                                   }}
-                                  className="p-1.5 bg-[#EAB308] hover:bg-amber-600 text-white rounded-md transition shadow-xs cursor-pointer"
+                                  className="p-1.5 bg-[#C26D3A] hover:bg-[#A8592C] text-white rounded-md transition shadow-xs cursor-pointer"
                                   title={language === 'dv' ? 'އުނިއިތުރު ގެންނަވާ' : 'Edit Book'}
                                 >
-                                  <Edit className="w-3.5 h-3.5" />
+                                  <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 </button>
                               )}
 
@@ -2325,12 +2151,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setBookToDelete(book)}
-                                  className="p-1.5 bg-[#EF4444] hover:bg-rose-700 text-white rounded-md transition shadow-xs cursor-pointer"
+                                  className="p-1.5 bg-[#B91C1C] hover:bg-[#991B1B] text-white rounded-md transition shadow-xs cursor-pointer"
                                   title={
                                     language === 'dv' ? 'ފޮތުގެ ރެކޯޑް ފޮހެލައްވާ' : 'Delete Book'
                                   }
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 </button>
                               )}
                             </div>
@@ -2344,18 +2170,18 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
               {/* Table Footer: Entries info & Pagination */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium">
                   {language === 'dv' ? (
                     <span>
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {filteredBooks.length}
                       </bdi>{' '}
                       ފޮތުގެ ތެރެއިން{' '}
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {filteredBooks.length === 0 ? 0 : startIndex + 1}
                       </bdi>{' '}
                       އިން{' '}
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {Math.min(currentPage * entriesPerPage, filteredBooks.length)}
                       </bdi>{' '}
                       އަށް ދައްކަނީ
@@ -2363,15 +2189,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                   ) : (
                     <span>
                       Showing{' '}
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {filteredBooks.length === 0 ? 0 : startIndex + 1}
                       </bdi>{' '}
                       to{' '}
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {Math.min(currentPage * entriesPerPage, filteredBooks.length)}
                       </bdi>{' '}
                       of{' '}
-                      <bdi dir="ltr" className="font-mono font-bold text-slate-800 dark:text-white">
+                      <bdi dir="ltr" className="font-mono font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                         {filteredBooks.length}
                       </bdi>{' '}
                       books
@@ -2384,7 +2210,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                    className="px-3 py-1.5 bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
                   >
                     {language === 'dv' ? 'ކުރީގެ' : 'Previous'}
                   </button>
@@ -2406,8 +2232,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                         onClick={() => setCurrentPage(i + 1)}
                         className={`px-3 py-1.5 text-xs font-bold rounded border transition cursor-pointer ${
                           currentPage === i + 1
-                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            ? 'bg-[#0F4C45] text-white border-[#0F4C45] shadow-sm'
+                            : 'bg-[#FFFFFF] dark:bg-[#1A1D1B] text-[#1C1917] dark:text-[#F5F3EE] border-[#E2DDD5] dark:border-[#2E3330] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
                         }`}
                       >
                         <bdi dir="ltr" className="font-mono">
@@ -2421,7 +2247,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage >= totalPages}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                    className="px-3 py-1.5 bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] dark:hover:bg-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330] rounded text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
                   >
                     {language === 'dv' ? 'ކުރިއަށް' : 'Next'}
                   </button>

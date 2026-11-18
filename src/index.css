@@ -34,6 +34,32 @@
     --thaana-line-height: 1.85;
     --thaana-fili-pad-top: 0.35rem;
     --thaana-fili-pad-bottom: 0.35rem;
+
+    /* Archival Paper & Heritage Emerald Tokens (Daylight Reading Room) */
+    --lib-canvas: #F7F5F0;
+    --lib-surface: #FFFFFF;
+    --lib-shelf: #EFECE6;
+    --lib-border: #E2DDD5;
+    --lib-emerald: #0F4C45;
+    --lib-emerald-hover: #16655B;
+    --lib-emerald-tint: #ECFDF5;
+    --lib-amber: #C26D3A;
+    --lib-ink: #1C1917;
+    --lib-ink-muted: #6B655D;
+  }
+
+  html.dark {
+    /* Evening Study Lamp Palette */
+    --lib-canvas: #121413;
+    --lib-surface: #1A1D1B;
+    --lib-shelf: #232724;
+    --lib-border: #2E3330;
+    --lib-emerald: #0F4C45;
+    --lib-emerald-hover: #16655B;
+    --lib-emerald-tint: rgba(15, 76, 69, 0.28);
+    --lib-amber: #C26D3A;
+    --lib-ink: #F5F3EE;
+    --lib-ink-muted: #A19B91;
   }
 
   html {
@@ -44,8 +70,8 @@
   }
 
   body {
-    background-color: #f1f5f9;
-    color: #0f172a;
+    background-color: var(--lib-canvas);
+    color: var(--lib-ink);
     font-family: var(--font-sans);
     min-height: 100vh;
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -53,9 +79,9 @@
     padding-inline-end: env(safe-area-inset-right, 0px);
   }
 
-  html.dark body {
-    background-color: #020617;
-    color: #f1f5f9;
+  h1, h2, h3, .archival-heading {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
   }
 
   /* Enforce Faruma across the entire portal in RTL / Dhivehi mode */
@@ -114,6 +140,7 @@
   .thaana-heading {
     font-family: var(--font-faruma) !important;
     font-feature-settings: "kern" 1;
+    letter-spacing: 0;
     line-height: 1.8;
     padding-top: 0.2em;
     padding-bottom: 0.2em;
@@ -160,7 +187,7 @@
     }
     body {
       background-color: #ffffff !important;
-      color: #0f172a !important;
+      color: #1C1917 !important;
     }
     .no-print {
       display: none !important;
@@ -193,7 +220,102 @@
   }
 }
 
-/* Shimmer Skeleton Animation */
+/* Tactile Physical Book Elevation & Spine Crease (LTR + RTL Mirrored) */
+.book-cover-card {
+  box-shadow: 0 8px 20px -6px rgba(28, 25, 23, 0.14);
+}
+
+.dark .book-cover-card {
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.55);
+}
+
+.book-spine-highlight {
+  box-shadow: inset 5px 0 10px rgba(0, 0, 0, 0.14), inset 1px 0 0 rgba(255, 255, 255, 0.24);
+}
+
+[dir="rtl"] .book-spine-highlight {
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.14), inset -1px 0 0 rgba(255, 255, 255, 0.24);
+}
+
+/* Woven Cloth Texture for Typographic Book Covers */
+.cloth-cover-weave {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.06) 0px,
+      rgba(0, 0, 0, 0.06) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+/* Gallery Bookshelf Ledge */
+.shelf-ledge {
+  border-bottom: 3px solid #D6CFC3;
+  box-shadow: 0 4px 10px -4px rgba(28, 25, 23, 0.08);
+}
+
+.dark .shelf-ledge {
+  border-bottom-color: #2E3330;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.45);
+}
+
+/* Ruled Paper Checkout Slip Surface */
+.checkout-ledger-slip {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 27px,
+    rgba(226, 221, 213, 0.45) 27px,
+    rgba(226, 221, 213, 0.45) 28px
+  );
+}
+
+.dark .checkout-ledger-slip {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 27px,
+    rgba(46, 51, 48, 0.55) 27px,
+    rgba(46, 51, 48, 0.55) 28px
+  );
+}
+
+/* Circulation Desk Stamp Animation */
+@keyframes stampSlam {
+  0% {
+    opacity: 0;
+    transform: scale(1.35) rotate(-8deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.96) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-3deg);
+  }
+}
+
+.stamp-badge {
+  animation: stampSlam 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-badge {
+    animation: none;
+    transform: rotate(-3deg);
+  }
+}
+
+/* Shimmer Skeleton Animation (Archival Paper Palette) */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -204,13 +326,13 @@
 }
 
 .shimmer-skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, #EFECE6 25%, #F7F5F0 50%, #EFECE6 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 .dark .shimmer-skeleton {
-  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background: linear-gradient(90deg, #1A1D1B 25%, #232724 50%, #1A1D1B 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -227,14 +349,18 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(226, 221, 213, 0.35);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(26, 29, 27, 0.6);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: rgba(15, 76, 69, 0.35);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
+  background: rgba(15, 76, 69, 0.6);
 }

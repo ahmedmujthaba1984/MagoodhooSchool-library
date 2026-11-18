@@ -37,7 +37,8 @@ import { QuickCheckout } from './components/QuickCheckout';
 import { MyBorrowings } from './components/MyBorrowings';
 import { AdminPanel } from './components/AdminPanel';
 import { ReportsAnalytics } from './components/ReportsAnalytics';
-import { Header } from './components/Header';
+import { Header, WorkspaceMode } from './components/Header';
+import { LibraryEmblem } from './components/LibraryEmblem';
 import { MemberDirectory } from './components/MemberDirectory';
 import { DashboardView } from './components/DashboardView';
 import { FaqHelpView } from './components/FaqHelpView';
@@ -1720,14 +1721,70 @@ export default function App() {
     }
   };
 
+  const LIBRARIAN_TABS = new Set([
+    'dashboard',
+    'checkout-hub',
+    'borrow-book',
+    'return-book',
+    'issued-books',
+    'late-returns',
+    'students',
+    'admin-panel',
+    'manage-students',
+    'acquisitions',
+    'stocktaking',
+    'security-suite',
+    'reports',
+  ]);
+
+  const workspaceMode: WorkspaceMode =
+    activeTab === 'personal-library'
+      ? 'personal'
+      : LIBRARIAN_TABS.has(activeTab)
+      ? 'librarian'
+      : 'opac';
+
+  const handleSelectWorkspaceMode = (mode: WorkspaceMode) => {
+    if (mode === 'personal') {
+      setActiveTab('personal-library');
+      return;
+    }
+    if (mode === 'opac') {
+      setActiveTab('catalog');
+      return;
+    }
+    // Librarian Desk mode
+    if (can('circulation:checkout')) {
+      setActiveTab(isSuperAdmin ? 'dashboard' : 'checkout-hub');
+      return;
+    }
+    const staffOrAdmin =
+      users.find((u) => u.accessRole === 'super_admin' || u.role === 'admin') ||
+      users.find((u) => u.accessRole === 'desk_assistant');
+    if (staffOrAdmin) {
+      setCurrentUser(staffOrAdmin);
+      setActiveTab('checkout-hub');
+      toast.info(
+        language === 'dv'
+          ? `ލައިބްރޭރިއަން ޑެސްކް (${staffOrAdmin.name}) ހުޅުވިއްޖެ`
+          : `Switched to Librarian Desk (${staffOrAdmin.name})`,
+        'Workspace Mode'
+      );
+    } else {
+      setActiveTab('login');
+    }
+  };
+
   return (
-    <div className={`min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 ${isRtl ? 'font-faruma' : 'font-sans'} flex flex-col antialiased`}>
+    <div className={`min-h-screen bg-[#F7F5F0] dark:bg-[#121413] text-[#1C1917] dark:text-[#F5F3EE] ${isRtl ? 'font-faruma' : 'font-sans'} flex flex-col antialiased`}>
       {/* Clean Sticky Header */}
       <Header
         currentUser={currentUser}
         allUsers={users}
         onSwitchUser={handleSwitchUser}
         setActiveTab={setActiveTab}
+        workspaceMode={workspaceMode}
+        onSelectWorkspaceMode={handleSelectWorkspaceMode}
         onOpenScanner={() => {
           setScannerCallback(null);
           setIsScannerOpen(true);
@@ -1741,9 +1798,9 @@ export default function App() {
 
       {/* Cloud Firestore Quota Resilience Banner (Only shown when quota exhausted) */}
       {isQuotaExhausted && (
-        <div className="bg-amber-50 dark:bg-amber-950/60 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-100 flex-wrap gap-2 no-print">
+        <div className="bg-[#FFFBEB] dark:bg-[#78350F]/40 border-b border-[#FDE68A] dark:border-[#B45309]/60 px-4 py-2 flex items-center justify-between text-xs text-[#B45309] dark:text-[#FCD34D] flex-wrap gap-2 no-print">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-950 uppercase">
+            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#FDE68A] text-[#78350F] uppercase">
               {language === 'dv' ? 'އޮފްލައިން ކޭޝް' : 'Offline Resilient'}
             </span>
             <span className="font-medium">
@@ -1754,7 +1811,7 @@ export default function App() {
           </div>
           <button
             onClick={() => setActiveTab('admin-panel')}
-            className="text-[11px] font-bold px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg cursor-pointer"
+            className="text-[11px] font-bold px-2.5 py-1 bg-[#FDE68A] hover:bg-[#FCD34D] text-[#78350F] rounded-lg cursor-pointer"
           >
             {language === 'dv' ? 'ކޯޓާ ތަފްސީލު' : 'Diagnostics'}
           </button>
@@ -1763,11 +1820,11 @@ export default function App() {
 
       {/* Main Workspace Split (Sidebar + Fluid Content) */}
       <div className="flex-1 flex relative overflow-hidden">
-        {/* Mirrored Collapsible Navigation Sidebar */}
+        {/* Mirrored Collapsible Archival Navigation Sidebar */}
         <aside
           className={`fixed lg:static inset-y-0 start-0 border-e z-40 ${
             isSidebarCollapsed ? 'lg:w-[76px]' : 'w-64'
-          } bg-slate-900 text-slate-200 flex flex-col justify-between transition-all duration-200 border-slate-800 no-print ${
+          } bg-[#0D2623] dark:bg-[#161918] text-[#E6EAE8] flex flex-col justify-between transition-all duration-200 border-[#193D38] dark:border-[#2E3330] no-print ${
             isSidebarOpen
               ? 'translate-x-0 shadow-2xl'
               : isRtl
@@ -1777,18 +1834,16 @@ export default function App() {
         >
           <div className="p-3 space-y-4 overflow-y-auto">
             {/* Sidebar Brand Header + Collapse Toggle */}
-            <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-800">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#193D38] dark:border-[#2E3330]">
               <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'lg:justify-center lg:w-full' : ''}`}>
-                <div className="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-white shrink-0">
-                  <BookOpen className="w-4 h-4" />
-                </div>
+                <LibraryEmblem size="sm" />
                 {!isSidebarCollapsed && (
                   <div className="min-w-0">
-                    <div className="font-black text-white text-xs tracking-wide truncate">
+                    <div className="font-extrabold text-[#F7F5F0] text-xs tracking-tight truncate">
                       {language === 'dv' ? 'މަގޫދޫ ލައިބްރަރީ' : 'Magoodhoo ILS'}
                     </div>
-                    <div className="text-[10px] text-emerald-400 font-semibold truncate">
-                      {language === 'dv' ? 'މަގޫދޫ ސްކޫލް' : 'School Library'}
+                    <div className="text-[10px] text-[#C26D3A] font-bold truncate">
+                      {language === 'dv' ? 'މަގޫދޫ ސްކޫލް' : 'Reading Sanctuary'}
                     </div>
                   </div>
                 )}
@@ -1796,15 +1851,15 @@ export default function App() {
 
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                className="lg:hidden p-1.5 text-[#A7BDB8] hover:text-white hover:bg-[#163B36] dark:hover:bg-[#232724] rounded-lg transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" strokeWidth={1.75} />
               </button>
             </div>
 
             <nav className="space-y-1">
               {!isSidebarCollapsed && (
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#8BA7A1] dark:text-[#A19B91] px-3 py-1">
                   {t.navigationDesk}
                 </div>
               )}
@@ -1821,16 +1876,23 @@ export default function App() {
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center' : 'justify-between'} px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                       isActive
-                        ? 'bg-emerald-700 text-white shadow-sm'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-[#0F4C45] text-[#FFFFFF] shadow-xs ring-1 ring-white/10'
+                        : 'text-[#CBD5D1] dark:text-[#D5D1C8] hover:bg-[#163B36] dark:hover:bg-[#232724] hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#F3DFB1]' : 'text-[#8BA7A1] dark:text-[#A19B91]'}`}
+                        strokeWidth={1.75}
+                      />
                       {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                     </div>
                     {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                      <span className={`text-[10px] font-mono tabular-nums font-black text-white px-2 py-0.5 rounded-md ${item.badgeColor || 'bg-emerald-600'}`}>
+                      <span
+                        className={`text-[10px] font-mono tabular-nums font-bold text-white px-2 py-0.5 rounded-full ${
+                          item.badgeColor === 'bg-rose-500' ? 'bg-[#B91C1C]' : 'bg-[#C26D3A]'
+                        }`}
+                      >
                         {item.badge}
                       </span>
                     )}
@@ -1841,14 +1903,14 @@ export default function App() {
           </div>
 
           {/* Sidebar Footer */}
-          <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/50">
+          <div className="p-3 border-t border-[#193D38] dark:border-[#2E3330] space-y-2 bg-[#091C1A]/80 dark:bg-[#121413]/70">
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(prev => !prev)}
-              className="hidden lg:flex w-full items-center justify-center gap-2 py-1.5 px-2 rounded-lg text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              className="hidden lg:flex w-full items-center justify-center gap-2 py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#8BA7A1] hover:text-white hover:bg-[#163B36] dark:hover:bg-[#232724] transition cursor-pointer"
               title="Collapse / Expand Sidebar"
             >
-              {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" strokeWidth={1.75} /> : <PanelLeftClose className="w-4 h-4" strokeWidth={1.75} />}
               {!isSidebarCollapsed && <span>{language === 'dv' ? 'ސައިޑްބާ ހަނިކުރޭ' : 'Collapse Rail'}</span>}
             </button>
 
@@ -1857,20 +1919,20 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleLogout}
-                    className="flex-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+                    className="flex-1 bg-[#B91C1C]/20 hover:bg-[#B91C1C]/35 text-[#FCA5A5] border border-[#B91C1C]/40 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                     id="sidebar-logout-btn"
                   >
-                    <LogOut className="w-3.5 h-3.5" /> {t.logout}
+                    <LogOut className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.logout}
                   </button>
                   <button
                     onClick={() => {
                       setActiveTab('login');
                       setIsSidebarOpen(false);
                     }}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+                    className="flex-1 bg-[#163B36] hover:bg-[#1C4D46] dark:bg-[#232724] dark:hover:bg-[#2E3330] text-[#E6EAE8] border border-[#24534C] dark:border-[#2E3330] font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                     id="sidebar-switch-account-btn"
                   >
-                    <LogIn className="w-3.5 h-3.5" /> {language === 'dv' ? 'ބަދަލުކުރޭ' : 'Switch'}
+                    <LogIn className="w-3.5 h-3.5" strokeWidth={1.75} /> {language === 'dv' ? 'ބަދަލުކުރޭ' : 'Switch'}
                   </button>
                 </div>
               ) : (
@@ -1880,15 +1942,15 @@ export default function App() {
                       setActiveTab('login');
                       setIsSidebarOpen(false);
                     }}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+                    className="flex-1 bg-[#163B36] hover:bg-[#1C4D46] dark:bg-[#232724] dark:hover:bg-[#2E3330] text-white border border-[#24534C] dark:border-[#2E3330] font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <LogIn className="w-3.5 h-3.5" /> {t.login}
+                    <LogIn className="w-3.5 h-3.5" strokeWidth={1.75} /> {t.login}
                   </button>
                   <button
                     onClick={() => setIsAddParentModalOpen(true)}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+                    className="flex-1 bg-[#0F4C45] hover:bg-[#16655B] text-white font-bold text-xs py-2 px-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <UserPlus className="w-3.5 h-3.5" /> {language === 'dv' ? 'ރަޖިސްޓަރީ' : 'Sign Up'}
+                    <UserPlus className="w-3.5 h-3.5" strokeWidth={1.75} /> {language === 'dv' ? 'ރަޖިސްޓަރީ' : 'Sign Up'}
                   </button>
                 </div>
               )
@@ -1900,12 +1962,12 @@ export default function App() {
         {isSidebarOpen && (
           <div
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs z-30 lg:hidden"
           />
         )}
 
         {/* MAIN WORKSPACE CANVAS */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-slate-100 dark:bg-slate-950 relative z-10 safe-bottom">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-[#F7F5F0] dark:bg-[#121413] relative z-10 safe-bottom">
           <div className="max-w-[1440px] mx-auto space-y-6">
             {activeTab === 'login' && (
               <ErrorBoundary key="err-login" areaNameEn="Sign-In & Account" areaNameDv="ލޮގިން އަދި އެކައުންޓް" language={language} isAdmin={isSuperAdmin}>
@@ -2235,64 +2297,62 @@ export default function App() {
       </div>
 
       {/* Concise School Library Footer */}
-      <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 relative z-20 no-print">
+      <footer className="bg-[#0D2623] dark:bg-[#161918] text-[#CBD5D1] border-t border-[#193D38] dark:border-[#2E3330] relative z-20 no-print">
         <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-xs">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <span className="font-extrabold text-white text-sm tracking-wide">
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <LibraryEmblem size="sm" />
+              <span className="font-extrabold text-[#F7F5F0] text-sm tracking-tight archival-heading">
                 F. Magoodhoo School Library
               </span>
             </div>
-            <p className="text-slate-400 leading-relaxed">
-              Bilingual Integrated Library System (ILS) & Personal Reading Portal for students, staff, and guardians.
+            <p className="text-[#9CB3AD] dark:text-[#A19B91] leading-relaxed">
+              Bilingual Integrated Library System (ILS) & Personal Reading Sanctuary for students, staff, and guardians.
             </p>
           </div>
 
           <div className="space-y-2">
-            <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider">Navigation</h4>
-            <ul className="space-y-1.5 text-slate-400 font-medium">
-              <li><button onClick={() => setActiveTab('catalog')} className="hover:text-emerald-400 transition cursor-pointer">{t.catalog}</button></li>
-              <li><button onClick={() => setActiveTab('personal-library')} className="hover:text-emerald-400 transition cursor-pointer">{t.personalLibrary}</button></li>
-              <li><button onClick={() => setActiveTab('faq')} className="hover:text-emerald-400 transition cursor-pointer">{t.faqHelp}</button></li>
+            <h4 className="font-bold text-[#F7F5F0] uppercase text-[11px] tracking-wider">Navigation</h4>
+            <ul className="space-y-1.5 text-[#9CB3AD] dark:text-[#A19B91] font-medium">
+              <li><button onClick={() => setActiveTab('catalog')} className="hover:text-[#F3DFB1] transition cursor-pointer">{t.catalog}</button></li>
+              <li><button onClick={() => setActiveTab('personal-library')} className="hover:text-[#F3DFB1] transition cursor-pointer">{t.personalLibrary}</button></li>
+              <li><button onClick={() => setActiveTab('faq')} className="hover:text-[#F3DFB1] transition cursor-pointer">{t.faqHelp}</button></li>
             </ul>
           </div>
 
           <div className="space-y-2">
-            <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider">School Contact</h4>
-            <ul className="space-y-1.5 text-slate-400 font-medium">
-              <li className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-emerald-400" /> F. Magoodhoo, Republic of Maldives</li>
-              <li className="flex items-center gap-2 font-mono tabular-nums"><Phone className="w-3.5 h-3.5 text-emerald-400" /> <bdi dir="ltr">+960 6740018</bdi></li>
-              <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-emerald-400" /> <bdi dir="ltr">admin@magoodhooschool.edu.mv</bdi></li>
+            <h4 className="font-bold text-[#F7F5F0] uppercase text-[11px] tracking-wider">School Contact</h4>
+            <ul className="space-y-1.5 text-[#9CB3AD] dark:text-[#A19B91] font-medium">
+              <li className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-[#C26D3A]" strokeWidth={1.75} /> F. Magoodhoo, Republic of Maldives</li>
+              <li className="flex items-center gap-2 font-mono tabular-nums"><Phone className="w-3.5 h-3.5 text-[#C26D3A]" strokeWidth={1.75} /> <bdi dir="ltr">+960 6740018</bdi></li>
+              <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-[#C26D3A]" strokeWidth={1.75} /> <bdi dir="ltr">admin@magoodhooschool.edu.mv</bdi></li>
             </ul>
           </div>
         </div>
-        <div className="bg-slate-950 border-t border-slate-800/80 py-3 px-6 text-center text-[11px] text-slate-500 font-medium">
+        <div className="bg-[#091C1A] dark:bg-[#121413] border-t border-[#193D38] dark:border-[#2E3330] py-3 px-6 text-center text-[11px] text-[#8BA7A1] dark:text-[#A19B91] font-medium">
           © 2026 F. Magoodhoo School Library Portal. All Rights Reserved.
         </div>
       </footer>
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-around shadow-2xl safe-bottom no-print">
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#FFFFFF]/95 dark:bg-[#1A1D1B]/95 backdrop-blur-lg border-t border-[#E2DDD5] dark:border-[#2E3330] px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-around shadow-2xl safe-bottom no-print">
         <button
           onClick={() => setActiveTab('catalog')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'catalog' ? 'text-emerald-700 font-black' : 'text-slate-500'
+            activeTab === 'catalog' ? 'text-[#0F4C45] dark:text-[#6EE7B7] font-extrabold' : 'text-[#6B655D] dark:text-[#A19B91]'
           }`}
         >
-          <BookOpen className="w-5 h-5" />
+          <BookOpen className="w-5 h-5" strokeWidth={1.75} />
           <span>{language === 'dv' ? 'ކެޓަލޮގް' : 'Catalog'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('personal-library')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'personal-library' ? 'text-emerald-700 font-black' : 'text-slate-500'
+            activeTab === 'personal-library' ? 'text-[#0F4C45] dark:text-[#6EE7B7] font-extrabold' : 'text-[#6B655D] dark:text-[#A19B91]'
           }`}
         >
-          <Bookmark className="w-5 h-5" />
+          <Bookmark className="w-5 h-5" strokeWidth={1.75} />
           <span>{language === 'dv' ? 'ލައިބްރަރީ' : 'Shelf'}</span>
         </button>
 
@@ -2301,29 +2361,29 @@ export default function App() {
             setScannerCallback(null);
             setIsScannerOpen(true);
           }}
-          className="flex flex-col items-center justify-center w-11 h-11 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full shadow-lg -mt-5 border-2 border-white active:scale-95 transition"
+          className="flex flex-col items-center justify-center w-11 h-11 bg-[#0F4C45] hover:bg-[#16655B] text-white rounded-full shadow-lg -mt-5 border-2 border-[#FFFFFF] dark:border-[#1A1D1B] active:scale-95 transition"
           title="Scan Book Barcode"
         >
-          <Scan className="w-5 h-5" />
+          <Scan className="w-5 h-5" strokeWidth={1.75} />
         </button>
 
         <button
           onClick={() => setActiveTab('ai-assistant')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'ai-assistant' ? 'text-emerald-700 font-black' : 'text-slate-500'
+            activeTab === 'ai-assistant' ? 'text-[#0F4C45] dark:text-[#6EE7B7] font-extrabold' : 'text-[#6B655D] dark:text-[#A19B91]'
           }`}
         >
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="w-5 h-5" strokeWidth={1.75} />
           <span>{language === 'dv' ? 'އޭއައި' : 'Libby AI'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('login')}
           className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-            activeTab === 'login' ? 'text-emerald-700 font-black' : 'text-slate-500'
+            activeTab === 'login' ? 'text-[#0F4C45] dark:text-[#6EE7B7] font-extrabold' : 'text-[#6B655D] dark:text-[#A19B91]'
           }`}
         >
-          <User className="w-5 h-5" />
+          <User className="w-5 h-5" strokeWidth={1.75} />
           <span>{language === 'dv' ? 'ޕްރޮފައިލް' : 'Profile'}</span>
         </button>
       </div>

@@ -44,6 +44,7 @@ import {
   suggestCsvMapping
 } from '../lib/dataPortability';
 import { BookCoverFallback } from './BookCoverFallback';
+import { LibraryBookCard } from './LibraryBookCard';
 
 interface PersonalLibraryProps {
   items: PersonalItem[];
@@ -485,15 +486,15 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
   return (
     <div className="space-y-6">
       {/* Header & Zero-Lock-In Data Portability Bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-            {language === 'dv' ? 'އަމިއްލަ ކަލެކްޝަން މެނޭޖަރު' : `${currentUser.name}'s Personal Multi-Media Vault`}
+          <div className="text-xs font-bold text-[#0F4C45] dark:text-[#6EE7B7]">
+            {language === 'dv' ? 'އަމިއްލަ ކަލެކްޝަން މެނޭޖަރު' : `${currentUser.name}'s Personal Multi-Media Shelf`}
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-[#F5F3EE] tracking-tight archival-heading">
             {language === 'dv' ? 'އަމިއްލަ ލައިބްރަރީ އަދި ކިޔުމުގެ ލޮގް' : 'Personal Library & Reading Progress'}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+          <p className="text-xs text-[#6B655D] dark:text-[#A19B91] max-w-2xl leading-relaxed">
             {language === 'dv'
               ? 'އަމިއްލަ ފޮތްތަކާއި، އީ-ބުކް، އޯޑިއޯބުކް އަދި ކުޅިވަރު ސެޓުތައް ރައްކާކޮށް، ކިޔާ ނިމުނު މިންވަރު ބަލަހައްޓަވާ.'
               : 'Manage books, e-books, audiobooks, periodicals, board games & educational kits with rapid ISBN/UPC scanning and full CSV/JSON/MARC21 ownership.'}
@@ -511,48 +512,48 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
           <button
             type="button"
             onClick={() => importFileRef.current?.click()}
-            className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-3 py-2 text-xs font-semibold text-[#1C1917] dark:text-[#F5F3EE] bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl hover:bg-[#EFECE6] dark:hover:bg-[#2E3330] transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Upload className="w-3.5 h-3.5 text-emerald-600" />
+            <Upload className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
             {language === 'dv' ? 'އެތެރެކުރޭ (CSV/JSON)' : 'Import CSV / MARC'}
           </button>
           <button
             type="button"
             onClick={() => exportCatalogToCsv(userItems, `personal_${currentUser.id}`)}
-            className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl hover:bg-[#EFECE6] dark:hover:bg-[#232724] transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-3.5 h-3.5" /> CSV
+            <Download className="w-3.5 h-3.5" strokeWidth={1.75} /> CSV
           </button>
           <button
             type="button"
             onClick={() => exportCatalogToJson(userItems, `personal_${currentUser.id}`)}
-            className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl hover:bg-[#EFECE6] dark:hover:bg-[#232724] transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-3.5 h-3.5" /> JSON
+            <Download className="w-3.5 h-3.5" strokeWidth={1.75} /> JSON
           </button>
           <button
             type="button"
             onClick={() => exportToMarc21(userItems, `personal_marc21_${currentUser.id}`)}
-            className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl hover:bg-[#EFECE6] dark:hover:bg-[#232724] transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-3.5 h-3.5" /> MARC21
+            <Download className="w-3.5 h-3.5" strokeWidth={1.75} /> MARC21
           </button>
           {onOpenSmartCataloger && (
             <button
               type="button"
               onClick={onOpenSmartCataloger}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-[#1C1917] dark:bg-[#232724] hover:bg-[#2E2A27] dark:hover:bg-[#2E3330] border border-transparent dark:border-[#2E3330] rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Camera className="w-4 h-4 text-emerald-400" />
+              <Camera className="w-4 h-4 text-[#C26D3A]" strokeWidth={1.75} />
               {language === 'dv' ? 'އޭއައި ކަވަރު ސްކޭން' : 'AI Cover Snap'}
             </button>
           )}
           <button
             type="button"
             onClick={() => setIsAddOpen(true)}
-            className="px-4 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-4 py-2 text-xs font-semibold text-white bg-[#0F4C45] hover:bg-[#16655B] rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" strokeWidth={1.75} />
             {language === 'dv' ? 'އާ އައިޓަމެއް އިތުރުކުރޭ' : 'Add Item / Scan ISBN'}
           </button>
         </div>
@@ -560,8 +561,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
 
       {/* Annual Reading Challenge Ring, Streak & Summary Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Annual Reading Challenge Ring */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4">
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4 flex items-center gap-4">
           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
             <svg className="w-16 h-16 -rotate-90" viewBox="0 0 60 60">
               <circle
@@ -571,7 +571,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="5"
-                className="text-slate-100 dark:text-slate-800"
+                className="text-[#EFECE6] dark:text-[#232724]"
               />
               <circle
                 cx="30"
@@ -583,27 +583,27 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                 strokeLinecap="round"
                 strokeDasharray={ringCircumference}
                 strokeDashoffset={ringDashOffset}
-                className="text-emerald-600 transition-all duration-500"
+                className="text-[#0F4C45] dark:text-[#34D399] transition-all duration-500"
               />
             </svg>
-            <span className="absolute text-xs font-bold font-mono tabular-nums text-slate-900 dark:text-white">
+            <span className="absolute text-xs font-bold font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">
               {goalPct}%
             </span>
           </div>
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Target className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="text-xs font-semibold text-[#6B655D] dark:text-[#A19B91] flex items-center gap-1">
+              <Target className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
               <span>{currentYear} Challenge</span>
             </div>
-            <div className="text-lg font-bold font-mono tabular-nums text-slate-900 dark:text-white">
-              {stats.completedThisYear} / {annualGoal}
+            <div className="text-lg font-bold font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">
+              <bdi dir="ltr">{stats.completedThisYear} / {annualGoal}</bdi>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#6B655D] dark:text-[#A19B91]">
               <span>Goal:</span>
               <button
                 type="button"
                 onClick={() => updateGoal(annualGoal - 1)}
-                className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+                className="w-5 h-5 rounded bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] font-bold text-[#1C1917] dark:text-[#F5F3EE] cursor-pointer"
                 aria-label="Decrease reading goal"
               >
                 -
@@ -611,7 +611,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
               <button
                 type="button"
                 onClick={() => updateGoal(annualGoal + 1)}
-                className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+                className="w-5 h-5 rounded bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] font-bold text-[#1C1917] dark:text-[#F5F3EE] cursor-pointer"
                 aria-label="Increase reading goal"
               >
                 +
@@ -620,66 +620,63 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
           </div>
         </div>
 
-        {/* Reading Streak Tracker */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Flame className="w-6 h-6" />
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#FFFBEB] dark:bg-[#78350F]/40 border border-[#FDE68A] dark:border-[#B45309]/50 text-[#C26D3A] dark:text-[#FCD34D] flex items-center justify-center shrink-0">
+            <Flame className="w-6 h-6" strokeWidth={1.75} />
           </div>
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium">
               {language === 'dv' ? 'ކިޔުމުގެ ސިލްސިލާ' : 'Reading Streak'}
             </div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-              {streakData.days} {streakData.days === 1 ? 'day' : 'days'}
+            <div className="text-2xl font-bold text-[#1C1917] dark:text-[#F5F3EE] font-mono tabular-nums">
+              <bdi dir="ltr">{streakData.days} {streakData.days === 1 ? 'day' : 'days'}</bdi>
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
               {streakData.lastActiveDate === todayIso ? 'Logged reading today' : 'Update page progress to extend'}
             </div>
           </div>
         </div>
 
-        {/* Collection & Shelves */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4">
+          <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium">
             {language === 'dv' ? 'ޖުމްލަ އައިޓަމް' : 'Personal Items'}
           </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-1">
-            {stats.total}
+          <div className="text-2xl font-bold text-[#1C1917] dark:text-[#F5F3EE] font-mono tabular-nums mt-1">
+            <bdi dir="ltr">{stats.total}</bdi>
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+          <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91] mt-1">
             {stats.inProgress} reading · {shelves.length} custom shelves
           </div>
         </div>
 
-        {/* Lent to Friends & Return Reminders */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center justify-between">
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4">
+          <div className="text-xs text-[#6B655D] dark:text-[#A19B91] font-medium flex items-center justify-between">
             <span>{language === 'dv' ? 'ރައްޓެހިންނަށް ދޫކޮށްފައި' : 'Lent to Friends'}</span>
             {stats.dueReminders > 0 && (
-              <span className="text-[10px] font-bold text-rose-600 flex items-center gap-0.5">
-                <Bell className="w-3 h-3" /> {stats.dueReminders} due
+              <span className="text-[10px] font-bold text-[#B91C1C] flex items-center gap-0.5">
+                <Bell className="w-3 h-3" strokeWidth={1.75} /> {stats.dueReminders} due
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-sky-700 dark:text-sky-400 font-mono tabular-nums mt-1">
-            {stats.loanedOut}
+          <div className="text-2xl font-bold text-[#1D4ED8] dark:text-[#93C5FD] font-mono tabular-nums mt-1">
+            <bdi dir="ltr">{stats.loanedOut}</bdi>
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+          <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91] mt-1">
             Tracked borrower & reminder dates
           </div>
         </div>
       </div>
 
       {/* Custom Shelves Quick Tabs + Inline Shelf Creator */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           <button
             type="button"
             onClick={() => setShelfFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               shelfFilter === 'all'
-                ? 'bg-emerald-700 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
+                ? 'bg-[#0F4C45] text-white'
+                : 'bg-[#EFECE6] dark:bg-[#232724] text-[#1C1917] dark:text-[#E2DDD5] hover:bg-[#E2DDD5]'
             }`}
           >
             All Shelves ({userItems.length})
@@ -693,8 +690,8 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                 onClick={() => setShelfFilter(shelf)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                   shelfFilter === shelf
-                    ? 'bg-emerald-700 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
+                    ? 'bg-[#0F4C45] text-white'
+                    : 'bg-[#EFECE6] dark:bg-[#232724] text-[#1C1917] dark:text-[#E2DDD5] hover:bg-[#E2DDD5]'
                 }`}
               >
                 {shelf} <span className="font-mono opacity-80">({count})</span>
@@ -711,18 +708,18 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
               onChange={(e) => setNewShelfInput(e.target.value)}
               placeholder="Shelf name..."
               autoFocus
-              className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+              className="px-2.5 py-1.5 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg text-[#1C1917] dark:text-[#F5F3EE]"
             />
             <button
               type="submit"
-              className="px-2.5 py-1.5 bg-emerald-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+              className="px-2.5 py-1.5 bg-[#0F4C45] text-white text-xs font-bold rounded-lg cursor-pointer"
             >
               Create
             </button>
             <button
               type="button"
               onClick={() => setIsNewShelfOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+              className="p-1 text-[#6B655D] hover:text-[#1C1917] cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -731,18 +728,18 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
           <button
             type="button"
             onClick={() => setIsNewShelfOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl hover:bg-emerald-100 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-3 py-1.5 text-xs font-semibold text-[#0F4C45] dark:text-[#6EE7B7] bg-[#ECFDF5] dark:bg-[#0F4C45]/40 border border-[#A7F3D0] dark:border-[#16655B] rounded-xl hover:bg-[#D1FAE5] transition flex items-center gap-1.5 cursor-pointer shrink-0"
           >
-            <FolderPlus className="w-3.5 h-3.5" />
+            <FolderPlus className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>New Shelf</span>
           </button>
         )}
       </div>
 
       {/* Filter & Search Toolbar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center gap-3">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute top-1/2 -translate-y-1/2 start-3" />
+          <Search className="w-4 h-4 text-[#6B655D] dark:text-[#A19B91] absolute top-1/2 -translate-y-1/2 start-3" strokeWidth={1.75} />
           <input
             type="text"
             value={searchQuery}
@@ -752,13 +749,13 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                 ? 'ނަން، މުޞަންނިފު، ޓެގް ނުވަތަ އައި.އެސް.ބީ.އެން އިން ހޯދުން...'
                 : 'Filter personal items by title, creator, ISBN/UPC, tag, or shelf...'
             }
-            className="w-full ps-9 pe-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-600"
+            className="w-full ps-9 pe-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:border-[#0F4C45]"
           />
         </div>
         <select
           value={mediaFilter}
           onChange={(e) => setMediaFilter(e.target.value)}
-          className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium"
+          className="px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-[#1C1917] dark:text-[#F5F3EE] font-medium"
         >
           <option value="all">All Media Types</option>
           {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -766,79 +763,89 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium"
+          className="px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-[#1C1917] dark:text-[#F5F3EE] font-medium"
         >
           <option value="all">All Reading States</option>
           {READING_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
 
-      {/* Collection Grid */}
+      {/* Sunken Personal Gallery Shelf Grid */}
       {filteredItems.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3">
-          <BookOpen className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-12 text-center space-y-3">
+          <BookOpen className="w-8 h-8 text-[#0F4C45] dark:text-[#6EE7B7] mx-auto" strokeWidth={1.75} />
+          <div className="text-sm font-bold text-[#1C1917] dark:text-[#F5F3EE]">
             No items in this view for {currentUser.name}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+          <p className="text-xs text-[#6B655D] dark:text-[#A19B91] max-w-md mx-auto">
             Scan an ISBN/UPC barcode, snap a Dhivehi book cover, or import your CSV/MARC21 bookshelf.
           </p>
           <div className="flex items-center justify-center gap-2 pt-1">
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="px-4 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#0F4C45] hover:bg-[#16655B] rounded-xl cursor-pointer"
             >
               Add / Scan Item
             </button>
             <button
               type="button"
               onClick={() => importFileRef.current?.click()}
-              className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#1C1917] dark:text-[#F5F3EE] bg-[#EFECE6] dark:bg-[#232724] rounded-xl cursor-pointer"
             >
               Import CSV
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredItems.map((item) => {
-            const totalPages = item.pageCount || 100;
-            const currentPg = item.currentPage || 0;
-            const pct = item.readingStatus === 'Completed'
-              ? 100
-              : Math.min(100, Math.round((currentPg / totalPages) * 100));
-            const isReminderDue =
-              item.readingStatus === 'Loaned to Friend' &&
-              Boolean(item.reminderDate) &&
-              item.reminderDate! <= todayIso;
+        <div className="bg-[#EFECE6]/55 dark:bg-[#232724]/50 border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl p-4 sm:p-5 shelf-ledge">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredItems.map((item) => {
+              const totalPages = item.pageCount || 100;
+              const currentPg = item.currentPage || 0;
+              const pct = item.readingStatus === 'Completed'
+                ? 100
+                : Math.min(100, Math.round((currentPg / totalPages) * 100));
+              const isReminderDue =
+                item.readingStatus === 'Loaned to Friend' &&
+                Boolean(item.reminderDate) &&
+                item.reminderDate! <= todayIso;
 
-            return (
-              <div
-                key={item.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
-              >
-                <div className="flex gap-3.5">
-                  <div className="w-20 h-28 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-800">
-                    <BookCoverFallback src={item.coverUrl} title={item.title} author={item.author} />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-200 font-medium">
-                        {getMediaIcon(item.mediaType)} {item.mediaType}
+              return (
+                <LibraryBookCard
+                  key={item.id}
+                  variant="personal"
+                  title={item.title}
+                  author={item.author}
+                  coverUrl={item.coverUrl}
+                  category={`${item.mediaType} · ${item.shelfGroup}`}
+                  isbn={item.isbn || item.upc}
+                  progressPct={pct}
+                  progressLabel={
+                    item.mediaType === 'Book' || item.mediaType === 'E-Book' || item.mediaType === 'Audiobook'
+                      ? `${pct}% Read · p.${currentPg}/${totalPages}`
+                      : `${pct}% Complete`
+                  }
+                  language={language}
+                  footer={
+                    <div className="flex items-center justify-between text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                      <span className="truncate font-medium">
+                        {item.tags.length > 0 ? <bdi>{item.tags.join(' · ')}</bdi> : getStatusLabel(item.readingStatus)}
                       </span>
-                      <span aria-hidden="true">·</span>
-                      <span className="truncate">{item.shelfGroup}</span>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteItem(item.id)}
+                        className="text-[#6B655D] hover:text-[#B91C1C] p-1 cursor-pointer shrink-0"
+                        title="Delete Item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
                     </div>
-
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">
-                      <bdi>{item.title}</bdi>
-                    </h3>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                      <bdi>{item.author}</bdi>
-                    </div>
-
-                    <div className="flex items-center gap-1 pt-0.5">
+                  }
+                >
+                  {/* Rating + Media Badge + Identifier */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
@@ -849,68 +856,63 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                         >
                           <Star
                             className={`w-3.5 h-3.5 ${
-                              star <= item.rating ? 'text-amber-500 fill-amber-400' : 'text-slate-300 dark:text-slate-600'
+                              star <= item.rating ? 'text-[#C26D3A] fill-[#C26D3A]' : 'text-[#D6CFC3] dark:text-[#2E3330]'
                             }`}
                           />
                         </button>
                       ))}
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0F4C45] dark:text-[#6EE7B7]">
+                      {getMediaIcon(item.mediaType)}
                       {(item.isbn || item.upc) && (
-                        <span className="ms-2 text-[10px] font-mono tabular-nums text-slate-400 truncate">
-                          <bdi>{item.isbn || item.upc}</bdi>
-                        </span>
+                        <bdi dir="ltr" className="font-mono text-[#6B655D] dark:text-[#A19B91]">
+                          {item.isbn || item.upc}
+                        </bdi>
                       )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress & Status Interactive Controls */}
-                <div className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <select
-                      value={item.readingStatus}
-                      onChange={(e) => {
-                        const nextStatus = e.target.value as ReadingProgressStatus;
-                        if (nextStatus === 'In Progress' || nextStatus === 'Completed') {
-                          recordReadingActivity();
-                        }
-                        onUpdateItem(item.id, {
-                          readingStatus: nextStatus,
-                          completionDate: nextStatus === 'Completed' ? todayIso : item.completionDate,
-                          currentPage: nextStatus === 'Completed' ? (item.pageCount || 100) : item.currentPage
-                        });
-                      }}
-                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border cursor-pointer ${
-                        item.readingStatus === 'Completed'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                          : item.readingStatus === 'In Progress'
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                          : item.readingStatus === 'Loaned to Friend'
-                          ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {READING_STATUS_OPTIONS.map((s) => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono tabular-nums text-slate-600 dark:text-slate-300">
-                      {item.readingStatus === 'Completed' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
-                      {item.readingStatus === 'In Progress' && <Clock className="w-3.5 h-3.5 text-amber-600" />}
-                      {item.readingStatus === 'Loaned to Friend' && <Share2 className="w-3.5 h-3.5 text-sky-600" />}
-                      <span>{pct}%</span>
-                    </div>
+                    </span>
                   </div>
 
-                  {(item.mediaType === 'Book' || item.mediaType === 'E-Book' || item.mediaType === 'Audiobook') && (
-                    <div className="space-y-1">
-                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-600 transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                  {/* Reading Progress & Interactive Controls */}
+                  <div className="space-y-2.5 pt-2.5 border-t border-[#E2DDD5]/70 dark:border-[#2E3330]">
+                    <div className="flex items-center justify-between gap-2">
+                      <select
+                        value={item.readingStatus}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value as ReadingProgressStatus;
+                          if (nextStatus === 'In Progress' || nextStatus === 'Completed') {
+                            recordReadingActivity();
+                          }
+                          onUpdateItem(item.id, {
+                            readingStatus: nextStatus,
+                            completionDate: nextStatus === 'Completed' ? todayIso : item.completionDate,
+                            currentPage: nextStatus === 'Completed' ? (item.pageCount || 100) : item.currentPage
+                          });
+                        }}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border cursor-pointer ${
+                          item.readingStatus === 'Completed'
+                            ? 'bg-[#F0FDF4] dark:bg-[#0F4C45]/50 text-[#15803D] dark:text-[#6EE7B7] border-[#BBF7D0] dark:border-[#16655B]'
+                            : item.readingStatus === 'In Progress'
+                            ? 'bg-[#FFFBEB] dark:bg-[#78350F]/40 text-[#B45309] dark:text-[#FCD34D] border-[#FDE68A] dark:border-[#B45309]/60'
+                            : item.readingStatus === 'Loaned to Friend'
+                            ? 'bg-[#EFF6FF] dark:bg-[#1E3A8A]/40 text-[#1D4ED8] dark:text-[#93C5FD] border-[#BFDBFE] dark:border-[#1D4ED8]/60'
+                            : 'bg-[#F7F5F0] dark:bg-[#232724] text-[#1C1917] dark:text-[#F5F3EE] border-[#E2DDD5] dark:border-[#2E3330]'
+                        }`}
+                      >
+                        {READING_STATUS_OPTIONS.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">
+                        {item.readingStatus === 'Completed' && <CheckCircle2 className="w-3.5 h-3.5 text-[#15803D]" />}
+                        {item.readingStatus === 'In Progress' && <Clock className="w-3.5 h-3.5 text-[#C26D3A]" />}
+                        {item.readingStatus === 'Loaned to Friend' && <Share2 className="w-3.5 h-3.5 text-[#1D4ED8]" />}
+                        <span>{pct}%</span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+                    </div>
+
+                    {(item.mediaType === 'Book' || item.mediaType === 'E-Book' || item.mediaType === 'Audiobook') && (
+                      <div className="flex items-center justify-between text-[10px] text-[#6B655D] dark:text-[#A19B91] font-mono tabular-nums">
                         <span>Page {currentPg} of {totalPages}</span>
                         <input
                           type="range"
@@ -926,149 +928,133 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                               completionDate: pg >= totalPages ? todayIso : item.completionDate
                             });
                           }}
-                          className="w-24 accent-emerald-700 cursor-pointer"
+                          className="w-24 accent-[#0F4C45] cursor-pointer"
                         />
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Completed Review & Finish Date */}
-                  {item.readingStatus === 'Completed' && (
-                    <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono tabular-nums text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
-                          Finished: {item.completionDate || todayIso}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingReviewId(editingReviewId === item.id ? null : item.id);
-                            setEditingReviewDraft(item.reviewText || '');
-                          }}
-                          className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          {item.reviewText ? 'Edit Review' : 'Add Review'}
-                        </button>
-                      </div>
-                      {editingReviewId === item.id ? (
-                        <div className="flex gap-1.5 pt-1">
-                          <input
-                            type="text"
-                            value={editingReviewDraft}
-                            onChange={(e) => setEditingReviewDraft(e.target.value)}
-                            placeholder="Write your short book review..."
-                            className="flex-1 px-2 py-1 text-[11px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg"
-                          />
+                    {item.readingStatus === 'Completed' && (
+                      <div className="space-y-1.5 text-[11px] text-[#1C1917] dark:text-[#E2DDD5] bg-[#F7F5F0] dark:bg-[#232724] p-2.5 rounded-xl border border-[#E2DDD5] dark:border-[#2E3330]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono tabular-nums text-[10px] text-[#0F4C45] dark:text-[#6EE7B7] font-semibold">
+                            Finished: {item.completionDate || todayIso}
+                          </span>
                           <button
                             type="button"
                             onClick={() => {
-                              onUpdateItem(item.id, { reviewText: editingReviewDraft.trim() || undefined });
-                              setEditingReviewId(null);
-                              toast.success('Review saved.', 'Personal Library');
+                              setEditingReviewId(editingReviewId === item.id ? null : item.id);
+                              setEditingReviewDraft(item.reviewText || '');
                             }}
-                            className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                            className="text-[11px] font-semibold text-[#0F4C45] dark:text-[#6EE7B7] hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            Save
+                            <MessageSquare className="w-3 h-3" />
+                            {item.reviewText ? 'Edit Review' : 'Add Review'}
                           </button>
                         </div>
-                      ) : item.reviewText ? (
-                        <p className="text-[11px] italic text-slate-600 dark:text-slate-300">“{item.reviewText}”</p>
-                      ) : null}
-                    </div>
-                  )}
+                        {editingReviewId === item.id ? (
+                          <div className="flex gap-1.5 pt-1">
+                            <input
+                              type="text"
+                              value={editingReviewDraft}
+                              onChange={(e) => setEditingReviewDraft(e.target.value)}
+                              placeholder="Write your short book review..."
+                              className="flex-1 px-2 py-1 text-[11px] bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onUpdateItem(item.id, { reviewText: editingReviewDraft.trim() || undefined });
+                                setEditingReviewId(null);
+                                toast.success('Review saved.', 'Personal Library');
+                              }}
+                              className="px-2.5 py-1 bg-[#0F4C45] text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : item.reviewText ? (
+                          <p className="text-[11px] italic text-[#6B655D] dark:text-[#A19B91]">“{item.reviewText}”</p>
+                        ) : null}
+                      </div>
+                    )}
 
-                  {/* Lent to Friend & Reminder Date */}
-                  {item.readingStatus === 'Loaned to Friend' && (
-                    <div
-                      className={`text-[11px] px-2.5 py-2 rounded-xl border space-y-1.5 ${
-                        isReminderDue
-                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-rose-200 dark:border-rose-800'
-                          : 'bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 border-sky-200 dark:border-sky-800'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate">
-                          Lent to <strong className="font-semibold"><bdi>{item.loanedTo || 'Friend'}</bdi></strong>
-                        </span>
-                        {isReminderDue && (
-                          <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 shrink-0">
-                            Follow-up Due
+                    {item.readingStatus === 'Loaned to Friend' && (
+                      <div
+                        className={`text-[11px] px-2.5 py-2 rounded-xl border space-y-1.5 ${
+                          isReminderDue
+                            ? 'bg-[#FEF2F2] dark:bg-[#7F1D1D]/30 text-[#7F1D1D] dark:text-[#FECACA] border-[#FECACA] dark:border-[#B91C1C]/60'
+                            : 'bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 text-[#1D4ED8] dark:text-[#93C5FD] border-[#BFDBFE] dark:border-[#1D4ED8]/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate">
+                            Lent to <strong className="font-semibold"><bdi>{item.loanedTo || 'Friend'}</bdi></strong>
                           </span>
-                        )}
+                          {isReminderDue && (
+                            <span className="text-[10px] font-bold uppercase text-[#B91C1C] dark:text-[#FCA5A5] shrink-0">
+                              Follow-up Due
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-[10px]">
+                          <span className="flex items-center gap-1 text-[#6B655D] dark:text-[#A19B91]">
+                            <Bell className="w-3 h-3" /> Reminder:
+                          </span>
+                          <input
+                            type="date"
+                            value={item.reminderDate || ''}
+                            onChange={(e) => onUpdateItem(item.id, { reminderDate: e.target.value })}
+                            className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded px-1.5 py-0.5 font-mono text-[10px]"
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between gap-2 text-[10px]">
-                        <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                          <Bell className="w-3 h-3" /> Reminder:
-                        </span>
-                        <input
-                          type="date"
-                          value={item.reminderDate || ''}
-                          onChange={(e) => onUpdateItem(item.id, { reminderDate: e.target.value })}
-                          className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-[10px]"
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  {item.privateNotes && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">{item.privateNotes}</p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-                    <span className="truncate">
-                      {item.tags.length > 0 ? <bdi>{item.tags.join(' · ')}</bdi> : getStatusLabel(item.readingStatus)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteItem(item.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                      title="Delete Item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {item.privateNotes && (
+                      <p className="text-[11px] text-[#6B655D] dark:text-[#A19B91] line-clamp-2">{item.privateNotes}</p>
+                    )}
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                </LibraryBookCard>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Add Personal Item Modal / Bottom Sheet */}
       {isAddOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 max-sm:items-end max-sm:p-0"
+          className="fixed inset-0 z-50 bg-[#121413]/70 backdrop-blur-xs flex items-center justify-center p-4 max-sm:items-end max-sm:p-0"
           onClick={(e) => { if (e.target === e.currentTarget) setIsAddOpen(false); }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-sm:rounded-b-none max-sm:rounded-t-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 space-y-5 safe-bottom text-slate-900 dark:text-slate-100">
-            <div className="sm:hidden w-12 h-1 bg-slate-300 rounded-full mx-auto" />
+          <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl max-sm:rounded-b-none max-sm:rounded-t-2xl border border-[#E2DDD5] dark:border-[#2E3330] shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 space-y-5 safe-bottom text-[#1C1917] dark:text-[#F5F3EE]">
+            <div className="sm:hidden w-12 h-1 bg-[#D6CFC3] rounded-full mx-auto" />
 
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2DDD5] dark:border-[#2E3330] pb-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                <h2 className="text-base font-bold text-[#1C1917] dark:text-[#F5F3EE] archival-heading">
                   {language === 'dv' ? 'އަމިއްލަ ކަލެކްޝަނަށް އިތުރުކުރުން' : 'Add to Personal Collection'}
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-[#6B655D] dark:text-[#A19B91]">
                   Camera ISBN/UPC scan, Open Library & Google Books fetcher, AI Cover OCR, or manual entry
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="p-1.5 text-[#6B655D] hover:text-[#1C1917] dark:hover:text-[#F5F3EE] rounded-lg hover:bg-[#EFECE6] dark:hover:bg-[#232724] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Instant ISBN/UPC Lookup, Camera Barcode Scan & AI Cover OCR Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#F7F5F0] dark:bg-[#232724] p-3.5 rounded-xl border border-[#E2DDD5] dark:border-[#2E3330]">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-[#1C1917] dark:text-[#E2DDD5] flex items-center justify-between">
                   <span>ISBN / UPC Lookup (Open Library · Google)</span>
                   {fetchedSourceLabel && (
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{fetchedSourceLabel}</span>
+                    <span className="text-[10px] font-bold text-[#0F4C45] dark:text-[#6EE7B7]">{fetchedSourceLabel}</span>
                   )}
                 </label>
                 <div className="flex gap-1.5">
@@ -1077,7 +1063,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                     value={isbnLookupInput}
                     onChange={(e) => setIsbnLookupInput(e.target.value)}
                     placeholder="9780735211292"
-                    className="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-mono bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                   {onOpenScanner && (
                     <button
@@ -1088,7 +1074,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                           runMetadataFetch(scannedCode);
                         })
                       }
-                      className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold rounded-lg hover:bg-emerald-100 flex items-center gap-1 cursor-pointer shrink-0"
+                      className="px-2.5 py-1.5 bg-[#ECFDF5] dark:bg-[#0F4C45]/50 text-[#0F4C45] dark:text-[#6EE7B7] border border-[#A7F3D0] dark:border-[#16655B] text-xs font-semibold rounded-lg hover:bg-[#D1FAE5] flex items-center gap-1 cursor-pointer shrink-0"
                       title="Scan ISBN or UPC barcode with camera"
                     >
                       <Scan className="w-3.5 h-3.5" />
@@ -1099,7 +1085,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                     type="button"
                     onClick={() => runMetadataFetch(isbnLookupInput)}
                     disabled={isLookingUp}
-                    className="px-3 py-1.5 bg-slate-900 dark:bg-emerald-700 text-white text-xs font-medium rounded-lg hover:bg-slate-800 flex items-center gap-1 cursor-pointer shrink-0"
+                    className="px-3 py-1.5 bg-[#1C1917] dark:bg-[#0F4C45] text-white text-xs font-medium rounded-lg hover:opacity-90 flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     {isLookingUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Fetch'}
                   </button>
@@ -1107,7 +1093,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                <label className="text-[11px] font-semibold text-[#1C1917] dark:text-[#E2DDD5]">
                   AI Cover OCR Snap (Dhivehi / Non-ISBN)
                 </label>
                 <input
@@ -1122,7 +1108,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                   type="button"
                   onClick={() => ocrFileRef.current?.click()}
                   disabled={isOcrRunning}
-                  className="w-full px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full px-3 py-1.5 bg-[#0F4C45] hover:bg-[#16655B] text-white text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {isOcrRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                   {isOcrRunning ? 'Extracting Metadata...' : 'Snap / Upload Book Cover'}
@@ -1133,7 +1119,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
             <form onSubmit={handleSaveItem} className="space-y-4">
               {/* Live Cover Art Preview + Core Metadata */}
               <div className="flex flex-col sm:flex-row gap-4 items-start">
-                <div className="w-24 h-36 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-800 mx-auto sm:mx-0">
+                <div className="w-24 h-36 rounded-md overflow-hidden border border-[#E2DDD5] dark:border-[#2E3330] shrink-0 bg-[#EFECE6] dark:bg-[#232724] mx-auto sm:mx-0 book-cover-card">
                   <BookCoverFallback
                     src={coverUrl}
                     title={title || 'Cover Preview'}
@@ -1143,31 +1129,31 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
 
                 <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Title *</label>
+                    <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Title *</label>
                     <input
                       required
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Book, board game, periodical, or kit title..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Author / Creator</label>
+                    <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Author / Creator</label>
                     <input
                       type="text"
                       value={author}
                       onChange={(e) => setAuthor(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Media Format</label>
+                    <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Media Format</label>
                     <select
                       value={mediaType}
                       onChange={(e) => setMediaType(e.target.value as MediaType)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950"
+                      className="w-full px-3 py-2 text-xs border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg bg-[#F7F5F0] dark:bg-[#232724]"
                     >
                       {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
@@ -1177,20 +1163,20 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">ISBN / UPC</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">ISBN / UPC</label>
                   <input
                     type="text"
                     value={isbn || upc}
                     onChange={(e) => setIsbn(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Language</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Language</label>
                   <select
                     value={itemLang}
                     onChange={(e) => setItemLang(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950"
+                    className="w-full px-3 py-2 text-xs border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg bg-[#F7F5F0] dark:bg-[#232724]"
                   >
                     <option value="English">English</option>
                     <option value="Dhivehi">Dhivehi (ދިވެހި)</option>
@@ -1199,24 +1185,24 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Custom Shelf</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Custom Shelf</label>
                   <input
                     list="personal-shelves-list"
                     type="text"
                     value={shelfGroup}
                     onChange={(e) => setShelfGroup(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                   <datalist id="personal-shelves-list">
                     {shelves.map((s) => <option key={s} value={s} />)}
                   </datalist>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Reading / Loan Status</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Reading / Loan Status</label>
                   <select
                     value={readingStatus}
                     onChange={(e) => setReadingStatus(e.target.value as ReadingProgressStatus)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950"
+                    className="w-full px-3 py-2 text-xs border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg bg-[#F7F5F0] dark:bg-[#232724]"
                   >
                     {READING_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
@@ -1225,22 +1211,22 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                 {readingStatus === 'Loaned to Friend' && (
                   <>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Lent To (Borrower Name)</label>
+                      <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Lent To (Borrower Name)</label>
                       <input
                         type="text"
                         value={loanedTo}
                         onChange={(e) => setLoanedTo(e.target.value)}
                         placeholder="Friend or colleague name..."
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Return Reminder Date</label>
+                      <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Return Reminder Date</label>
                       <input
                         type="date"
                         value={reminderDate}
                         onChange={(e) => setReminderDate(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                        className="w-full px-3 py-2 text-xs font-mono bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                       />
                     </div>
                   </>
@@ -1248,58 +1234,58 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
 
                 {readingStatus === 'Completed' && (
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Short Review</label>
+                    <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Short Review</label>
                     <input
                       type="text"
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
                       placeholder="Favorite takeaway or rating reflection..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Page Count</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Page Count</label>
                   <input
                     type="number"
                     value={pageCount}
                     onChange={(e) => setPageCount(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Subjects / Tags (comma separated)</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Subjects / Tags (comma separated)</label>
                   <input
                     type="text"
                     value={tagsInput}
                     onChange={(e) => setTagsInput(e.target.value)}
                     placeholder="Mystery, Dhivehi, STEM"
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Private Notes</label>
+                  <label className="text-xs font-semibold text-[#1C1917] dark:text-[#E2DDD5] block mb-1">Private Notes</label>
                   <textarea
                     rows={2}
                     value={privateNotes}
                     onChange={(e) => setPrivateNotes(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                    className="w-full px-3 py-2 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2DDD5] dark:border-[#2E3330]">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-lg cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] bg-[#EFECE6] dark:bg-[#232724] hover:bg-[#E2DDD5] rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg cursor-pointer"
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#0F4C45] hover:bg-[#16655B] rounded-lg cursor-pointer"
                 >
                   Save to Personal Library
                 </button>
@@ -1312,7 +1298,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
       {/* Interactive Bulk CSV Column Mapping Modal */}
       {csvPreview && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-[#121413]/75 backdrop-blur-xs flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setCsvPreview(null);
@@ -1320,13 +1306,13 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
             }
           }}
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden text-[#1C1917] dark:text-[#F5F3EE]">
+            <div className="px-6 py-4 border-b border-[#E2DDD5] dark:border-[#2E3330] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                <FileSpreadsheet className="w-5 h-5 text-[#0F4C45] dark:text-[#6EE7B7]" />
                 <div>
                   <h2 className="text-base font-bold">CSV Column Mapping · {csvFileName}</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-[#6B655D] dark:text-[#A19B91]">
                     Detected {csvPreview.headers.length} columns and {csvPreview.rows.length} rows. Map columns to personal library fields below.
                   </p>
                 </div>
@@ -1337,27 +1323,27 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                   setCsvPreview(null);
                   setCsvMapping([]);
                 }}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                className="p-1.5 text-[#6B655D] hover:text-[#1C1917] dark:hover:text-[#F5F3EE] rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-3 flex-1">
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+              <div className="border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl overflow-hidden">
                 <table className="w-full text-start text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
+                  <thead className="bg-[#0D2623] dark:bg-[#232724] text-[#F7F5F0] font-bold border-b border-[#193D38] dark:border-[#2E3330]">
                     <tr>
                       <th className="p-3">CSV Column Header</th>
                       <th className="p-3">Sample Values</th>
                       <th className="p-3">Map to Field</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-[#E2DDD5] dark:divide-[#2E3330]">
                     {csvPreview.headers.map((header, colIdx) => (
                       <tr key={`${header}-${colIdx}`}>
-                        <td className="p-3 font-semibold text-slate-900 dark:text-white">{header}</td>
-                        <td className="p-3 text-slate-500 dark:text-slate-400 font-mono text-[11px] max-w-xs truncate">
+                        <td className="p-3 font-semibold text-[#1C1917] dark:text-[#F5F3EE]">{header}</td>
+                        <td className="p-3 text-[#6B655D] dark:text-[#A19B91] font-mono text-[11px] max-w-xs truncate">
                           {csvPreview.rows
                             .slice(0, 2)
                             .map((r) => r[colIdx] || '—')
@@ -1371,7 +1357,7 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                               next[colIdx] = e.target.value as PersonalImportField;
                               setCsvMapping(next);
                             }}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg"
+                            className="w-full px-2.5 py-1.5 text-xs bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg"
                           >
                             {CSV_FIELD_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1385,9 +1371,9 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                Ready to import into {currentUser.name}&apos;s vault
+            <div className="px-6 py-4 bg-[#F7F5F0] dark:bg-[#232724] border-t border-[#E2DDD5] dark:border-[#2E3330] flex items-center justify-between gap-3">
+              <span className="text-xs text-[#6B655D] dark:text-[#A19B91] font-mono tabular-nums">
+                Ready to import into {currentUser.name}&apos;s shelf
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1396,14 +1382,14 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
                     setCsvPreview(null);
                     setCsvMapping([]);
                   }}
-                  className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-[#1C1917] dark:text-[#F5F3EE] bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCommitCsvMapping}
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#0F4C45] hover:bg-[#16655B] rounded-xl cursor-pointer"
                 >
                   Import {csvPreview.rows.length} Mapped Rows
                 </button>

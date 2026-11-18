@@ -15,6 +15,7 @@ import {
 } from '../lib/schoolCalendar';
 import { playScanFeedback, ScanFeedbackType } from '../lib/barcodeSvg';
 import { BookCoverFallback } from './BookCoverFallback';
+import { StatusPill } from './StatusPill';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { useToast } from '../lib/toast';
@@ -503,15 +504,22 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
   const flashBannerStyle = (type: NonNullable<DeskFlashState>['type']) => {
     if (type === 'checked_out') {
-      return 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100';
+      return 'bg-[#F0FDF4] dark:bg-[#0F4C45]/40 border-[#BBF7D0] dark:border-[#16655B] text-[#15803D] dark:text-[#A7F3D0]';
     }
     if (type === 'returned') {
-      return 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 text-sky-950 dark:text-sky-100';
+      return 'bg-[#EFF6FF] dark:bg-[#1E3A8A]/35 border-[#BFDBFE] dark:border-[#1D4ED8]/60 text-[#1D4ED8] dark:text-[#93C5FD]';
     }
     if (type === 'hold_triggered') {
-      return 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-100';
+      return 'bg-[#FFFBEB] dark:bg-[#78350F]/35 border-[#FDE68A] dark:border-[#B45309]/60 text-[#B45309] dark:text-[#FCD34D]';
     }
-    return 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-100';
+    return 'bg-[#FEF2F2] dark:bg-[#7F1D1D]/35 border-[#FECACA] dark:border-[#B91C1C]/60 text-[#B91C1C] dark:text-[#FCA5A5]';
+  };
+
+  const flashStampLabel = (type: NonNullable<DeskFlashState>['type']) => {
+    if (type === 'checked_out') return language === 'dv' ? 'ދޫކުރެވިއްޖެ' : 'CHECKED OUT';
+    if (type === 'returned') return language === 'dv' ? 'ބަލައިގަނެވިއްޖެ' : 'RETURNED';
+    if (type === 'hold_triggered') return language === 'dv' ? 'ހޯލްޑް ޝެލްފް' : 'HOLD SHELF';
+    return language === 'dv' ? 'ހުއްޓުވިފައި' : 'BLOCKED';
   };
 
   const patronInitials = (name: string) =>
@@ -525,17 +533,17 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* Compact Desk Toolbar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-            <QrCode className="w-3.5 h-3.5" />
-            <span>{language === 'dv' ? 'ސާކިއުލޭޝަން ޑެސްކް' : 'Rapid Split-Screen Circulation Desk'}</span>
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0F4C45] dark:text-[#6EE7B7]">
+            <QrCode className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span>{language === 'dv' ? 'ސާކިއުލޭޝަން ޑެސްކް' : 'Scan & Stamp Circulation Station'}</span>
             <span aria-hidden="true">·</span>
-            <span className="text-slate-500 dark:text-slate-400 font-normal">
+            <span className="text-[#6B655D] dark:text-[#A19B91] font-normal">
               {language === 'dv' ? 'ބާކޯޑް / ކޮޕީ އައިޑީ އޮޓޯ-ޑިޓެކްޓް' : 'Auto-Detect Patron & Book Copy Barcodes'}
             </span>
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{t.scanCheckout}</h2>
+          <h2 className="text-xl font-extrabold text-[#1C1917] dark:text-[#F5F3EE] tracking-tight archival-heading">{t.scanCheckout}</h2>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -544,39 +552,35 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
             onClick={() => setShowInlineCamera((prev) => !prev)}
             className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap border ${
               showInlineCamera
-                ? 'bg-emerald-700 text-white border-emerald-700'
-                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                ? 'bg-[#0F4C45] text-white border-[#0F4C45]'
+                : 'bg-[#F7F5F0] dark:bg-[#232724] text-[#1C1917] dark:text-[#F5F3EE] border-[#E2DDD5] dark:border-[#2E3330] hover:bg-[#EFECE6] dark:hover:bg-[#2E3330]'
             }`}
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-4 h-4" strokeWidth={1.75} />
             <span>{showInlineCamera ? 'Hide Inline Camera' : 'Inline Camera'}</span>
           </button>
           <button
             type="button"
             onClick={onOpenScanner}
-            className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 whitespace-nowrap"
+            className="px-4 py-2.5 rounded-xl bg-[#0F4C45] hover:bg-[#16655B] text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 whitespace-nowrap shadow-xs"
             id="desk-launch-camera-scanner-btn"
           >
-            <QrCode className="w-4 h-4 text-emerald-400 dark:text-white" />
+            <QrCode className="w-4 h-4 text-[#F3DFB1]" strokeWidth={1.75} />
             <span>{language === 'dv' ? 'ފުލް ސްކޭނަރ' : 'Scanner Modal'}</span>
           </button>
         </div>
       </div>
 
-      {/* Acoustic + Visual Feedback Banner */}
+      {/* Live Rubber Stamp & Acoustic Feedback Banner */}
       {deskFlash && (
         <div
           role="status"
-          className={`rounded-2xl border p-4 flex items-center justify-between gap-3 transition-all ${flashBannerStyle(deskFlash.type)}`}
+          className={`rounded-2xl border-2 p-4 flex items-center justify-between gap-3 transition-all ${flashBannerStyle(deskFlash.type)}`}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            {deskFlash.type === 'blocked' ? (
-              <ShieldAlert className="w-5 h-5 shrink-0" />
-            ) : deskFlash.type === 'hold_triggered' ? (
-              <Bookmark className="w-5 h-5 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-            )}
+          <div className="flex items-center gap-3 min-w-0 flex-wrap">
+            <span className="stamp-badge px-2.5 py-1 rounded-md border-2 border-current text-[11px] font-mono font-extrabold tracking-widest uppercase shrink-0">
+              {flashStampLabel(deskFlash.type)}
+            </span>
             <div className="min-w-0">
               <div className="font-bold text-sm truncate">{deskFlash.title}</div>
               <div className="text-xs opacity-90">{deskFlash.detail}</div>
@@ -594,66 +598,67 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
       )}
 
       {/* Mode Segmented Control */}
-      <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-1.5">
+      <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] p-1.5 rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] flex gap-1.5">
         <button
           type="button"
           onClick={() => setActiveTab('checkout')}
           className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'checkout'
-              ? 'bg-emerald-700 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#0F4C45] text-white shadow-xs'
+              : 'text-[#6B655D] dark:text-[#A19B91] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
           }`}
           id="checkout-tab-btn"
         >
-          <BookOpen className="w-4 h-4" /> {t.quickCheckout}
+          <BookOpen className="w-4 h-4" strokeWidth={1.75} /> {t.quickCheckout}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('return')}
           className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'return'
-              ? 'bg-slate-900 dark:bg-emerald-700 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#1C1917] dark:bg-[#0F4C45] text-white shadow-xs'
+              : 'text-[#6B655D] dark:text-[#A19B91] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
           }`}
           id="return-tab-btn"
         >
-          <RotateCcw className="w-4 h-4" /> {t.returnBook}
+          <RotateCcw className="w-4 h-4" strokeWidth={1.75} /> {t.returnBook}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('renew')}
           className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'renew'
-              ? 'bg-sky-700 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#C26D3A] text-white shadow-xs'
+              : 'text-[#6B655D] dark:text-[#A19B91] hover:bg-[#EFECE6] dark:hover:bg-[#232724]'
           }`}
           id="renew-tab-btn"
         >
-          <RefreshCw className="w-4 h-4" /> {language === 'dv' ? 'މުއްދަތު އިތުރުކުރުން' : 'Quick Renew'}
+          <RefreshCw className="w-4 h-4" strokeWidth={1.75} /> {language === 'dv' ? 'މުއްދަތު އިތުރުކުރުން' : 'Quick Renew'}
         </button>
       </div>
 
       {/* SPLIT-SCREEN CHECKOUT & RAPID SCAN MODE */}
       {activeTab === 'checkout' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT PANE: Auto-Focused Universal Scanner & Action Trigger (7 cols) */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-5">
-            {/* Universal Laser / Camera Auto-Detect Bar */}
+          {/* LEFT PANE: Glowing Heritage Emerald Scan Target Zone + Manual Form */}
+          <div className="lg:col-span-7 bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 space-y-5">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleUniversalScanSubmit(universalCode);
               }}
-              className="space-y-2.5 pb-4 border-b border-slate-200 dark:border-slate-800"
+              className="space-y-3 p-4 rounded-2xl bg-[#ECFDF5]/65 dark:bg-[#0F4C45]/20 border-2 border-[#0F4C45]/45 ring-2 ring-[#0F4C45]/10"
             >
-              <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
-                <span className="flex items-center gap-1.5">
-                  <Scan className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                  {language === 'dv' ? 'ޔުނިވާސަލް ބާކޯޑް ސްކޭނަރ' : 'Universal Barcode Scanner (Auto-Detect)'}
+              <div className="flex items-center justify-between text-xs font-bold text-[#0F4C45] dark:text-[#6EE7B7]">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-[#0F4C45] text-white flex items-center justify-center">
+                    <Scan className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  </span>
+                  {language === 'dv' ? 'ޔުނިވާސަލް ބާކޯޑް ސްކޭނަރ' : 'Universal Barcode Target Zone (Auto-Detect)'}
                 </span>
-                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                <bdi dir="ltr" className="text-[11px] font-mono text-[#6B655D] dark:text-[#A19B91]">
                   STU-xxxx · MAG-xxx-xx
-                </span>
+                </bdi>
               </div>
 
               <div className="flex gap-2">
@@ -668,12 +673,12 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                       ? 'މެންބަރުގެ އައިޑީ ނުވަތަ ފޮތުގެ ކޮޕީ ބާކޯޑު ސްކޭންކުރައްވާ...'
                       : 'Ready for USB laser scan — Patron ID or Book Copy Barcode...'
                   }
-                  className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-emerald-600/50 dark:border-emerald-500/50 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-600"
+                  className="flex-1 px-4 py-3 bg-[#FFFFFF] dark:bg-[#121413] border-2 border-[#0F4C45]/60 rounded-xl text-xs font-mono font-semibold text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:border-[#0F4C45] focus:ring-2 focus:ring-[#0F4C45]/20"
                   id="universal-desk-scanner-input"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white text-xs font-bold cursor-pointer whitespace-nowrap"
+                  className="px-4 py-2.5 rounded-xl bg-[#0F4C45] hover:bg-[#16655B] text-white text-xs font-bold cursor-pointer whitespace-nowrap shadow-xs"
                 >
                   Detect
                 </button>
@@ -683,7 +688,7 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 <div className="pt-2 space-y-2">
                   <div
                     id="desk-inline-qr-reader"
-                    className="w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-950"
+                    className="w-full rounded-xl overflow-hidden border border-[#E2DDD5] dark:border-[#2E3330] bg-[#121413]"
                   />
                 </div>
               )}
@@ -691,22 +696,21 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
             {/* Step-by-Step Manual / Assisted Form */}
             <form onSubmit={handleManualCheckoutSubmit} className="space-y-4">
-              {/* Book Selection */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                <div className="flex items-center justify-between text-xs font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                   <span>1. {t.step1SelectBook}</span>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">ISBN / Copy Barcode</span>
+                  <span className="text-[11px] font-mono text-[#6B655D] dark:text-[#A19B91]">ISBN / Copy Barcode</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
-                    <QrCode className="w-4 h-4 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
+                    <QrCode className="w-4 h-4 text-[#6B655D] absolute start-3.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                     <input
                       type="text"
                       value={selectedBookBarcode}
                       onChange={(e) => setSelectedBookBarcode(e.target.value)}
                       placeholder={language === 'dv' ? 'ބާކޯޑު ޖައްސަވާ...' : 'Copy Barcode (e.g. MAG-823-01-01)...'}
-                      className="w-full ps-10 pe-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                      className="w-full ps-10 pe-3.5 py-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-xs font-mono font-semibold text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:ring-2 focus:ring-[#0F4C45]"
                       id="checkout-barcode-input"
                     />
                   </div>
@@ -716,8 +720,8 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     disabled={isTranscribing}
                     className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0 ${
                       isRecording
-                        ? 'bg-rose-600 text-white ring-2 ring-rose-300 dark:ring-rose-800'
-                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
+                        ? 'bg-[#B91C1C] text-white ring-2 ring-[#FECACA]'
+                        : 'bg-[#F7F5F0] dark:bg-[#232724] hover:bg-[#EFECE6] text-[#1C1917] dark:text-[#F5F3EE] border border-[#E2DDD5] dark:border-[#2E3330]'
                     }`}
                     title={t.voiceAssistant}
                   >
@@ -726,13 +730,13 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     ) : isRecording ? (
                       <MicOff className="w-3.5 h-3.5" />
                     ) : (
-                      <Mic className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                      <Mic className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                     )}
                   </button>
                   <select
                     value={matchedBook?.barcode || ''}
                     onChange={(e) => setSelectedBookBarcode(e.target.value)}
-                    className="px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white sm:max-w-[210px] focus:outline-none cursor-pointer"
+                    className="px-3 py-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-xs font-semibold text-[#1C1917] dark:text-[#F5F3EE] sm:max-w-[210px] focus:outline-none cursor-pointer"
                   >
                     <option value="">{t.quickSelectBook}</option>
                     {books.map((b) => (
@@ -744,23 +748,25 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 </div>
 
                 {matchedBook && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-3.5 text-xs">
-                    <BookCoverFallback src={matchedBook.coverUrl} title={matchedBook.title} className="w-11 h-15 rounded-lg shrink-0" />
+                  <div className="p-3 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl flex items-center gap-3.5 text-xs">
+                    <BookCoverFallback src={matchedBook.coverUrl} title={matchedBook.title} className="w-11 h-15 rounded-md shrink-0 book-cover-card" />
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-white truncate"><bdi>{matchedBook.title}</bdi></div>
-                      <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                        <bdi>{matchedBook.author}</bdi> · <bdi className="font-mono">{matchedBook.ddcCallNumber || 'DDC'}</bdi> · <bdi>{matchedBook.shelfLocation}</bdi>
+                      <div className="font-bold text-[#1C1917] dark:text-[#F5F3EE] truncate"><bdi>{matchedBook.title}</bdi></div>
+                      <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                        <bdi>{matchedBook.author}</bdi> · <bdi dir="ltr" className="font-mono">{matchedBook.ddcCallNumber || 'DDC'}</bdi> · <bdi dir="ltr">{matchedBook.shelfLocation}</bdi>
                       </div>
-                      <div className="text-[11px] text-slate-700 dark:text-slate-300">
-                        {matchedCopyBarcode && <span>Copy: <bdi dir="ltr" className="font-mono tabular-nums">{matchedCopyBarcode}</bdi> · </span>}
-                        <span className={matchedBook.availableCopies > 0 ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-rose-600 dark:text-rose-400 font-bold'}>
-                          {matchedBook.isReferenceOnly ? t.statusReferenceOnly : (
-                            <>
-                              <bdi dir="ltr" className="font-mono tabular-nums">{matchedBook.availableCopies}/{matchedBook.totalCopies}</bdi>{' '}
-                              {t.available}
-                            </>
-                          )}
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {matchedCopyBarcode && (
+                          <span className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                            Copy: <bdi dir="ltr" className="font-mono tabular-nums text-[#1C1917] dark:text-[#F5F3EE]">{matchedCopyBarcode}</bdi>
+                          </span>
+                        )}
+                        <StatusPill
+                          status={matchedBook.isReferenceOnly ? 'reference' : matchedBook.availableCopies > 0 ? 'available' : 'checked_out'}
+                          countPrefix={!matchedBook.isReferenceOnly ? `${matchedBook.availableCopies}/${matchedBook.totalCopies}` : undefined}
+                          label={matchedBook.isReferenceOnly ? t.statusReferenceOnly : t.available}
+                          compact
+                        />
                       </div>
                     </div>
                   </div>
@@ -768,28 +774,28 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               </div>
 
               {/* Patron Selection */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="space-y-2 pt-2 border-t border-[#E2DDD5]/70 dark:border-[#2E3330]">
+                <div className="flex items-center justify-between text-xs font-bold text-[#1C1917] dark:text-[#F5F3EE]">
                   <span>2. {t.step2SelectStudent}</span>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Patron ID / Name</span>
+                  <span className="text-[11px] font-mono text-[#6B655D] dark:text-[#A19B91]">Patron ID / Name</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
-                    <User className="w-4 h-4 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
+                    <User className="w-4 h-4 text-[#6B655D] absolute start-3.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                     <input
                       type="text"
                       value={selectedStudentCode}
                       onChange={(e) => setSelectedStudentCode(e.target.value)}
                       placeholder={language === 'dv' ? 'ދަރިވަރުގެ އައިޑީ (STU-2041)...' : 'Scan Student/Staff ID (e.g. STU-2041) or type name...'}
-                      className="w-full ps-10 pe-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                      className="w-full ps-10 pe-3.5 py-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-xs font-semibold text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:ring-2 focus:ring-[#0F4C45]"
                       id="checkout-student-code-input"
                     />
                   </div>
                   <select
                     value={matchedStudent?.studentIdCode || matchedStudent?.staffIdCode || matchedStudent?.id || ''}
                     onChange={(e) => setSelectedStudentCode(e.target.value)}
-                    className="px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white sm:max-w-[210px] focus:outline-none cursor-pointer"
+                    className="px-3 py-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-xs font-semibold text-[#1C1917] dark:text-[#F5F3EE] sm:max-w-[210px] focus:outline-none cursor-pointer"
                   >
                     <option value="">{t.quickSelectStudent}</option>
                     {users
@@ -804,50 +810,50 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               </div>
 
               {/* Duration & Sun–Thu School Calendar */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">3. {t.step3LoanDuration}</div>
-                <div className="flex flex-wrap items-center gap-3 bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+              <div className="space-y-2 pt-2 border-t border-[#E2DDD5]/70 dark:border-[#2E3330]">
+                <div className="text-xs font-bold text-[#1C1917] dark:text-[#F5F3EE]">3. {t.step3LoanDuration}</div>
+                <div className="flex flex-wrap items-center gap-3 bg-[#F7F5F0] dark:bg-[#232724] p-3 rounded-xl border border-[#E2DDD5] dark:border-[#2E3330] text-xs">
                   <div className="flex items-center gap-2">
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">{t.borrowDurationDays}</label>
+                    <label className="font-semibold text-[#1C1917] dark:text-[#E2DDD5]">{t.borrowDurationDays}</label>
                     <input
                       type="number"
                       min={1}
                       max={60}
                       value={borrowDays}
                       onChange={(e) => setBorrowDays(parseInt(e.target.value) || 14)}
-                      className="w-16 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono tabular-nums font-bold text-center text-slate-900 dark:text-white"
+                      className="w-16 px-2.5 py-1.5 bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-lg text-xs font-mono tabular-nums font-bold text-center text-[#1C1917] dark:text-[#F5F3EE]"
                     />
                   </div>
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                    <Calendar className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                  <div className="flex items-center gap-2 text-[#6B655D] dark:text-[#A19B91]">
+                    <Calendar className="w-3.5 h-3.5 text-[#0F4C45] dark:text-[#6EE7B7]" strokeWidth={1.75} />
                     <span>{t.calculatedDueDate}</span>
-                    <span className="font-mono tabular-nums font-bold text-emerald-800 dark:text-emerald-300">
-                      <bdi>{calculateSchoolDueDate(new Date(), borrowDays, settings.schoolHolidays ?? DEFAULT_MALDIVES_SCHOOL_HOLIDAYS)}</bdi>
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">{t.schoolWeekNote}</span>
+                    <bdi dir="ltr" className="font-mono tabular-nums font-bold text-[#0F4C45] dark:text-[#6EE7B7]">
+                      {calculateSchoolDueDate(new Date(), borrowDays, settings.schoolHolidays ?? DEFAULT_MALDIVES_SCHOOL_HOLIDAYS)}
+                    </bdi>
+                    <span className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">{t.schoolWeekNote}</span>
                   </div>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-[#0F4C45] hover:bg-[#16655B] text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 id="confirm-checkout-btn"
               >
-                <CheckCircle2 className="w-4 h-4" /> {t.confirmCheckout}
+                <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} /> {t.confirmCheckout}
               </button>
             </form>
           </div>
 
           {/* RIGHT PANE: Active Session Context (5 cols) */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+          <div className="lg:col-span-5 bg-white dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E2DDD5] dark:border-[#2E3330] pb-3">
+              <h3 className="archival-heading font-bold text-[#1C1917] dark:text-[#F5F3EE] text-sm">
                 {language === 'dv' ? 'މެންބަރުގެ ލައިވް ސްޓޭޓަސް' : 'Active Session Context'}
               </h3>
               {matchedStudent && resolvedTierPolicy && (
-                <span className="text-[11px] font-mono uppercase font-bold text-emerald-700 dark:text-emerald-400">
-                  {resolvedTierPolicy.tier} · MVR {resolvedTierPolicy.dailyFineMvr.toFixed(2)}/d
+                <span className="text-[11px] font-mono uppercase font-bold text-[#0F4C45] dark:text-[#6EE7B7]">
+                  <bdi dir="ltr">{resolvedTierPolicy.tier} · MVR {resolvedTierPolicy.dailyFineMvr.toFixed(2)}/d</bdi>
                 </span>
               )}
             </div>
@@ -862,63 +868,63 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                         src={matchedStudent.photoUrl}
                         alt={matchedStudent.name}
                         referrerPolicy="no-referrer"
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover border border-[#E2DDD5] dark:border-[#2E3330] shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-[#0F4C45] text-white font-extrabold text-sm flex items-center justify-center shrink-0">
                         {patronInitials(matchedStudent.name)}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-900 dark:text-white text-sm truncate">
+                      <div className="font-bold text-[#1C1917] dark:text-[#F5F3EE] text-sm truncate">
                         <bdi>{matchedStudent.name}</bdi>
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                        <bdi className="font-mono">{matchedStudent.studentIdCode || matchedStudent.staffIdCode || matchedStudent.id}</bdi>
+                      <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                        <bdi dir="ltr" className="font-mono">{matchedStudent.studentIdCode || matchedStudent.staffIdCode || matchedStudent.id}</bdi>
                         {' · '}
                         <bdi>{matchedStudent.grade || matchedStudent.staffDepartment || matchedStudent.role}</bdi>
                       </div>
                     </div>
                   </div>
                   {matchedStudent.readingStreakDays ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 font-mono tabular-nums shrink-0">
-                      <Flame className="w-3.5 h-3.5" /> <bdi>{matchedStudent.readingStreakDays}d streak</bdi>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C26D3A] dark:text-[#FBBF24] font-mono tabular-nums shrink-0">
+                      <Flame className="w-3.5 h-3.5" /> <bdi dir="ltr">{matchedStudent.readingStreakDays}d streak</bdi>
                     </span>
                   ) : null}
                 </div>
 
                 {/* Loan Quota & Fine Balance Metrics */}
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <div className="p-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl">
+                    <div className="text-[10px] text-[#6B655D] dark:text-[#A19B91] font-semibold">
                       {language === 'dv' ? 'ނެގި ކޯޓާ' : 'Loan Quota'}
                     </div>
-                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.isLimitReached ? 'text-rose-700 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
-                      <bdi>{borrowerSnapshot.activeLoans.length} / {borrowerSnapshot.maxAllowed}</bdi>
+                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.isLimitReached ? 'text-[#B91C1C] dark:text-[#FCA5A5]' : 'text-[#1C1917] dark:text-[#F5F3EE]'}`}>
+                      <bdi dir="ltr">{borrowerSnapshot.activeLoans.length} / {borrowerSnapshot.maxAllowed}</bdi>
                     </div>
                   </div>
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <div className="p-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl">
+                    <div className="text-[10px] text-[#6B655D] dark:text-[#A19B91] font-semibold">
                       {language === 'dv' ? 'މުއްދަތު ހަމަވި' : 'Overdue'}
                     </div>
-                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.overdueCount > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                      <bdi>{borrowerSnapshot.overdueCount}</bdi>
+                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.overdueCount > 0 ? 'text-[#B91C1C] dark:text-[#FCA5A5]' : 'text-[#15803D] dark:text-[#6EE7B7]'}`}>
+                      <bdi dir="ltr">{borrowerSnapshot.overdueCount}</bdi>
                     </div>
                   </div>
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <div className="p-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl">
+                    <div className="text-[10px] text-[#6B655D] dark:text-[#A19B91] font-semibold">
                       {language === 'dv' ? 'ޖޫރިމަނާ' : 'Fine Balance'}
                     </div>
-                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.unpaidFinesMvr > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                      <bdi>MVR {borrowerSnapshot.unpaidFinesMvr.toFixed(2)}</bdi>
+                    <div className={`text-sm font-extrabold font-mono tabular-nums mt-0.5 ${borrowerSnapshot.unpaidFinesMvr > 0 ? 'text-[#B91C1C] dark:text-[#FCA5A5]' : 'text-[#15803D] dark:text-[#6EE7B7]'}`}>
+                      <bdi dir="ltr">MVR {borrowerSnapshot.unpaidFinesMvr.toFixed(2)}</bdi>
                     </div>
                   </div>
                 </div>
 
                 {/* Fine Balance / Quota Block Alert */}
                 {(borrowerSnapshot.isFineBlocked || borrowerSnapshot.isLimitReached) && (
-                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200 flex items-start gap-2 font-semibold">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <div className="p-3 rounded-xl bg-[#FEF2F2] dark:bg-[#7F1D1D]/30 border border-[#FECACA] dark:border-[#B91C1C] text-[#B91C1C] dark:text-[#FCA5A5] flex items-start gap-2 font-semibold">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                       {borrowerSnapshot.isFineBlocked
                         ? `Borrowing blocked: MVR ${borrowerSnapshot.unpaidFinesMvr.toFixed(2)} unpaid exceeds MVR ${borrowerSnapshot.fineBlockLimit.toFixed(2)}.`
@@ -929,13 +935,13 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
                 {/* Active Loans with One-Click Renew / Return */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#6B655D] dark:text-[#A19B91]">
                     <span>{language === 'dv' ? 'މިހާރު ނަގާފައިވާ ފޮތްތައް' : 'Active Borrowed Items'}</span>
-                    <span className="font-mono tabular-nums">{borrowerSnapshot.activeLoans.length} active</span>
+                    <bdi dir="ltr" className="font-mono tabular-nums">{borrowerSnapshot.activeLoans.length} active</bdi>
                   </div>
 
                   {borrowerSnapshot.activeLoans.length === 0 ? (
-                    <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 dark:text-slate-400 text-center">
+                    <div className="p-4 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-[#6B655D] dark:text-[#A19B91] text-center">
                       {language === 'dv' ? 'މިވަގުތު ނަގާފައިވާ ފޮތެއް ނެތް' : 'Clean record — no books currently checked out.'}
                     </div>
                   ) : (
@@ -950,31 +956,26 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                         return (
                           <div
                             key={l.id}
-                            className="p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2"
+                            className="checkout-ledger-slip p-3 rounded-xl space-y-2"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <div className="font-bold text-slate-900 dark:text-white truncate">
+                                <div className="font-bold text-[#1C1917] dark:text-[#F5F3EE] truncate">
                                   <bdi>{l.bookTitle}</bdi>
                                 </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                                  Due: <bdi>{l.dueDate}</bdi>
-                                  {l.copyBarcode ? ` · ${l.copyBarcode}` : ''}
-                                  {l.status === 'overdue' ? ' · Overdue' : ''}
+                                <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91] font-mono tabular-nums">
+                                  Due: <bdi dir="ltr">{l.dueDate}</bdi>
+                                  {l.copyBarcode ? <bdi dir="ltr">{` · ${l.copyBarcode}`}</bdi> : ''}
                                 </div>
                               </div>
-                              <span
-                                className={`text-[10px] font-bold shrink-0 ${
-                                  l.status === 'overdue'
-                                    ? 'text-rose-700 dark:text-rose-400'
-                                    : 'text-emerald-700 dark:text-emerald-400'
-                                }`}
-                              >
-                                {l.status === 'overdue' ? t.statusOverdue : t.statusActive}
-                              </span>
+                              <StatusPill
+                                compact
+                                status={l.status === 'overdue' ? 'overdue' : 'checked_out'}
+                                label={l.status === 'overdue' ? t.statusOverdue : t.statusActive}
+                              />
                             </div>
 
-                            <div className="flex items-center gap-2 pt-1">
+                            <div className="flex items-center gap-2 pt-1.5 border-t border-dashed border-[#E2DDD5] dark:border-[#2E3330]">
                               <button
                                 type="button"
                                 disabled={!onRenewLoan || hasHoldConflict || atMaxRenew}
@@ -984,14 +985,14 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                                     playScanFeedback('success');
                                   }
                                 }}
-                                className="flex-1 py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-45 text-slate-800 dark:text-slate-200 text-[11px] font-bold transition cursor-pointer whitespace-nowrap"
+                                className="flex-1 py-1.5 px-2.5 rounded-lg border border-[#E2DDD5] dark:border-[#2E3330] bg-white dark:bg-[#1A1D1B] hover:bg-[#EFECE6] dark:hover:bg-[#232724] disabled:opacity-45 text-[#1C1917] dark:text-[#F5F3EE] text-[11px] font-bold transition cursor-pointer whitespace-nowrap"
                               >
                                 {hasHoldConflict ? 'Hold Conflict' : atMaxRenew ? 'Max Renewed' : 'Renew'}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => executeReturnForLoan(l, targetBook)}
-                                className="flex-1 py-1.5 px-2.5 rounded-lg bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white text-[11px] font-bold transition cursor-pointer whitespace-nowrap"
+                                className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#0F4C45] hover:bg-[#16655B] text-white text-[11px] font-bold transition cursor-pointer whitespace-nowrap"
                               >
                                 Return
                               </button>
@@ -1004,8 +1005,8 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
-                <User className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+              <div className="py-12 text-center text-xs text-[#6B655D] dark:text-[#A19B91] space-y-2">
+                <User className="w-8 h-8 text-[#E2DDD5] dark:text-[#2E3330] mx-auto" />
                 <p>
                   {language === 'dv'
                     ? 'މެންބަރުގެ އައިޑީ ކާޑު ސްކޭންކުރެއްވުމުން ކޯޓާއާއި ޖޫރިމަނާ ފެންނާނެއެވެ.'
@@ -1019,57 +1020,63 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
       {/* CHECK-IN / RETURN MODE */}
       {activeTab === 'return' && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-5">
+        <div className="bg-white dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 space-y-5">
           <form onSubmit={handleReturnSubmit} className="space-y-4">
-            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">{t.scanOrEnterBarcode}</label>
+            <label className="block text-xs font-bold text-[#1C1917] dark:text-[#F5F3EE]">{t.scanOrEnterBarcode}</label>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={returnBarcode}
                 onChange={(e) => setReturnBarcode(e.target.value)}
                 placeholder={language === 'dv' ? 'ފޮތުގެ ކޮޕީ ބާކޯޑު ނުވަތަ އައި.އެސް.ބީ.އެން ޖައްސަވާ...' : 'Scan book or copy barcode (e.g. MAG-523-01-02 or 9780393356502)...'}
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="flex-1 px-4 py-2.5 bg-[#F7F5F0] dark:bg-[#232724] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl text-xs font-mono font-semibold text-[#1C1917] dark:text-[#F5F3EE] focus:outline-none focus:ring-2 focus:ring-[#0F4C45]"
                 autoFocus
                 id="return-barcode-input"
               />
               <button
                 type="submit"
-                className="bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shrink-0 whitespace-nowrap"
+                className="bg-[#0F4C45] hover:bg-[#16655B] text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <RotateCcw className="w-4 h-4 text-emerald-400 dark:text-white" /> {t.processReturn}
+                <RotateCcw className="w-4 h-4 text-[#A7F3D0]" /> {t.processReturn}
               </button>
             </div>
 
             {returnTargetBook && returnActiveLoan && (
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div className="checkout-ledger-slip p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                 <div className="flex items-center gap-3">
                   <BookCoverFallback src={returnTargetBook.coverUrl} title={returnTargetBook.title} className="w-11 h-15 rounded-lg shrink-0" />
                   <div>
-                    <div className="font-bold text-slate-900 dark:text-white"><bdi>{returnTargetBook.title}</bdi></div>
-                    <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                      {t.returnedBy}: <strong><bdi>{returnActiveLoan.userName}</bdi></strong> · {t.dueDate}: <bdi className="font-mono">{returnActiveLoan.dueDate}</bdi>
+                    <div className="font-bold text-[#1C1917] dark:text-[#F5F3EE]"><bdi>{returnTargetBook.title}</bdi></div>
+                    <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                      {t.returnedBy}: <strong><bdi>{returnActiveLoan.userName}</bdi></strong> · {t.dueDate}: <bdi dir="ltr" className="font-mono">{returnActiveLoan.dueDate}</bdi>
                     </div>
                   </div>
                 </div>
-                <span className={`text-[11px] font-bold ${returnActiveLoan.status === 'overdue' ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                  {returnActiveLoan.status === 'overdue' ? t.statusOverdue : t.statusActive}
-                </span>
+                <StatusPill
+                  status={returnActiveLoan.status === 'overdue' ? 'overdue' : 'checked_out'}
+                  label={returnActiveLoan.status === 'overdue' ? t.statusOverdue : t.statusActive}
+                />
               </div>
             )}
 
             {lastReturnedReceipt && (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+              <div className="p-4 bg-[#ECFDF5] dark:bg-[#0F4C45]/30 border border-[#A7F3D0] dark:border-[#16655B] rounded-2xl space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-bold text-[#0F4C45] dark:text-[#A7F3D0] flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
                     {language === 'dv' ? 'ފޮތް ބަލައިގަނެ ސްޓޮކް އާކުރެވިއްޖެ' : 'Return Verified & Copy Returned to Inventory'}
                   </span>
-                  <span className="font-mono text-emerald-800 dark:text-emerald-300"><bdi>{lastReturnedReceipt.returnDate}</bdi></span>
+                  <div className="flex items-center gap-2">
+                    <span className="stamp-badge px-2 py-0.5 rounded border border-[#15803D] dark:border-[#6EE7B7] text-[#15803D] dark:text-[#6EE7B7] font-mono font-black text-[10px] uppercase tracking-wider">
+                      {lastReturnedReceipt.holdWaitingPatron ? 'HOLD SHELF' : 'RETURNED'}
+                    </span>
+                    <span className="font-mono text-[#0F4C45] dark:text-[#6EE7B7]"><bdi dir="ltr">{lastReturnedReceipt.returnDate}</bdi></span>
+                  </div>
                 </div>
 
                 {lastReturnedReceipt.holdWaitingPatron && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center gap-2.5 text-amber-950 dark:text-amber-200 font-bold">
-                    <Bookmark className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div className="p-3 bg-[#FFFBEB] dark:bg-[#78350F]/35 border border-[#FDE68A] dark:border-[#B45309] rounded-xl flex items-center gap-2.5 text-[#B45309] dark:text-[#FCD34D] font-bold">
+                    <Bookmark className="w-4 h-4 text-[#C26D3A] shrink-0" />
                     <span>
                       {language === 'dv'
                         ? `ހޯލްޑް އެލާޓް: "${lastReturnedReceipt.userName}" ގެ އަތުން ލިބުނު މި ފޮތް "${lastReturnedReceipt.holdWaitingPatron}" ވަނީ ނަންނޯޓު ކޮށްފައެވެ. ޑެސްކުގައި ބަހައްޓަވާ!`
@@ -1078,22 +1085,22 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-700 dark:text-slate-300">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[#1C1917] dark:text-[#F5F3EE]">
                   <span>
-                    <strong className="text-slate-900 dark:text-white"><bdi>{lastReturnedReceipt.bookTitle}</bdi></strong> · {t.returnedBy} <bdi>{lastReturnedReceipt.userName}</bdi>
+                    <strong><bdi>{lastReturnedReceipt.bookTitle}</bdi></strong> · {t.returnedBy} <bdi>{lastReturnedReceipt.userName}</bdi>
                   </span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-white">
-                    {lastReturnedReceipt.lateFee > 0 ? `Fine Assessed: MVR ${lastReturnedReceipt.lateFee.toFixed(2)}` : t.noFine}
+                  <span className="font-mono tabular-nums font-bold">
+                    <bdi dir="ltr">{lastReturnedReceipt.lateFee > 0 ? `Fine Assessed: MVR ${lastReturnedReceipt.lateFee.toFixed(2)}` : t.noFine}</bdi>
                   </span>
                 </div>
               </div>
             )}
           </form>
 
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-              <span>{language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރަންޖެހޭ ފޮތްތައް' : 'Active Loans Pending Return'} (<bdi className="font-mono tabular-nums">{activeCirculatingLoans.length}</bdi>)</span>
+          <div className="pt-3 border-t border-[#E2DDD5] dark:border-[#2E3330] space-y-3">
+            <h4 className="text-xs font-bold text-[#6B655D] dark:text-[#A19B91] flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7]" />
+              <span>{language === 'dv' ? 'އަނބުރާ ޙަވާލުކުރަންޖެހޭ ފޮތްތައް' : 'Active Loans Pending Return'} (<bdi dir="ltr" className="font-mono tabular-nums">{activeCirculatingLoans.length}</bdi>)</span>
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto">
               {activeCirculatingLoans.map((loan) => {
@@ -1104,22 +1111,22 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
                     key={loan.id}
                     type="button"
                     onClick={() => executeReturnForLoan(loan, books.find((b) => b.id === loan.bookId))}
-                    className={`p-3.5 rounded-xl border text-start transition flex items-center justify-between gap-3 cursor-pointer ${
+                    className={`checkout-ledger-slip p-3.5 rounded-xl text-start transition flex items-center justify-between gap-3 cursor-pointer ${
                       loan.status === 'overdue'
-                        ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 hover:bg-rose-100/70'
-                        : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-emerald-50/70 dark:hover:bg-slate-800'
+                        ? '!border-[#FECACA] dark:!border-[#B91C1C]/60 hover:bg-[#FEF2F2]/60 dark:hover:bg-[#7F1D1D]/20'
+                        : 'hover:bg-[#ECFDF5]/60 dark:hover:bg-[#0F4C45]/20'
                     }`}
                   >
                     <div className="min-w-0 space-y-0.5">
-                      <div className="font-bold text-xs text-slate-900 dark:text-white truncate"><bdi>{loan.bookTitle}</bdi></div>
-                      <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                        <bdi>{loan.userName}</bdi> · <bdi className="font-mono">{loan.dueDate}</bdi>
+                      <div className="font-bold text-xs text-[#1C1917] dark:text-[#F5F3EE] truncate"><bdi>{loan.bookTitle}</bdi></div>
+                      <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                        <bdi>{loan.userName}</bdi> · <bdi dir="ltr" className="font-mono">{loan.dueDate}</bdi>
                       </div>
                     </div>
                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 whitespace-nowrap ${
-                      loan.status === 'overdue' ? 'bg-rose-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                      loan.status === 'overdue' ? 'bg-[#B91C1C] text-white' : 'bg-[#0F4C45] text-white'
                     }`}>
-                      {estFine > 0 ? `Check-in (MVR ${estFine.toFixed(2)})` : 'Check-in'}
+                      <bdi dir="ltr">{estFine > 0 ? `Check-in (MVR ${estFine.toFixed(2)})` : 'Check-in'}</bdi>
                     </span>
                   </button>
                 );
@@ -1131,19 +1138,19 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
 
       {/* QUICK RENEW MODE */}
       {activeTab === 'renew' && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-4">
+        <div className="bg-white dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 space-y-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="archival-heading text-sm font-bold text-[#1C1917] dark:text-[#F5F3EE]">
               {language === 'dv' ? 'ފޮތުގެ މުއްދަތު އިތުރުކުރުން (Renewals)' : 'Quick Loan Renewals & Hold Conflict Check'}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-[#6B655D] dark:text-[#A19B91]">
               {language === 'dv'
                 ? 'އެހެން މެންބަރަކު ރިޒާވް ކޮށްފައިވާ ފޮތެއްގެ މުއްދަތު އިތުރުކުރުން ސިސްޓަމުން އޮޓޮމެޓިކުން ހުއްޓުވާނެއެވެ.'
                 : 'Renewals follow Sun–Thu working days excluding Maldivian holidays and automatically block extension on active holds.'}
             </p>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <div className="divide-y divide-[#E2DDD5] dark:divide-[#2E3330] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl overflow-hidden">
             {activeCirculatingLoans.map((loan) => {
               const hasHoldConflict = reservations.some(
                 (r) => r.bookId === loan.bookId && r.userId !== loan.userId && r.status === 'pending'
@@ -1151,25 +1158,27 @@ export const QuickCheckout: React.FC<QuickCheckoutProps> = ({
               const atLimit = loan.renewalCount >= (settings.maxRenewals || 2);
 
               return (
-                <div key={loan.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-xs">
-                  <div className="space-y-0.5">
-                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+                <div key={loan.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#1A1D1B] hover:bg-[#F7F5F0] dark:hover:bg-[#232724] text-xs transition">
+                  <div className="space-y-1">
+                    <div className="font-bold text-[#1C1917] dark:text-[#F5F3EE] flex items-center gap-2 flex-wrap">
                       <bdi>{loan.bookTitle}</bdi>
                       {hasHoldConflict && (
-                        <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                          · {language === 'dv' ? 'ރިޒަވޭޝަން އެބައޮތް' : 'Hold Conflict'}
-                        </span>
+                        <StatusPill
+                          compact
+                          status="reserved"
+                          label={language === 'dv' ? 'ރިޒަވޭޝަން އެބައޮތް' : 'Hold Conflict'}
+                        />
                       )}
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      <bdi>{loan.userName}</bdi> · {t.dueDate}: <bdi className="font-mono text-slate-800 dark:text-slate-200">{loan.dueDate}</bdi> · Renewals: <bdi className="font-mono tabular-nums">{loan.renewalCount}/{settings.maxRenewals}</bdi>
+                    <div className="text-[11px] text-[#6B655D] dark:text-[#A19B91]">
+                      <bdi>{loan.userName}</bdi> · {t.dueDate}: <bdi dir="ltr" className="font-mono text-[#1C1917] dark:text-[#F5F3EE]">{loan.dueDate}</bdi> · Renewals: <bdi dir="ltr" className="font-mono tabular-nums">{loan.renewalCount}/{settings.maxRenewals}</bdi>
                     </div>
                   </div>
                   <button
                     type="button"
                     disabled={!onRenewLoan || atLimit || hasHoldConflict}
                     onClick={() => onRenewLoan && onRenewLoan(loan)}
-                    className="px-3.5 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white font-bold text-xs transition cursor-pointer shrink-0 whitespace-nowrap"
+                    className="px-3.5 py-2 rounded-xl bg-[#0F4C45] hover:bg-[#16655B] disabled:bg-[#EFECE6] dark:disabled:bg-[#232724] disabled:text-[#6B655D] dark:disabled:text-[#A19B91] text-white font-bold text-xs transition cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     {hasHoldConflict
                       ? (language === 'dv' ? 'ރިޒާވް ވެފައި' : 'Blocked by Hold')
