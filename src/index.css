@@ -67,13 +67,20 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100%;
+    overflow-x: clip;
+  }
+
+  body,
+  #root {
+    min-height: 100vh;
+    overflow-x: clip;
   }
 
   body {
     background-color: var(--lib-canvas);
     color: var(--lib-ink);
     font-family: var(--font-sans);
-    min-height: 100vh;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     padding-inline-start: env(safe-area-inset-left, 0px);
     padding-inline-end: env(safe-area-inset-right, 0px);
@@ -363,4 +370,44 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(15, 76, 69, 0.6);
+}
+
+/* Subtle Thin Scrollbar for Horizontal Book Shelves & Wide Data Tables */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 76, 69, 0.35) rgba(226, 221, 213, 0.35);
+}
+
+.dark .scrollbar-thin {
+  scrollbar-color: rgba(110, 231, 183, 0.35) rgba(26, 29, 27, 0.65);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(226, 221, 213, 0.4);
+  border-radius: 9999px;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(26, 29, 27, 0.7);
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(15, 76, 69, 0.42);
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 76, 69, 0.72);
+}
+
+/* Ensure shelf cards expand smoothly to fill columns when "View All / Grid" is active */
+.horizontal-shelf-grid > * {
+  width: 100% !important;
+  max-width: none !important;
 }

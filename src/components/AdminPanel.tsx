@@ -1121,7 +1121,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 )}
 
-                <div className="overflow-x-auto max-h-[480px] border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900">
+                <div className="w-full overflow-x-auto scrollbar-thin max-h-[480px] border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900">
                   <table className="w-full text-start text-xs text-slate-700 dark:text-slate-300">
                     <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-extrabold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                       <tr>
@@ -1340,9 +1340,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 No financial transactions logged for the selected period.
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[360px] border border-slate-200 dark:border-slate-700 rounded-xl">
+              <div className="w-full overflow-x-auto scrollbar-thin max-h-[360px] border border-slate-200 dark:border-slate-700 rounded-xl">
                 <table className="w-full text-start text-xs text-slate-700 dark:text-slate-300">
-                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th className="p-3">Date</th>
                       <th className="p-3">Patron</th>
@@ -1856,9 +1856,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               Student Members ({users.filter(u => u.role === 'student').length})
             </h4>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
+            <div className="w-full overflow-x-auto scrollbar-thin max-h-[60vh] border border-slate-200 rounded-xl bg-white">
               <table className="w-full text-start text-xs text-slate-700">
-                <thead className="bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+                <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                   <tr>
                     <th className="p-3">Student Name</th>
                     <th className="p-3">Grade</th>
@@ -2073,9 +2073,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   Granular circulation quotas, loan windows, renewal limits, grace days, and MVR daily rates across all 4 patron tiers.
                 </p>
               </div>
-              <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
+              <div className="w-full overflow-x-auto scrollbar-thin max-h-[60vh] border border-slate-200 rounded-xl bg-white">
                 <table className="w-full text-start text-xs text-slate-700">
-                  <thead className="bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="p-3">Patron Tier</th>
                       <th className="p-3">Max Books</th>
@@ -2301,9 +2301,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 No audit events match this filter yet. Click Refresh Logs to sync server events.
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[500px] border border-slate-200 rounded-xl bg-white">
+              <div className="w-full overflow-x-auto scrollbar-thin max-h-[500px] border border-slate-200 rounded-xl bg-white">
                 <table className="w-full text-start text-xs text-slate-700">
-                  <thead className="sticky top-0 bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="p-3">Timestamp</th>
                       <th className="p-3">Action</th>
@@ -2629,9 +2629,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
 
                 {inspectedBook.copies && inspectedBook.copies.length > 0 ? (
-                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                  <div className="w-full border border-slate-200 rounded-xl overflow-x-auto scrollbar-thin">
                     <table className="w-full text-start text-[11px]">
-                      <thead className="bg-slate-50 text-slate-600 font-bold uppercase border-b border-slate-200">
+                      <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-bold uppercase border-b border-slate-200">
                         <tr>
                           <th className="p-2.5">Barcode / Accession</th>
                           <th className="p-2.5">Rack</th>

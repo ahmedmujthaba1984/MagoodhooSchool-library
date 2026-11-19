@@ -45,6 +45,8 @@ import {
 } from '../lib/dataPortability';
 import { BookCoverFallback } from './BookCoverFallback';
 import { LibraryBookCard } from './LibraryBookCard';
+import { HorizontalBookShelf } from './HorizontalBookShelf';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface PersonalLibraryProps {
   items: PersonalItem[];
@@ -242,6 +244,8 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
 
   const ocrFileRef = useRef<HTMLInputElement | null>(null);
   const importFileRef = useRef<HTMLInputElement | null>(null);
+
+  useBodyScrollLock(isAddOpen || Boolean(csvPreview));
 
   const shelves = useMemo(() => {
     const itemShelves = userItems.map((i) => i.shelfGroup).filter(Boolean);
@@ -769,6 +773,51 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({
           {READING_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
+
+      {/* Currently Reading Horizontal Shelf */}
+      {(() => {
+        const currentlyReading = userItems.filter((i) => i.readingStatus === 'In Progress');
+        if (currentlyReading.length === 0) return null;
+        return (
+          <HorizontalBookShelf
+            title={language === 'dv' ? 'މިވަގުތު ކިޔަމުންދާ ފޮތްތައް' : 'Currently Reading'}
+            subtitle={
+              language === 'dv'
+                ? 'ކުރިއަށްދާ ފޮތްތަކުގެ ކިޔުމުގެ ކުރިއެރުން'
+                : 'Pick up right where you left off across your personal shelves'
+            }
+            itemCount={currentlyReading.length}
+            language={language}
+            icon={<Clock className="w-4 h-4 text-[#C26D3A] shrink-0" strokeWidth={1.75} />}
+          >
+            {currentlyReading.map((item) => {
+              const totalPages = item.pageCount || 100;
+              const currentPg = item.currentPage || 0;
+              const pct = Math.min(100, Math.round((currentPg / totalPages) * 100));
+              return (
+                <LibraryBookCard
+                  key={`reading-${item.id}`}
+                  variant="shelf"
+                  title={item.title}
+                  author={item.author}
+                  coverUrl={item.coverUrl}
+                  category={`${item.mediaType} · ${pct}%`}
+                  ddcCallNumber={item.ddcCallNumber}
+                  isbn={item.isbn || item.upc}
+                  shelfLocation={item.shelfGroup}
+                  availableCopies={1}
+                  totalCopies={1}
+                  language={language}
+                  onSelect={() => {
+                    setStatusFilter('In Progress');
+                    setSearchQuery(item.title);
+                  }}
+                />
+              );
+            })}
+          </HorizontalBookShelf>
+        );
+      })()}
 
       {/* Sunken Personal Gallery Shelf Grid */}
       {filteredItems.length === 0 ? (

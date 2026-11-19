@@ -588,11 +588,11 @@ export const SecurityBackupSuiteView: React.FC<SecurityBackupSuiteViewProps> = (
               </p>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+            <div className="w-full overflow-x-auto scrollbar-thin border border-slate-200 dark:border-slate-800 rounded-xl max-h-[65vh]">
               <table className="w-full text-start text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="p-3 text-start">Capability</th>
+                    <th className="p-3 text-start sticky start-0 z-20 bg-slate-50 dark:bg-slate-800 min-w-[200px]">Capability</th>
                     {ACCESS_ROLE_ORDER.map((r) => (
                       <th key={r} className="p-3 text-center whitespace-nowrap">
                         {r === 'super_admin'
@@ -676,9 +676,9 @@ export const SecurityBackupSuiteView: React.FC<SecurityBackupSuiteViewProps> = (
               </div>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl max-h-96">
+            <div className="w-full overflow-x-auto scrollbar-thin border border-slate-200 dark:border-slate-800 rounded-xl max-h-96">
               <table className="w-full text-start text-xs">
-                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="p-3 text-start">Member</th>
                     <th className="p-3 text-start">ID / Grade</th>
@@ -1158,9 +1158,9 @@ export const SecurityBackupSuiteView: React.FC<SecurityBackupSuiteViewProps> = (
             </div>
           </div>
 
-          <div className="overflow-x-auto max-h-[520px] border border-slate-200 dark:border-slate-800 rounded-xl">
+          <div className="w-full overflow-x-auto scrollbar-thin max-h-[520px] border border-slate-200 dark:border-slate-800 rounded-xl">
             <table className="w-full text-start text-xs">
-              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
+              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="p-3 text-start">Timestamp</th>
                   <th className="p-3 text-start">Action</th>

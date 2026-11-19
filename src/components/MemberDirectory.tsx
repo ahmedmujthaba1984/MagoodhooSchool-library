@@ -565,11 +565,11 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
       {/* TABLE VIEW */}
       {viewMode === 'table' && (
         <div className="bg-white dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto scrollbar-thin max-h-[70vh]">
             <table className="w-full text-start text-xs text-[#1C1917] dark:text-[#F5F3EE]">
-              <thead className="bg-[#0D2623] dark:bg-[#232724] text-[#F5F3EE] font-extrabold uppercase text-[10px] border-b border-[#16655B]/40 dark:border-[#2E3330]">
+              <thead className="sticky top-0 z-20 bg-[#0D2623] dark:bg-[#232724] text-[#F5F3EE] font-extrabold uppercase text-[10px] border-b border-[#16655B]/40 dark:border-[#2E3330]">
                 <tr>
-                  <th className="p-4 border-e border-white/10 dark:border-[#2E3330]">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
+                  <th className="p-4 border-e border-white/10 dark:border-[#2E3330] sticky start-0 z-30 bg-[#0D2623] dark:bg-[#232724] min-w-[200px]">{language === 'dv' ? 'މެންބަރުގެ ނަން' : 'Member Name'}</th>
                   <th className="p-4 border-e border-white/10 dark:border-[#2E3330]">{language === 'dv' ? 'ރޯލް' : 'Role / Tier'}</th>
                   <th className="p-4 border-e border-white/10 dark:border-[#2E3330]">{language === 'dv' ? 'ގްރޭޑް / އައިޑީ' : 'Grade / Barcode ID'}</th>
                   <th className="p-4 border-e border-white/10 dark:border-[#2E3330]">{language === 'dv' ? 'އީމެއިލް އަދި ފޯނު' : 'Contact'}</th>
@@ -585,7 +585,7 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
 
                   return (
                     <tr key={user.id} className="hover:bg-[#F7F5F0] dark:hover:bg-[#232724] transition">
-                      <td className="p-4 border-e border-[#E2DDD5] dark:border-[#2E3330]">
+                      <td className="p-4 border-e border-[#E2DDD5] dark:border-[#2E3330] sticky start-0 z-10 bg-white dark:bg-[#1A1D1B]">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#0F4C45] text-white font-extrabold text-xs flex items-center justify-center shrink-0">
                             {user.name.charAt(0)}

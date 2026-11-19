@@ -21,6 +21,8 @@ import { ReminderDraftModal, ReminderTarget } from './ReminderDraftModal';
 import { AnalyticsDashboardSkeleton } from './Skeletons';
 import { SectionErrorBoundary } from './SectionErrorBoundary';
 import { StatusPill } from './StatusPill';
+import { HorizontalBookShelf } from './HorizontalBookShelf';
+import { LibraryBookCard } from './LibraryBookCard';
 
 interface DashboardViewProps {
   books: Book[];
@@ -816,6 +818,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Popular Reads Horizontal Shelf */}
+      {mostBorrowed.length > 0 && (
+        <HorizontalBookShelf
+          title={language === 'dv' ? 'މަޤްބޫލު ފޮތްތައް' : 'Popular Reads'}
+          subtitle={
+            language === 'dv'
+              ? 'މި ޓާމްގައި އެންމެ ގިނައިން ދޫކުރެވުނު ފޮތްތައް'
+              : 'Most frequently borrowed titles across Magoodhoo School'
+          }
+          itemCount={mostBorrowed.length}
+          language={language}
+          icon={<TrendingUp className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" strokeWidth={1.75} />}
+        >
+          {mostBorrowed.map(({ book }) => (
+            <LibraryBookCard
+              key={`dash-pop-${book.id}`}
+              variant="shelf"
+              title={book.title}
+              author={book.author}
+              coverUrl={book.coverUrl}
+              category={book.category}
+              ddcCallNumber={book.ddcCallNumber}
+              barcode={book.barcode}
+              isbn={book.isbn}
+              shelfLocation={book.shelfLocation}
+              availableCopies={book.availableCopies}
+              totalCopies={book.totalCopies}
+              isReferenceOnly={book.isReferenceOnly}
+              language={language}
+              onSelect={() => onNavigateTab('catalog')}
+            />
+          ))}
+        </HorizontalBookShelf>
+      )}
+
       {/* Recent Circulation Ledger Table */}
       <div className="bg-[#FFFFFF] dark:bg-[#1A1D1B] rounded-2xl border border-[#E2DDD5] dark:border-[#2E3330] p-5 sm:p-6 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
@@ -830,9 +867,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {language === 'dv' ? 'ހުރިހާ ލިސްޓެއް' : 'Manage All'} <ArrowUpRight className="w-3.5 h-3.5 rtl-mirror" />
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto scrollbar-thin max-h-[60vh]">
           <table className="w-full text-start text-xs text-[#1C1917] dark:text-[#F5F3EE]">
-            <thead className="bg-[#EFECE6] dark:bg-[#232724] text-[#6B655D] dark:text-[#A19B91] font-bold uppercase text-[10px] border-y border-[#E2DDD5] dark:border-[#2E3330]">
+            <thead className="sticky top-0 z-10 bg-[#EFECE6] dark:bg-[#232724] text-[#6B655D] dark:text-[#A19B91] font-bold uppercase text-[10px] border-y border-[#E2DDD5] dark:border-[#2E3330]">
               <tr>
                 <th className="py-2.5 px-3">{language === 'dv' ? 'ފޮތުގެ ނަން' : 'Title'}</th>
                 <th className="py-2.5 px-3">{language === 'dv' ? 'ކޮޕީ' : 'Copy'}</th>

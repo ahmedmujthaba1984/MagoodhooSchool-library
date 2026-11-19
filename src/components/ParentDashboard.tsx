@@ -25,6 +25,7 @@ import { useLanguage } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { BookCover } from './BookCover';
 import { StatusPill } from './StatusPill';
+import { HorizontalBookShelf } from './HorizontalBookShelf';
 import { LibraryEmblem } from './LibraryEmblem';
 import {
   buildCertificateHtml,
@@ -541,7 +542,24 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       : `No books are currently checked out to ${selectedChild.name}.`}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <HorizontalBookShelf
+                    title={
+                      isDv
+                        ? `${selectedChild.name} މިވަގުތު ގެންގުޅޭ ފޮތްތައް`
+                        : 'Currently Reading & Active Loans'
+                    }
+                    subtitle={
+                      selectedChild.schoolHouse
+                        ? `${selectedChild.grade} · ${selectedChild.schoolHouse} House`
+                        : selectedChild.grade
+                    }
+                    itemCount={childActiveLoans.length}
+                    language={language}
+                    defaultExpanded={childActiveLoans.length <= 2}
+                    icon={<BookOpen className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" />}
+                    gridClassName="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    containerClassName="bg-transparent border-0 p-0 space-y-3"
+                  >
                     {childActiveLoans.map((loan) => {
                       const book = books.find((b) => b.id === loan.bookId);
                       const isOverdue = loan.status === 'overdue';
@@ -551,7 +569,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       return (
                         <div
                           key={loan.id}
-                          className={`p-4 rounded-2xl border flex gap-4 ${
+                          className={`w-[320px] sm:w-[370px] shrink-0 snap-start p-4 rounded-2xl border flex gap-4 ${
                             isOverdue
                               ? 'bg-[#FEF2F2]/60 dark:bg-[#7F1D1D]/20 border-[#FECACA] dark:border-[#B91C1C]/60'
                               : 'bg-[#F7F5F0] dark:bg-[#232724] border-[#E2DDD5] dark:border-[#2E3330]'
@@ -630,7 +648,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                         </div>
                       );
                     })}
-                  </div>
+                  </HorizontalBookShelf>
                 )}
               </div>
 
@@ -761,9 +779,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     </span>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl">
+                  <div className="w-full overflow-x-auto scrollbar-thin border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl max-h-[60vh]">
                     <table className="w-full text-start text-xs">
-                      <thead className="bg-[#EFECE6] dark:bg-[#232724] text-[#6B655D] dark:text-[#A19B91] font-bold uppercase text-[10px] border-b border-[#E2DDD5] dark:border-[#2E3330]">
+                      <thead className="sticky top-0 z-10 bg-[#EFECE6] dark:bg-[#232724] text-[#6B655D] dark:text-[#A19B91] font-bold uppercase text-[10px] border-b border-[#E2DDD5] dark:border-[#2E3330]">
                         <tr>
                           <th className="py-2.5 px-3">{isDv ? 'ތާރީޚް' : 'Date'}</th>
                           <th className="py-2.5 px-3">{isDv ? 'ފޮތުގެ ނަން' : 'Book Title'}</th>

@@ -86,8 +86,14 @@ export const BookCover: React.FC<BookCoverProps> = ({
   const safeTitle = (title ?? alt ?? '').trim() || 'Untitled Catalog Volume';
   const safeAuthor = (author ?? '').trim();
   const safeDdc = (ddcCallNumber ?? '').trim();
-  const cleanSrc = (src ?? '').trim();
+  const rawSrc = (src ?? '').trim();
+  const cleanSrc =
+    !rawSrc ||
+    /^(none|null|undefined|n\/a|about:blank)$/i.test(rawSrc)
+      ? ''
+      : rawSrc;
 
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -95,6 +101,19 @@ export const BookCover: React.FC<BookCoverProps> = ({
     setHasError(false);
     setIsLoaded(false);
   }, [cleanSrc]);
+
+  // Catch cached blank 1x1 pixel images that finish loading before onLoad fires
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img || !cleanSrc || hasError) return;
+    if (img.complete) {
+      if (img.naturalWidth < 10 || img.naturalHeight < 10) {
+        setHasError(true);
+      } else {
+        setIsLoaded(true);
+      }
+    }
+  }, [cleanSrc, hasError]);
 
   const cloth = useMemo(
     () => pickClothTheme(`${category ?? ''}:${safeTitle}`),
@@ -195,12 +214,20 @@ export const BookCover: React.FC<BookCoverProps> = ({
         <div className="absolute inset-0 shimmer-skeleton" aria-hidden="true" />
       )}
       <img
+        ref={imgRef}
         src={cleanSrc}
         alt={alt || `${safeTitle}${safeAuthor ? ` — ${safeAuthor}` : ''}`}
         referrerPolicy="no-referrer"
         loading="lazy"
         decoding="async"
-        onLoad={() => setIsLoaded(true)}
+        onLoad={(e) => {
+          const el = e.currentTarget;
+          if (el.naturalWidth < 10 || el.naturalHeight < 10) {
+            setHasError(true);
+            return;
+          }
+          setIsLoaded(true);
+        }}
         onError={() => setHasError(true)}
         className={`${imgClasses} transition-opacity duration-200 ${
           isLoaded ? 'opacity-100' : 'opacity-0'

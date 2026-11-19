@@ -38,6 +38,7 @@ import { AddBookModal } from './AddBookModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { BookCover } from './BookCover';
 import { LibraryBookCard } from './LibraryBookCard';
+import { HorizontalBookShelf } from './HorizontalBookShelf';
 import { StatusPill } from './StatusPill';
 import { CatalogGridSkeleton, CatalogTableSkeleton } from './Skeletons';
 import { OpacKioskMode } from './OpacKioskMode';
@@ -46,6 +47,7 @@ import { SectionErrorBoundary } from './SectionErrorBoundary';
 import { useLanguage } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { usePermission } from '../hooks/usePermission';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import {
   useCatalogFilter,
   CatalogSortOption,
@@ -187,6 +189,9 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
   const [showMarcDetails, setShowMarcDetails] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+
+  // Lock document scroll only while detail drawer, kiosk, or local modals are open (guaranteed cleanup)
+  useBodyScrollLock(Boolean(selectedBook || isAddBookModalOpen || isCatalogScannerOpen || isKioskOpen || bookToDelete));
 
   const setSelectedBook = (book: Book | null) => {
     setSelectedBookState(book);
@@ -468,21 +473,15 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
       ]
         .filter((shelf) => shelf.items.length > 0)
         .map((shelf) => (
-          <section
+          <HorizontalBookShelf
             key={shelf.key}
-            className="bg-[#EFECE6]/90 dark:bg-[#232724]/85 border border-[#E2DDD5] dark:border-[#2E3330] rounded-3xl p-4 sm:p-5 space-y-3.5 shelf-ledge"
-          >
-            <div className="flex items-center justify-between gap-3 flex-wrap px-1">
-              <div>
-                <h3 className="text-base font-extrabold text-[#1C1917] dark:text-[#F5F3EE] flex items-center gap-2 leading-relaxed archival-heading">
-                  <Sparkles className="w-4 h-4 text-[#C26D3A] shrink-0" strokeWidth={1.75} />
-                  <span>{shelf.title}</span>
-                </h3>
-                <p className="text-xs text-[#6B655D] dark:text-[#A19B91] leading-relaxed">
-                  {shelf.subtitle}
-                </p>
-              </div>
-              {shelf.showGradeTabs && (
+            title={shelf.title}
+            subtitle={shelf.subtitle}
+            itemCount={shelf.items.length}
+            language={language}
+            icon={<Sparkles className="w-4 h-4 text-[#C26D3A] shrink-0" strokeWidth={1.75} />}
+            headerActions={
+              shelf.showGradeTabs ? (
                 <div className="flex items-center bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] rounded-xl p-1 gap-1">
                   {(['Primary', 'Middle', 'Secondary'] as const).map((band) => (
                     <button
@@ -499,35 +498,33 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-
-            <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
-              {shelf.items.map((book) => {
-                const qStats = getQueueStats(book.id);
-                return (
-                  <LibraryBookCard
-                    key={`${shelf.key}-${book.id}`}
-                    variant="shelf"
-                    title={book.title}
-                    author={book.author}
-                    coverUrl={book.coverUrl}
-                    category={localizeCategory(book.category)}
-                    ddcCallNumber={book.ddcCallNumber}
-                    barcode={book.barcode}
-                    isbn={book.isbn}
-                    shelfLocation={book.shelfLocation}
-                    availableCopies={book.availableCopies}
-                    totalCopies={book.totalCopies}
-                    isReferenceOnly={book.isReferenceOnly}
-                    holdsCount={qStats.totalHolds}
-                    language={language}
-                    onSelect={() => setSelectedBook(book)}
-                  />
-                );
-              })}
-            </div>
-          </section>
+              ) : undefined
+            }
+          >
+            {shelf.items.map((book) => {
+              const qStats = getQueueStats(book.id);
+              return (
+                <LibraryBookCard
+                  key={`${shelf.key}-${book.id}`}
+                  variant="shelf"
+                  title={book.title}
+                  author={book.author}
+                  coverUrl={book.coverUrl}
+                  category={localizeCategory(book.category)}
+                  ddcCallNumber={book.ddcCallNumber}
+                  barcode={book.barcode}
+                  isbn={book.isbn}
+                  shelfLocation={book.shelfLocation}
+                  availableCopies={book.availableCopies}
+                  totalCopies={book.totalCopies}
+                  isReferenceOnly={book.isReferenceOnly}
+                  holdsCount={qStats.totalHolds}
+                  language={language}
+                  onSelect={() => setSelectedBook(book)}
+                />
+              );
+            })}
+          </HorizontalBookShelf>
         ))}
     </div>
   );
@@ -1253,48 +1250,38 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 </div>
 
                 {filteredByShelfGroups.map(([shelfName, shelfBooks]) => (
-                  <section
+                  <HorizontalBookShelf
                     key={shelfName}
-                    className="bg-[#EFECE6]/90 dark:bg-[#232724]/85 border border-[#E2DDD5] dark:border-[#2E3330] rounded-3xl p-4 sm:p-5 space-y-3.5 shelf-ledge"
+                    title={<bdi>{shelfName}</bdi>}
+                    itemCount={shelfBooks.length}
+                    language={language}
+                    icon={<MapPin className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" strokeWidth={1.75} />}
+                    trackClassName="gap-3.5"
                   >
-                    <div className="flex items-center justify-between gap-2 border-b border-[#E2DDD5] dark:border-[#2E3330] pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-[#0F4C45] dark:text-[#6EE7B7] shrink-0" strokeWidth={1.75} />
-                        <h4 className="font-extrabold text-sm text-[#1C1917] dark:text-[#F5F3EE] leading-relaxed archival-heading">
-                          <bdi>{shelfName}</bdi>
-                        </h4>
-                      </div>
-                      <span className="text-[11px] font-mono tabular-nums font-bold px-2.5 py-1 rounded-lg bg-[#FFFFFF] dark:bg-[#1A1D1B] border border-[#E2DDD5] dark:border-[#2E3330] text-[#1C1917] dark:text-[#F5F3EE]">
-                        <bdi dir="ltr">{shelfBooks.length} items</bdi>
-                      </span>
-                    </div>
-
-                    <div className="flex gap-3.5 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
-                      {shelfBooks.map((book) => {
-                        const qStats = getQueueStats(book.id);
-                        return (
-                          <LibraryBookCard
-                            key={book.id}
-                            variant="shelf"
-                            title={book.title}
-                            author={book.author}
-                            coverUrl={book.coverUrl}
-                            category={localizeCategory(book.category)}
-                            ddcCallNumber={book.ddcCallNumber}
-                            barcode={book.barcode}
-                            isbn={book.isbn}
-                            shelfLocation={book.shelfLocation}
-                            availableCopies={book.availableCopies}
-                            totalCopies={book.totalCopies}
-                            isReferenceOnly={book.isReferenceOnly}
-                            holdsCount={qStats.totalHolds}
-                            language={language}
-                            onSelect={() => setSelectedBook(book)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </section>
+                    {shelfBooks.map((book) => {
+                      const qStats = getQueueStats(book.id);
+                      return (
+                        <LibraryBookCard
+                          key={book.id}
+                          variant="shelf"
+                          title={book.title}
+                          author={book.author}
+                          coverUrl={book.coverUrl}
+                          category={localizeCategory(book.category)}
+                          ddcCallNumber={book.ddcCallNumber}
+                          barcode={book.barcode}
+                          isbn={book.isbn}
+                          shelfLocation={book.shelfLocation}
+                          availableCopies={book.availableCopies}
+                          totalCopies={book.totalCopies}
+                          isReferenceOnly={book.isReferenceOnly}
+                          holdsCount={qStats.totalHolds}
+                          language={language}
+                          onSelect={() => setSelectedBook(book)}
+                        />
+                      );
+                    })}
+                  </HorizontalBookShelf>
                 ))}
               </div>
             </div>
@@ -1463,7 +1450,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
               {/* MOBILE VIEW: SWIPE OR STACK */}
               <div className="sm:hidden">
                 {mobileSwipeMode === 'swipe' ? (
-                  <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 px-1 scrollbar-none safe-bottom">
+                  <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 px-1 scrollbar-thin safe-bottom">
                     {paginatedBooks.map((book) => {
                       const isReserved = isAlreadyReservedByUser(book.id);
 
@@ -1874,12 +1861,12 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 </div>
               </div>
 
-              {/* Main Table with Sticky Sortable Headers */}
-              <div className="overflow-x-auto border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl max-h-[70vh]">
+              {/* Main Table with Sticky Sortable Headers & Horizontal Scroll */}
+              <div className="w-full overflow-x-auto scrollbar-thin border border-[#E2DDD5] dark:border-[#2E3330] rounded-2xl max-h-[70vh]">
                 <table className="w-full text-start text-xs text-[#1C1917] dark:text-[#F5F3EE] border-collapse">
                   <thead className="bg-[#0D2623] dark:bg-[#232724] text-[#F7F5F0] font-extrabold border-b border-[#193D38] dark:border-[#2E3330] sticky top-0 z-20 shadow-xs">
                     <tr>
-                      <th className="p-3 border-e border-[#193D38] dark:border-[#2E3330] w-10 text-center">
+                      <th className="p-3 border-e border-[#193D38] dark:border-[#2E3330] w-10 text-center sticky start-0 z-30 bg-[#0D2623] dark:bg-[#232724]">
                         <button
                           type="button"
                           onClick={toggleSelectAllOnPage}
@@ -1894,7 +1881,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                           )}
                         </button>
                       </th>
-                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330]">
+                      <th className="p-3.5 border-e border-[#193D38] dark:border-[#2E3330] min-w-[220px]">
                         <button
                           type="button"
                           onClick={() => toggleSort('title')}

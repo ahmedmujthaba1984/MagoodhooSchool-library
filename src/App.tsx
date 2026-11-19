@@ -78,6 +78,7 @@ import {
   triggerSnapshotFileDownload
 } from './lib/backupRestore';
 import { usePermission } from './hooks/usePermission';
+import { resetBodyScrollLock, useBodyScrollLock } from './hooks/useBodyScrollLock';
 import { portalSyncManager } from './lib/externalPortalSync';
 import { useLanguage } from './lib/i18n';
 import { useToast } from './lib/toast';
@@ -493,6 +494,25 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'add-book') setIsAddBookModalOpen(true);
   }, [activeTab]);
+
+  // Guarantee body scroll lock is always reset on route/tab switches
+  useEffect(() => {
+    resetBodyScrollLock();
+  }, [activeTab]);
+
+  // Lock body scroll only while mobile drawer or top-level full modals are open, with automatic cleanup
+  const hasAnyGlobalModalOpen =
+    isAddBookModalOpen ||
+    isSmartCatalogerOpen ||
+    isScannerOpen ||
+    isCommandPaletteOpen ||
+    isImportModalOpen ||
+    isAddParentModalOpen ||
+    isReportCardSyncModalOpen ||
+    isSuggestBookModalOpen ||
+    isCatalogHealthOpen ||
+    isSyncOutboxOpen;
+  useBodyScrollLock(hasAnyGlobalModalOpen || isSidebarOpen);
 
   const recordAuditEvent = async (params: {
     action: AuditActionType;
@@ -1818,11 +1838,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Workspace Split (Sidebar + Fluid Content) */}
-      <div className="flex-1 flex relative overflow-hidden">
+      {/* Main Workspace Split (Sticky Desktop Sidebar + Fluid Scrollable Content) */}
+      <div className="flex-1 flex relative min-w-0 min-h-0">
         {/* Mirrored Collapsible Archival Navigation Sidebar */}
         <aside
-          className={`fixed lg:static inset-y-0 start-0 border-e z-40 ${
+          className={`fixed lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:shrink-0 inset-y-0 start-0 border-e z-40 ${
             isSidebarCollapsed ? 'lg:w-[76px]' : 'w-64'
           } bg-[#0D2623] dark:bg-[#161918] text-[#E6EAE8] flex flex-col justify-between transition-all duration-200 border-[#193D38] dark:border-[#2E3330] no-print ${
             isSidebarOpen
@@ -1832,7 +1852,7 @@ export default function App() {
               : '-translate-x-full lg:translate-x-0'
           }`}
         >
-          <div className="p-3 space-y-4 overflow-y-auto">
+          <div className="p-3 space-y-4 overflow-y-auto min-h-0 flex-1 scrollbar-thin">
             {/* Sidebar Brand Header + Collapse Toggle */}
             <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#193D38] dark:border-[#2E3330]">
               <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'lg:justify-center lg:w-full' : ''}`}>
@@ -1966,9 +1986,9 @@ export default function App() {
           />
         )}
 
-        {/* MAIN WORKSPACE CANVAS */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-[#F7F5F0] dark:bg-[#121413] relative z-10 safe-bottom">
-          <div className="max-w-[1440px] mx-auto space-y-6">
+        {/* MAIN WORKSPACE CANVAS — Natural vertical document flow + min-w-0 for horizontal carousels & wide tables */}
+        <main className="flex-1 min-w-0 min-h-0 p-3 sm:p-6 lg:p-8 pb-28 sm:pb-12 bg-[#F7F5F0] dark:bg-[#121413] relative z-10 safe-bottom">
+          <div className="max-w-[1440px] mx-auto space-y-6 min-w-0">
             {activeTab === 'login' && (
               <ErrorBoundary key="err-login" areaNameEn="Sign-In & Account" areaNameDv="ލޮގިން އަދި އެކައުންޓް" language={language} isAdmin={isSuperAdmin}>
                 <LoginPage
