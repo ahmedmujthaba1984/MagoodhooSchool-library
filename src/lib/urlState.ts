@@ -68,6 +68,9 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
   let tab = 'catalog';
   let bookId: string | null = params.get('book');
   let patronId: string | null = params.get('patron');
+  let inferredStatus: string | undefined = params.get('status') || undefined;
+
+  const rawTabParam = (params.get('tab') || '').toLowerCase().trim();
 
   if (cleanPath.startsWith('/catalog/book/')) {
     tab = 'catalog';
@@ -79,8 +82,33 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
     if (segment) patronId = segment;
   } else if (PATH_TO_TAB[cleanPath]) {
     tab = PATH_TO_TAB[cleanPath];
-  } else if (params.get('tab')) {
-    tab = params.get('tab') || 'catalog';
+  } else if (rawTabParam) {
+    if (rawTabParam === 'all') {
+      tab = 'catalog';
+    } else if (rawTabParam === 'available') {
+      tab = 'catalog';
+      inferredStatus = inferredStatus || 'available';
+    } else if (rawTabParam === 'checked_out' || rawTabParam === 'checked-out') {
+      tab = 'catalog';
+      inferredStatus = inferredStatus || 'checked-out';
+    } else if (rawTabParam === 'overdue' || rawTabParam === 'holds') {
+      tab = 'checkout-hub';
+    } else if (rawTabParam === 'personal') {
+      tab = 'personal-library';
+    } else if (rawTabParam === 'parent') {
+      tab = 'parent-portal';
+    } else {
+      tab = rawTabParam;
+    }
+  }
+
+  // Also honor ?tab=available|checked_out on /catalog directly
+  if (tab === 'catalog' && rawTabParam) {
+    if (rawTabParam === 'available') {
+      inferredStatus = inferredStatus || 'available';
+    } else if (rawTabParam === 'checked_out' || rawTabParam === 'checked-out') {
+      inferredStatus = inferredStatus || 'checked-out';
+    }
   }
 
   const rawLang = params.get('lang');
@@ -105,7 +133,7 @@ export function parseUrlState(pathname: string, search: string): ParsedUrlState 
       cat: params.get('cat') || undefined,
       media: params.get('media') || undefined,
       type,
-      status: params.get('status') || undefined,
+      status: inferredStatus,
       grade: params.get('grade') || undefined,
       blang: params.get('blang') || undefined,
       pub: params.get('pub') || undefined,

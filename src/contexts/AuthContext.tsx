@@ -1,38 +1,18 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { sampleUsers } from '../data/seedData';
-import { resolveAccessRole } from '../lib/rbac';
-import { signInWithGooglePopup, signOutFirebase, subscribeAuthState } from '../lib/firebase';
+import {
+  AUTH_SESSION_STORAGE_KEY,
+  GUEST_USER,
+  persistSessionUser,
+  readInitialSessionUser,
+  resolveDeskPinUser,
+  signInWithGoogleDirectory,
+  signOutSession,
+  subscribeFirebaseAuth,
+} from '../services/authService';
 
-export const AUTH_SESSION_STORAGE_KEY = 'magoodhoo_auth_session_v1';
-
-export const GUEST_USER: UserProfile = {
-  id: 'guest',
-  name: 'Guest Visitor',
-  dhivehiName: 'މެހެމާނު',
-  email: 'guest@magoodhooschool.edu.mv',
-  role: 'student',
-  accessRole: 'student_guest',
-  patronTier: 'external',
-  createdAt: new Date().toISOString().split('T')[0],
-};
-
-function readInitialSessionUser(): UserProfile {
-  if (typeof window === 'undefined') return sampleUsers[0];
-  try {
-    const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as UserProfile;
-      if (parsed && parsed.id && parsed.name) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore malformed session storage
-  }
-  return sampleUsers[0];
-}
+export { AUTH_SESSION_STORAGE_KEY, GUEST_USER };
 
 export interface DeskPinMatchResult {
   matched: boolean;
@@ -60,11 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
 
   const persistSession = useCallback((user: UserProfile) => {
-    try {
-      localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(user));
-    } catch {
-      // Ignore quota errors
-    }
+    persistSessionUser(user);
   }, []);
 
   const setCurrentUser: React.Dispatch<React.SetStateAction<UserProfile>> = useCallback(
@@ -79,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   useEffect(() => {
-    const unsubscribe = subscribeAuthState((fbUser) => {
+    const unsubscribe = subscribeFirebaseAuth((fbUser) => {
       setFirebaseUser(fbUser);
     });
     return () => unsubscribe();
@@ -94,66 +70,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = useCallback(
     async (allUsers: UserProfile[]): Promise<UserProfile> => {
-      const fbUser = await signInWithGooglePopup();
+      const { firebaseUser: fbUser, profile } = await signInWithGoogleDirectory(allUsers);
       setFirebaseUser(fbUser);
-      const emailLower = (fbUser.email || '').toLowerCase();
-      const matched = allUsers.find((u) => u.email.toLowerCase() === emailLower);
-      if (matched) {
-        setCurrentUser(matched);
-        return matched;
-      }
-
-      const fallbackStaff: UserProfile = {
-        id: fbUser.uid || `fb-${Date.now()}`,
-        email: fbUser.email || 'staff@fmagoodhooschool.edu.mv',
-        name: fbUser.displayName || 'School Staff (Google SSO)',
-        role: 'admin',
-        accessRole: 'super_admin',
-        patronTier: 'staff',
-        photoUrl: fbUser.photoURL || undefined,
-        staffDepartment: 'Library & Administration',
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      setCurrentUser(fallbackStaff);
-      return fallbackStaff;
+      setCurrentUser(profile);
+      return profile;
     },
     [setCurrentUser]
   );
 
   const loginWithDeskPin = useCallback(
     (pin: string, allUsers: UserProfile[]): DeskPinMatchResult => {
-      const cleanPin = pin.trim();
-      if (!/^\d{4}$/.test(cleanPin)) {
+      const result = resolveDeskPinUser(pin, allUsers);
+      if (!result.matched || !result.user) {
         return { matched: false };
       }
-
-      let matchedUser: UserProfile | undefined;
-      if (cleanPin === '0000') {
-        matchedUser =
-          allUsers.find((u) => resolveAccessRole(u) === 'super_admin') || sampleUsers[0];
-      } else if (cleanPin === '1111') {
-        matchedUser =
-          allUsers.find((u) => resolveAccessRole(u) === 'desk_assistant') ||
-          allUsers.find((u) => u.role === 'staff');
-      } else if (cleanPin === '2222') {
-        matchedUser = allUsers.find((u) => resolveAccessRole(u) === 'teacher');
-      } else if (cleanPin === '4444') {
-        matchedUser = allUsers.find((u) => u.role === 'parent');
-      } else {
-        matchedUser = allUsers.find(
-          (u) =>
-            (u.studentIdCode && u.studentIdCode.endsWith(cleanPin)) ||
-            (u.staffIdCode && u.staffIdCode.endsWith(cleanPin)) ||
-            (u.phone && u.phone.replace(/\D/g, '').endsWith(cleanPin))
-        );
-      }
-
-      if (!matchedUser) {
-        return { matched: false };
-      }
-
-      setCurrentUser(matchedUser);
-      return { matched: true, user: matchedUser };
+      setCurrentUser(result.user);
+      return { matched: true, user: result.user };
     },
     [setCurrentUser]
   );
@@ -163,11 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [setCurrentUser]);
 
   const logout = useCallback(async () => {
-    try {
-      await signOutFirebase();
-    } catch {
-      // Ignore if not signed in via Firebase popup
-    }
+    await signOutSession();
     setCurrentUser(GUEST_USER);
   }, [setCurrentUser]);
 
